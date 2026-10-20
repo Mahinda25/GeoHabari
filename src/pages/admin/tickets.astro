@@ -1,0 +1,793 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { queryTicketHolders, checkInTicket } from '../../lib/ticketing-store.js';
+
+// Parse query parameters
+const search = Astro.url.searchParams.get('search') || '';
+const category = Astro.url.searchParams.get('category') || 'all';
+const status = Astro.url.searchParams.get('status') || 'all';
+const dateFrom = Astro.url.searchParams.get('from') || '';
+const dateTo = Astro.url.searchParams.get('to') || '';
+const page = parseInt(Astro.url.searchParams.get('page') || '1', 10);
+const limit = 15;
+
+// Handle check-in POST action if triggered
+let checkInFeedback = null;
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('action');
+    const ticketCode = formData.get('ticket_code');
+
+    if (action === 'check_in' && ticketCode) {
+      checkInFeedback = checkInTicket(String(ticketCode));
+    }
+  } catch (err) {
+    checkInFeedback = { success: false, error: (err as any).message };
+  }
+}
+
+// Query authoritative ticket holders
+const { rows, total, totalPages, hasNextPage, hasPrevPage } = queryTicketHolders({
+  search,
+  category,
+  status,
+  dateFrom,
+  dateTo,
+  page,
+  limit,
+  sortField: 'created_at',
+  sortOrder: 'desc',
+});
+
+// Construct query string for pagination preserving active filters
+function buildUrl(newPage: number) {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('page', String(newPage));
+  return `?${params.toString()}`;
+}
+
+// Export URL matching current active filters
+const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
+---
+
+<AdminLayout title="Ticket Holders" activeNav="tickets">
+  <div class="tickets-page-shell">
+    <!-- FEEDBACK ALERT -->
+    {checkInFeedback && (
+      <div class={`feedback-alert ${checkInFeedback.success ? 'success-alert' : 'warning-alert'}`}>
+        <span>
+          {checkInFeedback.success
+            ? `✔ Ticket ${checkInFeedback.ticket.ticket_code} checked in successfully!`
+            : `✖ ${checkInFeedback.error}`}
+        </span>
+      </div>
+    )}
+
+    <!-- FILTER & SEARCH BAR -->
+    <section class="filter-card">
+      <form method="GET" class="filter-form">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+          <input
+            type="text"
+            name="search"
+            value={search}
+            placeholder="Search by code, order ref, name, email or phone..."
+            class="search-input"
+          />
+        </div>
+
+        <div class="filter-group">
+          <select name="category" class="filter-select">
+            <option value="all" selected={category === 'all'}>All Categories</option>
+            <option value="student" selected={category === 'student'}>Student (KES 600)</option>
+            <option value="professional" selected={category === 'professional'}>Professional (KES 1,000)</option>
+          </select>
+
+          <select name="status" class="filter-select">
+            <option value="all" selected={status === 'all'}>All Payment Statuses</option>
+            <option value="paid" selected={status === 'paid'}>Paid & Confirmed</option>
+            <option value="pending" selected={status === 'pending'}>Pending Payment</option>
+            <option value="failed" selected={status === 'failed'}>Failed / Cancelled</option>
+          </select>
+
+          <input
+            type="date"
+            name="from"
+            value={dateFrom}
+            title="From Date"
+            class="filter-date"
+          />
+
+          <input
+            type="date"
+            name="to"
+            value={dateTo}
+            title="To Date"
+            class="filter-date"
+          />
+
+          <button type="submit" class="filter-apply-btn">Apply Filters</button>
+
+          {(search || category !== 'all' || status !== 'all' || dateFrom || dateTo) && (
+            <a href="/admin/tickets" class="filter-reset-btn" title="Reset all filters">Reset</a>
+          )}
+        </div>
+      </form>
+    </section>
+
+    <!-- TABLE HEADER BAR -->
+    <div class="table-action-bar">
+      <div class="records-counter">
+        Showing <strong>{rows.length}</strong> of <strong>{total}</strong> records
+      </div>
+
+      <a href={exportUrl} class="export-btn">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+        <span>Export Current View (CSV)</span>
+      </a>
+    </div>
+
+    <!-- TICKET HOLDERS TABLE -->
+    <div class="table-container">
+      <table class="tickets-table">
+        <thead>
+          <tr>
+            <th>Ticket Code</th>
+            <th>Attendee Details</th>
+            <th>Category</th>
+            <th>Order Ref</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th>Check-in</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colspan="8" class="empty-table-state">
+                <svg class="w-12 h-12 mx-auto mb-2 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="m21 21-4.3-4.3"/>
+                  <circle cx="11" cy="11" r="8"/>
+                </svg>
+                <p>No ticket holder records match your filter criteria.</p>
+              </td>
+            </tr>
+          ) : (
+            rows.map((row) => (
+              <tr>
+                <td>
+                  <div class="ticket-code-cell">
+                    <span class="ticket-code-text">{row.ticket_code}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="buyer-name">{row.buyer_name}</div>
+                  <div class="buyer-sub">{row.email} • {row.phone}</div>
+                </td>
+                <td>
+                  <span class={`tier-badge ${row.category.toLowerCase().includes('student') ? 'student-badge' : 'pro-badge'}`}>
+                    {row.category}
+                  </span>
+                  {row.is_student_verified && (
+                    <span class="verified-icon" title="Verified Kenyan University Student">✓</span>
+                  )}
+                </td>
+                <td class="font-mono text-sm">{row.order_reference}</td>
+                <td>
+                  <div class="payment-cell">
+                    <span class="font-bold">KES {row.order_amount.toLocaleString()}</span>
+                    <span class="text-xs text-muted">via {row.payment_method.toUpperCase()}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class={`status-pill ${row.payment_status === 'paid' ? 'status-paid' : row.payment_status === 'pending' ? 'status-pending' : 'status-failed'}`}>
+                    {row.payment_status}
+                  </span>
+                </td>
+                <td>
+                  {row.check_in_status === 'checked_in' ? (
+                    <span class="check-in-badge checked-in">
+                      Checked in
+                    </span>
+                  ) : (
+                    <span class="check-in-badge not-checked">
+                      Pending arrival
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    {row.payment_status === 'paid' && row.check_in_status !== 'checked_in' && (
+                      <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="check_in" />
+                        <input type="hidden" name="ticket_code" value={row.ticket_code} />
+                        <button type="submit" class="checkin-btn" title="Mark attendee as checked in">
+                          Check in
+                        </button>
+                      </form>
+                    )}
+                    <button
+                      type="button"
+                      class="inspect-btn"
+                      data-row={JSON.stringify(row)}
+                      onclick="openInspectModal(this)"
+                    >
+                      Details
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PAGINATION BAR -->
+    {totalPages > 1 && (
+      <div class="pagination-bar">
+        <div class="pagination-info">
+          Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+        </div>
+        <div class="pagination-nav">
+          {hasPrevPage ? (
+            <a href={buildUrl(page - 1)} class="page-link">← Previous</a>
+          ) : (
+            <span class="page-link disabled">← Previous</span>
+          )}
+          {hasNextPage ? (
+            <a href={buildUrl(page + 1)} class="page-link">Next →</a>
+          ) : (
+            <span class="page-link disabled">Next →</span>
+          )}
+        </div>
+      </div>
+    )}
+
+    <!-- INSPECT MODAL -->
+    <div id="inspectModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Ticket Details</h3>
+          <button type="button" class="modal-close" onclick="closeInspectModal()">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    function openInspectModal(btn) {
+      const data = JSON.parse(btn.getAttribute('data-row') || '{}');
+      const modal = document.getElementById('inspectModal');
+      const body = document.getElementById('modalBody');
+      if (!modal || !body) return;
+
+      body.innerHTML = `
+        <div class="inspect-grid">
+          <div class="inspect-item">
+            <span class="inspect-label">Ticket Code</span>
+            <span class="inspect-value font-mono">${data.ticket_code}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Order Reference</span>
+            <span class="inspect-value font-mono">${data.order_reference}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Attendee Name</span>
+            <span class="inspect-value">${data.buyer_name}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Email Address</span>
+            <span class="inspect-value">${data.email}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Phone Number</span>
+            <span class="inspect-value font-mono">${data.phone}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Ticket Category</span>
+            <span class="inspect-value">${data.category}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Amount Paid</span>
+            <span class="inspect-value font-bold">KES ${Number(data.order_amount).toLocaleString()}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Payment Provider</span>
+            <span class="inspect-value">${String(data.payment_method).toUpperCase()}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Transaction Reference</span>
+            <span class="inspect-value font-mono">${data.payment_reference || 'N/A'}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Purchase Timestamp</span>
+            <span class="inspect-value">${new Date(data.created_at).toLocaleString()}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Check-in Status</span>
+            <span class="inspect-value">${data.check_in_status || 'not_checked_in'}</span>
+          </div>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+    }
+
+    function closeInspectModal() {
+      const modal = document.getElementById('inspectModal');
+      modal?.classList.add('hidden');
+    }
+  </script>
+</AdminLayout>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .tickets-page-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .feedback-alert {
+    padding: 0.85rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    &.success-alert {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    &.warning-alert {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+  }
+
+  /* FILTER CARD */
+  .filter-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.25rem;
+  }
+
+  .filter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 1rem;
+    width: 18px;
+    height: 18px;
+    color: #9ca3af;
+  }
+
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 0.75rem 1rem 0.75rem 2.75rem;
+    color: #ffffff;
+    font-size: 0.9rem;
+
+    &:focus {
+      outline: none;
+      border-color: $green;
+      box-shadow: 0 0 0 3px rgba(141, 198, 63, 0.2);
+    }
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-select, .filter-date {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.55rem 0.85rem;
+    color: #d1d5db;
+    font-size: 0.85rem;
+
+    &:focus {
+      outline: none;
+      border-color: $green;
+    }
+
+    option {
+      background: #0f1221;
+      color: #ffffff;
+    }
+  }
+
+  .filter-apply-btn {
+    background: linear-gradient(135deg, $purple, $green);
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  .filter-reset-btn {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    text-decoration: none;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  /* ACTION BAR */
+  .table-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .records-counter {
+    font-size: 0.85rem;
+    color: #9ca3af;
+  }
+
+  .export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(141, 198, 63, 0.12);
+    border: 1px solid rgba(141, 198, 63, 0.3);
+    color: #a3e635;
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(141, 198, 63, 0.22);
+    }
+  }
+
+  /* TABLE */
+  .table-container {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow-x: auto;
+  }
+
+  .tickets-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+
+    th {
+      padding: 0.85rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #d1d5db;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .ticket-code-cell {
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .buyer-name {
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .buyer-sub {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  .tier-badge {
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .student-badge {
+    background: rgba(141, 198, 63, 0.15);
+    color: #a3e635;
+  }
+
+  .pro-badge {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+  }
+
+  .verified-icon {
+    color: #a3e635;
+    font-weight: 800;
+    margin-left: 0.35rem;
+  }
+
+  .payment-cell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .status-pill {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .status-paid {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+  }
+
+  .status-pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+
+  .status-failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+
+  .check-in-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+
+    &.checked-in {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    &.not-checked {
+      background: rgba(255, 255, 255, 0.05);
+      color: #9ca3af;
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .checkin-btn {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(16, 185, 129, 0.25);
+    }
+  }
+
+  .inspect-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+  }
+
+  .empty-table-state {
+    text-align: center;
+    padding: 3rem 1rem !important;
+    color: #6b7280;
+  }
+
+  /* PAGINATION */
+  .pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+  }
+
+  .pagination-info {
+    font-size: 0.85rem;
+    color: #9ca3af;
+  }
+
+  .pagination-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .page-link {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+
+    &:hover:not(.disabled) {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    &.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 1rem;
+
+    &.hidden {
+      display: none;
+    }
+  }
+
+  .modal-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    max-width: 580px;
+    width: 100%;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  }
+
+  .modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    h3 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+  }
+
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 1.2rem;
+    cursor: pointer;
+
+    &:hover {
+      color: #ffffff;
+    }
+  }
+
+  :global(.inspect-grid) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    padding: 1.5rem;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  :global(.inspect-item) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  :global(.inspect-label) {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+    font-weight: 600;
+  }
+
+  :global(.inspect-value) {
+    font-size: 0.9rem;
+    color: #ffffff;
+    word-break: break-all;
+  }
+</style>

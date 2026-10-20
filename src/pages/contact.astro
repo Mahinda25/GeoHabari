@@ -1,0 +1,168 @@
+---
+import Layout from "../layout/Layout.astro"
+import '../styles/contact.scss';
+---
+
+<Layout title="Contact" darkHero={true}>
+  <section class="contact-hero">
+    <div class="contact-hero-bg"></div>
+    <div class="contact-hero-cosmos">
+      <div class="contact-cosmos-grid"></div>
+      <div class="contact-glow contact-glow-purple"></div>
+      <div class="contact-glow contact-glow-green"></div>
+      <div class="contact-ring contact-ring-1"></div>
+      <div class="contact-ring contact-ring-2"></div>
+    </div>
+    <div class="contact-hero-particles">
+      <div class="particle p1"></div>
+      <div class="particle p2"></div>
+      <div class="particle p3"></div>
+      <div class="particle p4"></div>
+      <div class="particle p5"></div>
+    </div>
+    <div class="logo-dots logo-dots-white logo-dots-lg" style="position:absolute;bottom:12%;right:10%;z-index:1;opacity:0.08;">
+      <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+      <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+      <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+    </div>
+    <div class="logo-dots logo-dots-white" style="position:absolute;top:18%;left:6%;z-index:1;opacity:0.06;">
+      <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+      <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+      <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+    </div>
+    <div class="contact-hero-content">
+      <div class="contact-hero-badge">
+        <span class="badge-pulse"></span>
+        <span class="badge-label">Get in Touch</span>
+      </div>
+      <h1>We'd love to<br/><span class="hero-accent">hear from you</span></h1>
+      <p>Have a question, collaboration idea, or want to be a guest? Reach out and we'll get back to you.</p>
+    </div>
+  </section>
+
+  <section class="contact-body">
+    <div class="contact-grid">
+      <!-- Info cards -->
+      <div class="contact-info-col">
+        <div class="info-card">
+          <div class="info-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <div class="info-text">
+            <h4>Email us</h4>
+            <a href="mailto:info@geohabari.com">info@geohabari.com</a>
+            <span class="email-or">or</span>
+            <a href="mailto:geohabari@gmail.com">geohabari@gmail.com</a>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div class="info-text">
+            <h4>Based in</h4>
+            <p>Nairobi, Kenya</p>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="info-text">
+            <h4>Be a guest</h4>
+            <a href="mailto:yariwokitiyo@geohabari.com">yariwokitiyo@geohabari.com</a>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="info-text">
+            <h4>Response time</h4>
+            <p>Usually within 48 hours</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form method="POST" class="contact-form" name="contactForm">
+        <h2>Send us a message</h2>
+        <p class="form-subtitle">We're always looking for new stories to tell and people to connect with.</p>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Your full name" required />
+          </div>
+          <div class="form-field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="your@email.com" required />
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="city">City</label>
+          <input type="text" id="city" name="city" placeholder="Where are you based?" required />
+        </div>
+        <div class="form-field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" placeholder="What would you like to tell us?" required></textarea>
+        </div>
+        <button id="submitBtn" class="btn primary">Send Message</button>
+      </form>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/all";
+  gsap.registerPlugin(ScrollTrigger);
+
+  document.addEventListener("DOMContentLoaded", () => {
+    gsap.from(".contact-hero-content", { y: 40, opacity: 0, duration: 1, delay: 0.3, ease: "power3.out" });
+
+    gsap.from(".info-card", {
+      scrollTrigger: { trigger: ".contact-info-col", start: "top 85%", once: true },
+      y: 20, stagger: 0.1, duration: 0.5, ease: "power2.out"
+    });
+
+    gsap.from(".contact-form", {
+      scrollTrigger: { trigger: ".contact-form", start: "top 85%", once: true },
+      y: 30, opacity: 0, duration: 0.7, ease: "power3.out"
+    });
+
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxD1AlL0nksw1TYrgLwQLzYWRurNPwAJKwOBtf6u6zXu-Jo3dAGcSbxVEsZ51B5wEMT/exec"
+    const form = document.forms["contactForm"]
+    const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement
+    const field_name = document.getElementById("name") as HTMLInputElement
+    const field_email = document.getElementById("email") as HTMLInputElement
+    const field_city = document.getElementById("city") as HTMLInputElement
+    const field_message = document.getElementById("message") as HTMLTextAreaElement
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault()
+      submitBtn.innerText = "SENDING..."
+      submitBtn.disabled = true
+      const formData = new FormData()
+      formData.append("name", field_name.value)
+      formData.append("email", field_email.value)
+      formData.append("city", field_city.value)
+      formData.append("message", field_message.value)
+
+      fetch(scriptURL, { method: "POST", body: formData })
+        .then(() => {
+          alert("Thanks for contacting us. We'll get back to you soon!")
+          submitBtn.innerText = "SEND MESSAGE"
+          submitBtn.disabled = false
+          field_name.value = ""
+          field_email.value = ""
+          field_city.value = ""
+          field_message.value = ""
+        })
+        .catch(() => {
+          alert("Something went wrong. Please try again later.")
+          submitBtn.innerText = "SEND MESSAGE"
+          submitBtn.disabled = false
+        })
+    })
+  })
+</script>

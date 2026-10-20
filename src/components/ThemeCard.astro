@@ -1,0 +1,186 @@
+---
+import Image from 'astro/components/Image.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  background?: string;
+}
+
+const { 
+  title = 'CAREER',
+  description = "Navigate diverse career paths in the geospatial industry. Discussing pivotal moments, key learnings, and challenges, these episodes inspire you to explore new career horizons.",
+  background = "https://placehold.co/400",
+} = Astro.props as Props;
+const tag = title.split(' ').join('+').toLowerCase();
+---
+
+<a href={`/episodes?tag=${tag}`} class="card-theme">
+  <Image
+    src={background}
+    alt="Background Image"
+    width={400}
+    height={400}
+    class="bg-image"
+  />
+  <div class="theme-overlay"></div>
+  <div class="theme-details">
+    <h3>{title}</h3>
+    <p>{description}</p>
+  </div>
+  <div class="theme-arrow">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M7 17l9.2-9.2M17 17V8H8"/>
+    </svg>
+  </div>
+</a>
+
+<style lang="scss">
+  @use "../styles/partials/combined.scss" as *;
+  
+  .card-theme {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 240px;
+    padding: $spacing-5 $spacing-4;
+    overflow: hidden;
+    border-radius: $radius-lg;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s;
+    cursor: pointer;
+
+    // Animated gradient border on hover
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      z-index: -1;
+      border-radius: calc($radius-lg + 2px);
+      background: conic-gradient(from var(--border-angle, 0deg), transparent 40%, $purple, $green, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+      animation: border-rotate 3s linear infinite;
+    }
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: $radius-lg;
+      background: $black-deep;
+    }
+
+    .bg-image {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      transition: transform 0.6s ease;
+    }
+
+    .theme-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, transparent 30%, rgba(0, 0, 0, 0.7) 100%);
+      transition: background $transition-base;
+    }
+    
+    .theme-details {
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      
+      h3 {
+        margin: 0;
+        color: $white-pure;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(0.9rem, 2vw, 1.1rem);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      
+      p {
+        display: none;
+        color: rgba(255, 255, 255, 0.85);
+        font-weight: 400;
+        line-height: 1.5;
+        font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+        margin-top: $spacing-2;
+      }
+    }
+
+    .theme-arrow {
+      position: absolute;
+      top: $spacing-4;
+      right: $spacing-4;
+      z-index: 2;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: $radius-full;
+      background: rgba(255, 255, 255, 0.1);
+      color: $white-pure;
+      opacity: 0;
+      transform: translate(-8px, 8px);
+      transition: all $transition-base;
+    }
+
+    &:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 20px 50px -12px rgba(108, 43, 217, 0.2);
+
+      &::before { opacity: 1; }
+
+      .bg-image {
+        transform: scale(1.1);
+      }
+
+      .theme-overlay {
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
+      }
+
+      .theme-details p {
+        display: block;
+      }
+
+      .theme-arrow {
+        opacity: 1;
+        transform: translate(0, 0);
+      }
+    }
+  }
+
+  @supports (animation-timeline: scroll()) {
+    @property --border-angle {
+      syntax: "<angle>";
+      initial-value: 0deg;
+      inherits: false;
+    }
+  }
+
+  @keyframes border-rotate {
+    to { --border-angle: 360deg; }
+  }
+  
+  @media (max-width: 480px) {
+    .card-theme {
+      min-height: 180px;
+      padding: $spacing-4 $spacing-3;
+
+      .theme-arrow { display: none; }
+      
+      .theme-details {
+        h3 { font-size: 0.8rem; }
+        p { font-size: 0.6rem; }
+      }
+    }
+  }
+</style>

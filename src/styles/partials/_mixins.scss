@@ -1,0 +1,106 @@
+@use 'sass:map';
+@use './variables.scss' as *;
+
+@mixin font-face($name, $file, $weight: 400, $style: normal) {
+  @font-face {
+    font-family: $name;
+    src: 
+      url('/fonts/#{$file}-webfont.woff2') format('woff2'),
+      url('/fonts/#{$file}-webfont.woff') format('woff');
+    font-weight: $weight;
+    font-style: $style;
+    font-display: swap;
+  }
+}
+
+// Typography base font stack
+@mixin font-stack {
+  font-family: 'Inter', 'Bender', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: $black;
+}
+
+// Display font stack for headings
+@mixin font-display {
+  font-family: 'Space Grotesk', 'Bender', 'Segoe UI', sans-serif;
+}
+
+// Flexbox function that allows for easy alignment and spacing
+@mixin flexbox($direction: row, $justify: flex-start, $align: stretch) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+// Responsive mixins for media queries
+$breakpoints: (
+  sm: 640px,
+  md: 768px,
+  lg: 1024px,
+  xl: 1280px
+);
+
+@mixin media($size) {
+  $value: map.get($breakpoints, $size);
+
+  @if $value {
+    @media screen and (max-width: $value) {
+      @content;
+    }
+  } @else {
+    @warn "Breakpoint #{$size} not found in \$breakpoints map.";
+  }
+}
+
+// Glassmorphism effect
+@mixin glass($opacity: 0.1, $blur: 16px) {
+  background: rgba(255, 255, 255, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+// Dark glassmorphism
+@mixin glass-dark($opacity: 0.2, $blur: 20px) {
+  background: rgba(11, 13, 23, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+// Gradient text
+@mixin gradient-text($gradient) {
+  background: $gradient;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+// Section padding
+@mixin section-padding {
+  padding: $spacing-9 $spacing-7;
+
+  @include media(lg) {
+    padding: $spacing-7 $spacing-5;
+  }
+
+  @include media(sm) {
+    padding: $spacing-6 $spacing-4;
+  }
+}
+
+// Hover lift effect
+@mixin hover-lift($distance: -6px, $shadow: $shadow-lg) {
+  transition: transform $transition-base, box-shadow $transition-base;
+
+  &:hover {
+    transform: translateY($distance);
+    box-shadow: $shadow;
+  }
+}// Focus ring
+@mixin focus-ring($color: $purple) {
+  &:focus-visible {
+    outline: 2px solid $color;
+    outline-offset: 3px;
+  }
+}

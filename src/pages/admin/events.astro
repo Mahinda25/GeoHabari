@@ -1,0 +1,1985 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { listEvents, getTicketTypesByEvent, readStore } from '../../lib/ticketing-store.js';
+
+const rawEvents = listEvents();
+const store = readStore();
+
+const events = rawEvents.map((event) => {
+  const tickets = getTicketTypesByEvent(event.id);
+  const totalAllocation = tickets.reduce((sum, t) => sum + Number(t.allocation || 0), 0);
+  const totalSold = tickets.reduce((sum, t) => sum + Number(t.sold_count || 0), 0);
+  return {
+    ...event,
+    ticket_types: tickets,
+    totalAllocation,
+    totalSold,
+  };
+});
+
+const totalPublished = events.filter((e) => e.status === 'published' && !e.archived_at).length;
+const totalCapacity = events.reduce((sum, e) => sum + e.totalAllocation, 0);
+const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
+---
+
+<AdminLayout title="Events Management" activeNav="events">
+  <div class="events-admin-shell">
+    <!-- METRICS STRIP -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Total Events</span>
+          <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+            <line x1="16" x2="16" y1="2" y2="6"/>
+            <line x1="8" x2="8" y1="2" y2="6"/>
+            <line x1="3" x2="21" y1="10" y2="10"/>
+          </svg>
+        </div>
+        <div class="metric-value">{events.length}</div>
+        <div class="metric-footer text-muted">
+          <span>{totalPublished} published active</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Published Live</span>
+          <span class="metric-badge green-badge">Public</span>
+        </div>
+        <div class="metric-value text-green">{totalPublished}</div>
+        <div class="metric-footer text-muted">
+          <span>Visible on /events</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Total Ticket Capacity</span>
+          <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+          </svg>
+        </div>
+        <div class="metric-value">{totalCapacity.toLocaleString()}</div>
+        <div class="metric-footer text-muted">
+          <span>Across all ticket tiers</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Tickets Sold</span>
+          <span class="metric-badge purple-badge">Sales</span>
+        </div>
+        <div class="metric-value">{totalSoldAcrossAll.toLocaleString()}</div>
+        <div class="metric-footer text-muted">
+          <span>Confirmed attendees</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div class="action-bar-card">
+      <div class="action-bar-left">
+        <h2 class="section-title">Events Catalog</h2>
+        <p class="section-sub">Create, edit, and manage public event listings and ticket categories.</p>
+      </div>
+      <div class="action-bar-right">
+        <button type="button" class="create-event-btn" id="openCreateModalBtn">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" x2="12" y1="5" y2="19"/>
+            <line x1="5" x2="19" y1="12" y2="12"/>
+          </svg>
+          <span>Create New Event</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- EVENTS TABLE CARD -->
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Venue</th>
+              <th>Date & Time</th>
+              <th>Status</th>
+              <th>Ticket Categories & Pricing</th>
+              <th>Capacity</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.length === 0 ? (
+              <tr>
+                <td colspan="7" class="empty-state">No events found. Click "Create New Event" to add your first event.</td>
+              </tr>
+            ) : (
+              events.map((event) => {
+                const startDate = new Date(event.starts_at);
+                const dateStr = !isNaN(startDate.getTime())
+                  ? startDate.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : 'N/A';
+                const timeStr = !isNaN(startDate.getTime())
+                  ? startDate.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
+                  : '';
+
+                return (
+                  <tr>
+                    <td>
+                      <div class="event-cell">
+                        {event.poster ? (
+                          <img src={event.poster} alt={event.title} class="event-thumb" loading="lazy" />
+                        ) : (
+                          <div class="event-thumb-placeholder">GH</div>
+                        )}
+                        <div>
+                          <div class="event-title-text">{event.title}</div>
+                          <div class="event-slug-text">/{event.slug}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="venue-text">{event.venue}</span>
+                    </td>
+                    <td>
+                      <div class="date-text">{dateStr}</div>
+                      <div class="time-text text-muted">{timeStr}</div>
+                    </td>
+                    <td>
+                      <span class={`status-badge ${event.status === 'published' ? 'published-badge' : event.status === 'draft' ? 'draft-badge' : 'archived-badge'}`}>
+                        {event.status || 'published'}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="tickets-pill-list">
+                        {event.ticket_types.length === 0 ? (
+                          <span class="text-xs text-muted">No tiers</span>
+                        ) : (
+                          event.ticket_types.map((t) => (
+                            <span class="ticket-tag">
+                              <strong>{t.name}</strong>: KES {Number(t.price).toLocaleString()}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div class="capacity-stat">
+                        <span class="font-bold">{event.totalSold}</span>
+                        <span class="text-muted"> / {event.totalAllocation}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="action-buttons">
+                        <button
+                          type="button"
+                          class="edit-btn"
+                          data-event={JSON.stringify(event)}
+                          title="Edit Event"
+                        >
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                          </svg>
+                          <span>Edit</span>
+                        </button>
+                        <a
+                          href={`/events/${event.slug}`}
+                          target="_blank"
+                          class="view-btn"
+                          title="View Public Page"
+                        >
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" x2="21" y1="14" y2="3"/>
+                          </svg>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE / EDIT EVENT MODAL -->
+  <div id="eventModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle" class="modal-title">Create New Event</h3>
+          <p class="modal-subtitle">Configure event logistics, description, and ticket tiers.</p>
+        </div>
+        <button type="button" id="closeModalBtn" class="modal-close-btn" aria-label="Close modal">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="eventForm" class="modal-form">
+        <input type="hidden" id="eventId" name="id" value="" />
+
+        <!-- BASIC DETAILS SECTION -->
+        <div class="form-section">
+          <h4 class="form-section-heading">Basic Information</h4>
+
+          <div class="form-row grid-2">
+            <div class="form-group">
+              <label for="eventTitle" class="form-label">Event Name <span class="required">*</span></label>
+              <input
+                type="text"
+                id="eventTitle"
+                name="title"
+                required
+                placeholder="e.g. GeoHabari Summit 2026"
+                class="form-input"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="eventSlug" class="form-label">URL Slug</label>
+              <input
+                type="text"
+                id="eventSlug"
+                name="slug"
+                placeholder="e.g. geohabari-summit-2026 (auto-generated)"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="eventDescription" class="form-label">Description <span class="required">*</span></label>
+            <textarea
+              id="eventDescription"
+              name="description"
+              required
+              rows="3"
+              placeholder="Detailed description of the event, keynote topics, target audience..."
+              class="form-textarea"
+            ></textarea>
+          </div>
+
+          <div class="form-row grid-2">
+            <div class="form-group">
+              <label for="eventVenue" class="form-label">Venue / Location <span class="required">*</span></label>
+              <input
+                type="text"
+                id="eventVenue"
+                name="venue"
+                required
+                placeholder="e.g. Kenyatta International Convention Centre, Nairobi"
+                class="form-input"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="eventStatus" class="form-label">Publication Status</label>
+              <select id="eventStatus" name="status" class="form-select">
+                <option value="published">Published (Live & Visible)</option>
+                <option value="draft">Draft (Hidden from Public)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Poster / Cover Image <span class="required">*</span></label>
+            <input type="hidden" id="eventPoster" name="poster" value="" />
+            <input
+              type="file"
+              id="eventPosterFile"
+              accept="image/png,image/jpeg,image/webp"
+              class="poster-file-input"
+            />
+
+            <!-- Drag & drop upload dropzone -->
+            <div id="posterDropzone" class="poster-dropzone">
+              <div class="dropzone-inner">
+                <div class="dropzone-icon-circle">
+                  <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                </div>
+                <div class="dropzone-text">
+                  <p class="dropzone-primary-text">
+                    <button type="button" id="browsePosterBtn" class="browse-link-btn">Select an image</button>
+                    <span> or drag and drop</span>
+                  </p>
+                  <p class="dropzone-hint">PNG, JPG, or WebP up to 5MB (phone photo gallery supported)</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Poster Preview Area (shown when an image is selected/existing) -->
+            <div id="posterPreviewContainer" class="poster-preview-card hidden">
+              <div class="poster-preview-media">
+                <img id="posterPreviewImg" src="" alt="Event Poster Preview" class="poster-preview-thumb" />
+                <div id="posterUploadProgress" class="poster-upload-overlay hidden">
+                  <div class="spinner"></div>
+                  <span class="upload-status-text">Uploading image...</span>
+                </div>
+              </div>
+              <div class="poster-preview-info">
+                <div class="preview-filename-row">
+                  <span id="posterFilename" class="preview-filename">poster.jpg</span>
+                  <span id="posterUploadBadge" class="upload-badge success-badge">Ready</span>
+                </div>
+                <p id="posterDetails" class="preview-meta">Image saved and ready</p>
+                <div class="preview-actions">
+                  <button type="button" id="replacePosterBtn" class="action-btn replace-btn">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" x2="12" y1="3" y2="15"/>
+                    </svg>
+                    <span>Replace Image</span>
+                  </button>
+                  <button type="button" id="removePosterBtn" class="action-btn remove-btn">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" x2="6" y1="6" y2="18"/>
+                      <line x1="6" x2="18" y1="6" y2="18"/>
+                    </svg>
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inline upload error alert -->
+            <div id="posterUploadError" class="poster-upload-error hidden"></div>
+          </div>
+        </div>
+
+        <!-- DATE & TIME SECTION -->
+        <div class="form-section">
+          <h4 class="form-section-heading">Date & Time</h4>
+
+          <div class="form-row grid-3">
+            <div class="form-group">
+              <label for="eventDate" class="form-label">Event Date <span class="required">*</span></label>
+              <input type="date" id="eventDate" required class="form-input" />
+            </div>
+
+            <div class="form-group">
+              <label for="startTime" class="form-label">Start Time <span class="required">*</span></label>
+              <input type="time" id="startTime" required value="09:00" class="form-input" />
+            </div>
+
+            <div class="form-group">
+              <label for="endTime" class="form-label">End Time</label>
+              <input type="time" id="endTime" value="17:00" class="form-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- TICKET CATEGORIES SECTION -->
+        <div class="form-section">
+          <div class="section-title-with-btn">
+            <div>
+              <h4 class="form-section-heading">Ticket Categories & Pricing</h4>
+              <p class="form-section-sub">Define tiers like Student, Regular, Professional, VIP with prices in KES.</p>
+            </div>
+            <button type="button" id="addTicketCategoryBtn" class="add-sub-btn">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" x2="12" y1="5" y2="19"/>
+                <line x1="5" x2="19" y1="12" y2="12"/>
+              </svg>
+              <span>Add Category</span>
+            </button>
+          </div>
+
+          <div id="ticketCategoriesList" class="ticket-categories-list">
+            <!-- Dynamically populated or default rows -->
+          </div>
+        </div>
+
+        <!-- SPEAKERS / LINEUP SECTION (OPTIONAL) -->
+        <details class="form-details">
+          <summary class="details-summary">
+            <span>Speakers & Presenters (Optional)</span>
+            <span class="summary-hint">Click to expand</span>
+          </summary>
+          <div class="details-body">
+            <div class="section-title-with-btn">
+              <p class="form-section-sub">Showcase keynotes and panelists on the public event page.</p>
+              <button type="button" id="addSpeakerBtn" class="add-sub-btn">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" x2="12" y1="5" y2="19"/>
+                  <line x1="5" x2="19" y1="12" y2="12"/>
+                </svg>
+                <span>Add Speaker</span>
+              </button>
+            </div>
+            <div id="speakersList" class="speakers-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </details>
+
+        <!-- PARTNERS / SPONSORS SECTION (OPTIONAL) -->
+        <details class="form-details">
+          <summary class="details-summary">
+            <span>Partners & Sponsors (Optional)</span>
+            <span class="summary-hint">Click to expand</span>
+          </summary>
+          <div class="details-body">
+            <div class="section-title-with-btn">
+              <p class="form-section-sub">Display logos of collaborating organizations.</p>
+              <button type="button" id="addPartnerBtn" class="add-sub-btn">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" x2="12" y1="5" y2="19"/>
+                  <line x1="5" x2="19" y1="12" y2="12"/>
+                </svg>
+                <span>Add Partner</span>
+              </button>
+            </div>
+            <div id="partnersList" class="partners-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </details>
+
+        <div id="formErrorMessage" class="form-error-banner hidden"></div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelModalBtn" class="cancel-btn">Cancel</button>
+          <button type="submit" id="submitEventBtn" class="save-btn">
+            <span class="btn-text">Save Event</span>
+            <span class="btn-spinner hidden">Saving...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  let editingEventId = null;
+  let isUploadingPoster = false;
+
+  const modal = document.getElementById('eventModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const form = document.getElementById('eventForm');
+  const openCreateBtn = document.getElementById('openCreateModalBtn');
+  const closeBtn = document.getElementById('closeModalBtn');
+  const cancelBtn = document.getElementById('cancelModalBtn');
+  const errorBanner = document.getElementById('formErrorMessage');
+  const submitBtn = document.getElementById('submitEventBtn');
+  const categoriesContainer = document.getElementById('ticketCategoriesList');
+  const addCategoryBtn = document.getElementById('addTicketCategoryBtn');
+  const speakersContainer = document.getElementById('speakersList');
+  const addSpeakerBtn = document.getElementById('addSpeakerBtn');
+  const partnersContainer = document.getElementById('partnersList');
+  const addPartnerBtn = document.getElementById('addPartnerBtn');
+
+  // Poster upload elements
+  const posterInput = document.getElementById('eventPoster') as HTMLInputElement;
+  const posterFileInput = document.getElementById('eventPosterFile') as HTMLInputElement;
+  const posterDropzone = document.getElementById('posterDropzone');
+  const browsePosterBtn = document.getElementById('browsePosterBtn');
+  const posterPreviewContainer = document.getElementById('posterPreviewContainer');
+  const posterPreviewImg = document.getElementById('posterPreviewImg') as HTMLImageElement;
+  const posterFilename = document.getElementById('posterFilename');
+  const posterDetails = document.getElementById('posterDetails');
+  const posterUploadBadge = document.getElementById('posterUploadBadge');
+  const posterUploadOverlay = document.getElementById('posterUploadProgress');
+  const replacePosterBtn = document.getElementById('replacePosterBtn');
+  const removePosterBtn = document.getElementById('removePosterBtn');
+  const posterUploadError = document.getElementById('posterUploadError');
+
+  function showPosterError(msg: string) {
+    if (!posterUploadError) return;
+    posterUploadError.textContent = msg;
+    posterUploadError.classList.remove('hidden');
+  }
+
+  function clearPosterError() {
+    if (!posterUploadError) return;
+    posterUploadError.textContent = '';
+    posterUploadError.classList.add('hidden');
+  }
+
+  function displayPoster(url: string, name = 'Poster Image', meta = 'Stored image') {
+    if (!posterPreviewContainer || !posterPreviewImg || !posterDropzone) return;
+    clearPosterError();
+    posterPreviewImg.src = url;
+    if (posterFilename) posterFilename.textContent = name;
+    if (posterDetails) posterDetails.textContent = meta;
+    if (posterUploadBadge) {
+      posterUploadBadge.textContent = 'Ready';
+      posterUploadBadge.className = 'upload-badge success-badge';
+    }
+    if (posterUploadOverlay) posterUploadOverlay.classList.add('hidden');
+    posterDropzone.classList.add('hidden');
+    posterPreviewContainer.classList.remove('hidden');
+    if (posterInput) posterInput.value = url;
+  }
+
+  function resetPosterUpload() {
+    clearPosterError();
+    if (posterInput) posterInput.value = '';
+    if (posterFileInput) posterFileInput.value = '';
+    if (posterPreviewImg) posterPreviewImg.src = '';
+    if (posterPreviewContainer) posterPreviewContainer.classList.add('hidden');
+    if (posterDropzone) posterDropzone.classList.remove('hidden');
+    if (posterUploadOverlay) posterUploadOverlay.classList.add('hidden');
+    isUploadingPoster = false;
+  }
+
+  async function handlePosterFileSelect(file: File) {
+    clearPosterError();
+    if (!file) return;
+
+    // Validate type: PNG, JPG/JPEG, WebP
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      showPosterError('Unsupported image format. Please select a PNG, JPG, or WebP image.');
+      if (posterFileInput) posterFileInput.value = '';
+      return;
+    }
+
+    // Validate size (5MB = 5 * 1024 * 1024 bytes)
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      showPosterError(`Selected file is too large (${sizeMb}MB). Maximum allowed size is 5MB.`);
+      if (posterFileInput) posterFileInput.value = '';
+      return;
+    }
+
+    // Instant local preview
+    const objectUrl = URL.createObjectURL(file);
+    displayPoster(objectUrl, file.name, `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`);
+
+    if (posterUploadBadge) {
+      posterUploadBadge.textContent = 'Uploading...';
+      posterUploadBadge.className = 'upload-badge uploading-badge';
+    }
+    if (posterUploadOverlay) {
+      posterUploadOverlay.classList.remove('hidden');
+    }
+
+    isUploadingPoster = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/upload-poster', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success || !data.url) {
+        throw new Error(data.error || 'Failed to upload poster image.');
+      }
+
+      // Store persistent URL
+      if (posterInput) posterInput.value = data.url;
+      if (posterDetails) {
+        posterDetails.textContent = `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`;
+      }
+      if (posterUploadBadge) {
+        posterUploadBadge.textContent = 'Saved';
+        posterUploadBadge.className = 'upload-badge success-badge';
+      }
+    } catch (err: any) {
+      showPosterError(err.message || 'Error uploading image. Please try again.');
+      if (posterUploadBadge) {
+        posterUploadBadge.textContent = 'Failed';
+        posterUploadBadge.className = 'upload-badge error-badge';
+      }
+    } finally {
+      isUploadingPoster = false;
+      if (posterUploadOverlay) {
+        posterUploadOverlay.classList.add('hidden');
+      }
+    }
+  }
+
+  browsePosterBtn?.addEventListener('click', () => posterFileInput?.click());
+  replacePosterBtn?.addEventListener('click', () => posterFileInput?.click());
+  removePosterBtn?.addEventListener('click', resetPosterUpload);
+
+  posterFileInput?.addEventListener('change', () => {
+    const file = posterFileInput.files?.[0];
+    if (file) handlePosterFileSelect(file);
+  });
+
+  // Drag and drop handlers
+  posterDropzone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    posterDropzone.classList.add('drag-over');
+  });
+  posterDropzone?.addEventListener('dragleave', () => {
+    posterDropzone.classList.remove('drag-over');
+  });
+  posterDropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    posterDropzone.classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handlePosterFileSelect(file);
+  });
+
+  // Auto-slugify helper
+  const titleInput = document.getElementById('eventTitle') as HTMLInputElement;
+  const slugInput = document.getElementById('eventSlug') as HTMLInputElement;
+
+  titleInput?.addEventListener('input', () => {
+    if (!editingEventId && slugInput) {
+      slugInput.value = titleInput.value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+  });
+
+  function showModal() {
+    modal?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hideModal() {
+    modal?.classList.add('hidden');
+    document.body.style.overflow = '';
+    form?.reset();
+    resetPosterUpload();
+    editingEventId = null;
+    if (errorBanner) {
+      errorBanner.classList.add('hidden');
+      errorBanner.textContent = '';
+    }
+  }
+
+  openCreateBtn?.addEventListener('click', () => {
+    editingEventId = null;
+    if (modalTitle) modalTitle.textContent = 'Create New Event';
+    (document.getElementById('eventId') as HTMLInputElement).value = '';
+    form?.reset();
+    resetPosterUpload();
+
+    // Set default date to 30 days from now
+    const future = new Date();
+    future.setDate(future.getDate() + 30);
+    const dateStr = future.toISOString().slice(0, 10);
+    (document.getElementById('eventDate') as HTMLInputElement).value = dateStr;
+    (document.getElementById('startTime') as HTMLInputElement).value = '09:00';
+    (document.getElementById('endTime') as HTMLInputElement).value = '17:00';
+
+    // Populate default ticket categories
+    renderTicketCategories([
+      { name: 'Student', price: 600, allocation: 50, description: 'Student admission • Automated .ac.ke email check' },
+      { name: 'Professional', price: 1000, allocation: 100, description: 'Full summit access • Keynotes, panels & networking' },
+    ]);
+
+    renderSpeakers([]);
+    renderPartners([]);
+
+    showModal();
+  });
+
+  closeBtn?.addEventListener('click', hideModal);
+  cancelBtn?.addEventListener('click', hideModal);
+
+  // Close on backdrop click
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) hideModal();
+  });
+
+  // Ticket Categories UI generator
+  function renderTicketCategories(categories: Array<{ id?: string; name: string; price: number; allocation: number; description?: string }>) {
+    if (!categoriesContainer) return;
+    categoriesContainer.innerHTML = '';
+
+    categories.forEach((cat, index) => {
+      addCategoryRow(cat);
+    });
+
+    if (categories.length === 0) {
+      addCategoryRow({ name: 'Standard', price: 1000, allocation: 100, description: '' });
+    }
+  }
+
+  function addCategoryRow(cat: { id?: string; name: string; price: number; allocation: number; description?: string }) {
+    if (!categoriesContainer) return;
+
+    const row = document.createElement('div');
+    row.className = 'ticket-category-row';
+    row.innerHTML = `
+      <input type="hidden" class="cat-id" value="${cat.id || ''}" />
+      <div class="cat-col-name">
+        <label class="form-sublabel">Category Name</label>
+        <input type="text" class="form-input cat-name" placeholder="e.g. Student, VIP" value="${cat.name || ''}" required />
+      </div>
+      <div class="cat-col-price">
+        <label class="form-sublabel">Price (KES)</label>
+        <input type="number" class="form-input cat-price" min="0" step="50" placeholder="1000" value="${cat.price ?? 1000}" required />
+      </div>
+      <div class="cat-col-alloc">
+        <label class="form-sublabel">Capacity</label>
+        <input type="number" class="form-input cat-allocation" min="1" step="1" placeholder="50" value="${cat.allocation ?? 50}" required />
+      </div>
+      <div class="cat-col-desc">
+        <label class="form-sublabel">Perks / Description</label>
+        <input type="text" class="form-input cat-desc" placeholder="Brief ticket description..." value="${cat.description || ''}" />
+      </div>
+      <button type="button" class="remove-cat-btn" title="Remove Category">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" x2="6" y1="6" y2="18"/>
+          <line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
+    `;
+
+    const removeBtn = row.querySelector('.remove-cat-btn');
+    removeBtn?.addEventListener('click', () => {
+      if (categoriesContainer.children.length > 1) {
+        row.remove();
+      } else {
+        alert('You must provide at least one ticket category for the event.');
+      }
+    });
+
+    categoriesContainer.appendChild(row);
+  }
+
+  addCategoryBtn?.addEventListener('click', () => {
+    addCategoryRow({ name: '', price: 1000, allocation: 50, description: '' });
+  });
+
+  // Speakers UI generator
+  function renderSpeakers(speakers: Array<{ name: string; role?: string; company?: string; photo?: string }>) {
+    if (!speakersContainer) return;
+    speakersContainer.innerHTML = '';
+    speakers.forEach((s) => addSpeakerRow(s));
+  }
+
+  function addSpeakerRow(s: { name: string; role?: string; company?: string; photo?: string }) {
+    if (!speakersContainer) return;
+    const row = document.createElement('div');
+    row.className = 'speaker-row';
+    row.innerHTML = `
+      <div class="form-row grid-2">
+        <div>
+          <label class="form-sublabel">Speaker Name</label>
+          <input type="text" class="form-input spk-name" placeholder="Full Name" value="${s.name || ''}" />
+        </div>
+        <div>
+          <label class="form-sublabel">Role / Title</label>
+          <input type="text" class="form-input spk-role" placeholder="e.g. Lead Geospatial Scientist" value="${s.role || ''}" />
+        </div>
+      </div>
+      <div class="form-row grid-2 mt-2">
+        <div>
+          <label class="form-sublabel">Company / Affiliation</label>
+          <input type="text" class="form-input spk-company" placeholder="e.g. Africa Tech Foundation" value="${s.company || ''}" />
+        </div>
+        <div class="flex-with-remove">
+          <div class="flex-1">
+            <label class="form-sublabel">Photo URL</label>
+            <input type="url" class="form-input spk-photo" placeholder="https://..." value="${s.photo || ''}" />
+          </div>
+          <button type="button" class="remove-spk-btn" title="Remove Speaker">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" x2="6" y1="6" y2="18"/>
+              <line x1="6" x2="18" y1="6" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+
+    row.querySelector('.remove-spk-btn')?.addEventListener('click', () => row.remove());
+    speakersContainer.appendChild(row);
+  }
+
+  addSpeakerBtn?.addEventListener('click', () => {
+    addSpeakerRow({ name: '', role: '', company: '', photo: '' });
+  });
+
+  // Partners UI generator
+  function renderPartners(partners: Array<{ name: string; logo?: string }>) {
+    if (!partnersContainer) return;
+    partnersContainer.innerHTML = '';
+    partners.forEach((p) => addPartnerRow(p));
+  }
+
+  function addPartnerRow(p: { name: string; logo?: string }) {
+    if (!partnersContainer) return;
+    const row = document.createElement('div');
+    row.className = 'partner-row';
+    row.innerHTML = `
+      <div class="flex-1">
+        <label class="form-sublabel">Partner / Sponsor Name</label>
+        <input type="text" class="form-input ptn-name" placeholder="Organization Name" value="${p.name || ''}" />
+      </div>
+      <div class="flex-1">
+        <label class="form-sublabel">Logo URL</label>
+        <input type="url" class="form-input ptn-logo" placeholder="https://..." value="${p.logo || ''}" />
+      </div>
+      <button type="button" class="remove-ptn-btn" title="Remove Partner">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" x2="6" y1="6" y2="18"/>
+          <line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
+    `;
+
+    row.querySelector('.remove-ptn-btn')?.addEventListener('click', () => row.remove());
+    partnersContainer.appendChild(row);
+  }
+
+  addPartnerBtn?.addEventListener('click', () => {
+    addPartnerRow({ name: '', logo: '' });
+  });
+
+  // Edit Event Button Click Handler
+  document.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const raw = (btn as HTMLElement).dataset.event;
+      if (!raw) return;
+
+      try {
+        const event = JSON.parse(raw);
+        editingEventId = event.id;
+        if (modalTitle) modalTitle.textContent = `Edit Event: ${event.title}`;
+
+        (document.getElementById('eventId') as HTMLInputElement).value = event.id;
+        (document.getElementById('eventTitle') as HTMLInputElement).value = event.title || '';
+        (document.getElementById('eventSlug') as HTMLInputElement).value = event.slug || '';
+        (document.getElementById('eventDescription') as HTMLTextAreaElement).value = event.description || '';
+        (document.getElementById('eventVenue') as HTMLInputElement).value = event.venue || '';
+        (document.getElementById('eventPoster') as HTMLInputElement).value = event.poster || '';
+        if (event.poster) {
+          displayPoster(event.poster, `${event.title} Poster`, 'Saved event cover image');
+        } else {
+          resetPosterUpload();
+        }
+        (document.getElementById('eventStatus') as HTMLSelectElement).value = event.status || 'published';
+
+        if (event.starts_at) {
+          const d = new Date(event.starts_at);
+          if (!isNaN(d.getTime())) {
+            (document.getElementById('eventDate') as HTMLInputElement).value = d.toISOString().slice(0, 10);
+            (document.getElementById('startTime') as HTMLInputElement).value = d.toTimeString().slice(0, 5);
+          }
+        }
+
+        if (event.ends_at) {
+          const d = new Date(event.ends_at);
+          if (!isNaN(d.getTime())) {
+            (document.getElementById('endTime') as HTMLInputElement).value = d.toTimeString().slice(0, 5);
+          }
+        }
+
+        renderTicketCategories(event.ticket_types || []);
+        renderSpeakers(event.speakers || event.lineup || []);
+        renderPartners(event.partners || event.sponsors || []);
+
+        showModal();
+      } catch (err) {
+        console.error('Error loading event for editing:', err);
+      }
+    });
+  });
+
+  // Form Submit Handler
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (errorBanner) {
+      errorBanner.classList.add('hidden');
+      errorBanner.textContent = '';
+    }
+
+    if (isUploadingPoster) {
+      if (errorBanner) {
+        errorBanner.textContent = 'Poster image upload is in progress. Please wait a moment.';
+        errorBanner.classList.remove('hidden');
+      }
+      return;
+    }
+
+    const title = (document.getElementById('eventTitle') as HTMLInputElement).value.trim();
+    const slug = (document.getElementById('eventSlug') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('eventDescription') as HTMLTextAreaElement).value.trim();
+    const venue = (document.getElementById('eventVenue') as HTMLInputElement).value.trim();
+    const poster = (document.getElementById('eventPoster') as HTMLInputElement).value.trim();
+    const status = (document.getElementById('eventStatus') as HTMLSelectElement).value;
+    const datePart = (document.getElementById('eventDate') as HTMLInputElement).value;
+    const startTimePart = (document.getElementById('startTime') as HTMLInputElement).value || '09:00';
+    const endTimePart = (document.getElementById('endTime') as HTMLInputElement).value || '17:00';
+    const eventId = (document.getElementById('eventId') as HTMLInputElement).value;
+
+    if (!title || !venue || !datePart) {
+      if (errorBanner) {
+        errorBanner.textContent = 'Please provide event name, venue, and date.';
+        errorBanner.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (!poster) {
+      if (errorBanner) {
+        errorBanner.textContent = 'Please select and upload a poster image for the event.';
+        errorBanner.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Build ISO timestamps
+    const startsAt = new Date(`${datePart}T${startTimePart}:00`).toISOString();
+    const endsAt = new Date(`${datePart}T${endTimePart}:00`).toISOString();
+
+    // Collect ticket categories
+    const ticketRows = categoriesContainer?.querySelectorAll('.ticket-category-row') || [];
+    const ticket_types: any[] = [];
+    ticketRows.forEach((row) => {
+      const id = (row.querySelector('.cat-id') as HTMLInputElement)?.value;
+      const name = (row.querySelector('.cat-name') as HTMLInputElement)?.value.trim();
+      const price = Number((row.querySelector('.cat-price') as HTMLInputElement)?.value ?? 0);
+      const allocation = Number((row.querySelector('.cat-allocation') as HTMLInputElement)?.value ?? 50);
+      const desc = (row.querySelector('.cat-desc') as HTMLInputElement)?.value.trim();
+
+      if (name) {
+        ticket_types.push({
+          id: id || undefined,
+          name,
+          price,
+          allocation,
+          description: desc,
+        });
+      }
+    });
+
+    if (ticket_types.length === 0) {
+      if (errorBanner) {
+        errorBanner.textContent = 'Please add at least one ticket category (e.g. Regular, Student).';
+        errorBanner.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Collect speakers
+    const speakerRows = speakersContainer?.querySelectorAll('.speaker-row') || [];
+    const speakers: any[] = [];
+    speakerRows.forEach((row) => {
+      const name = (row.querySelector('.spk-name') as HTMLInputElement)?.value.trim();
+      const role = (row.querySelector('.spk-role') as HTMLInputElement)?.value.trim();
+      const company = (row.querySelector('.spk-company') as HTMLInputElement)?.value.trim();
+      const photo = (row.querySelector('.spk-photo') as HTMLInputElement)?.value.trim();
+      if (name) {
+        speakers.push({ name, role, company, photo });
+      }
+    });
+
+    // Collect partners
+    const partnerRows = partnersContainer?.querySelectorAll('.partner-row') || [];
+    const partners: any[] = [];
+    partnerRows.forEach((row) => {
+      const name = (row.querySelector('.ptn-name') as HTMLInputElement)?.value.trim();
+      const logo = (row.querySelector('.ptn-logo') as HTMLInputElement)?.value.trim();
+      if (name) {
+        partners.push({ name, logo });
+      }
+    });
+
+    // Show loading state
+    const btnText = submitBtn?.querySelector('.btn-text');
+    const btnSpinner = submitBtn?.querySelector('.btn-spinner');
+    if (btnText) btnText.classList.add('hidden');
+    if (btnSpinner) btnSpinner.classList.remove('hidden');
+    if (submitBtn) (submitBtn as HTMLButtonElement).disabled = true;
+
+    try {
+      const res = await fetch('/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: eventId || undefined,
+          title,
+          slug: slug || undefined,
+          description,
+          venue,
+          poster,
+          status,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          ticket_types,
+          speakers,
+          partners,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save event.');
+      }
+
+      // Reload page to reflect changes
+      window.location.reload();
+    } catch (err: any) {
+      if (errorBanner) {
+        errorBanner.textContent = err.message || 'Error saving event. Please try again.';
+        errorBanner.classList.remove('hidden');
+      }
+      if (btnText) btnText.classList.remove('hidden');
+      if (btnSpinner) btnSpinner.classList.add('hidden');
+      if (submitBtn) (submitBtn as HTMLButtonElement).disabled = false;
+    }
+  });
+</script>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .events-admin-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* METRICS STRIP */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .metric-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .metric-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .metric-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #9ca3af;
+  }
+
+  .metric-icon {
+    width: 20px;
+    height: 20px;
+    color: #9ca3af;
+  }
+
+  .metric-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+  }
+
+  .metric-footer {
+    font-size: 0.8rem;
+    color: #d1d5db;
+  }
+
+  .green-badge {
+    background: rgba(141, 198, 63, 0.15);
+    color: #a3e635;
+    border: 1px solid rgba(141, 198, 63, 0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .purple-badge {
+    background: rgba(108, 43, 217, 0.2);
+    color: #c084fc;
+    border: 1px solid rgba(108, 43, 217, 0.4);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .text-green { color: #a3e635; }
+  .text-muted { color: #9ca3af; }
+
+  /* ACTION BAR */
+  .action-bar-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    color: #ffffff;
+  }
+
+  .section-sub {
+    font-size: 0.88rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .create-event-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: linear-gradient(135deg, $purple, $green);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 0.75rem 1.4rem;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(108, 43, 217, 0.4);
+    }
+  }
+
+  /* TABLE */
+  .table-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+
+    th {
+      padding: 0.9rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    td {
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #d1d5db;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .event-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .event-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #1e2238;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .event-thumb-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, $purple, $green);
+    color: white;
+    font-weight: 800;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .event-title-text {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 0.95rem;
+  }
+
+  .event-slug-text {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  .venue-text {
+    color: #e5e7eb;
+    font-weight: 500;
+  }
+
+  .date-text {
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .time-text {
+    font-size: 0.75rem;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .published-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .draft-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .archived-badge {
+    background: rgba(156, 163, 175, 0.15);
+    color: #9ca3af;
+    border: 1px solid rgba(156, 163, 175, 0.3);
+  }
+
+  .tickets-pill-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .ticket-tag {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #d1d5db;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
+    strong {
+      color: $green;
+    }
+  }
+
+  .capacity-stat {
+    font-size: 0.85rem;
+    font-family: ui-monospace, monospace;
+  }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(108, 43, 217, 0.3);
+      border-color: rgba(108, 43, 217, 0.5);
+    }
+  }
+
+  .view-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #9ca3af;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem !important;
+    color: #6b7280;
+  }
+
+  /* MODAL */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1.5rem;
+    overflow-y: auto;
+
+    &.hidden {
+      display: none;
+    }
+  }
+
+  .modal-dialog {
+    background: #111425;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 780px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: #111425;
+    z-index: 10;
+  }
+
+  .modal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 0.25rem;
+  }
+
+  .modal-subtitle {
+    font-size: 0.82rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 6px;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #ffffff;
+    }
+  }
+
+  .modal-form {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    &:last-of-type {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  .form-section-heading {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+  }
+
+  .form-section-sub {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    margin: 0.2rem 0 0;
+  }
+
+  .section-title-with-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .form-row {
+    display: grid;
+    gap: 1rem;
+
+    &.grid-2 {
+      grid-template-columns: 1fr 1fr;
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    &.grid-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .form-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #d1d5db;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    .required {
+      color: #f87171;
+    }
+  }
+
+  .form-sublabel {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    width: 100%;
+    background: #0b0d17;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.65rem 0.9rem;
+    color: #ffffff;
+    font-size: 0.88rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus {
+      border-color: $green;
+      box-shadow: 0 0 0 2px rgba(141, 198, 63, 0.2);
+    }
+  }
+
+  .form-textarea {
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+  }
+
+  /* TICKET CATEGORIES */
+  .ticket-categories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ticket-category-row {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr 1.6fr auto;
+    gap: 0.75rem;
+    align-items: flex-end;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .remove-cat-btn,
+  .remove-spk-btn,
+  .remove-ptn-btn {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+  }
+
+  .add-sub-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    background: rgba(141, 198, 63, 0.15);
+    border: 1px solid rgba(141, 198, 63, 0.3);
+    color: #a3e635;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(141, 198, 63, 0.25);
+    }
+  }
+
+  .form-details {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 1rem;
+
+    .details-summary {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      color: #e5e7eb;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .summary-hint {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      font-weight: normal;
+    }
+
+    .details-body {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+  }
+
+  .speakers-list,
+  .partners-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .speaker-row {
+    background: #0b0d17;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.85rem;
+  }
+
+  .partner-row {
+    background: #0b0d17;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .flex-with-remove {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .mt-2 { margin-top: 0.5rem; }
+  .flex-1 { flex: 1; }
+
+  .form-error-banner {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+
+    &.hidden { display: none; }
+  }
+
+  .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .cancel-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+  }
+
+  .save-btn {
+    background: linear-gradient(135deg, $purple, $green);
+    border: none;
+    color: #ffffff;
+    padding: 0.65rem 1.75rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(108, 43, 217, 0.4);
+    transition: transform 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  /* POSTER UPLOAD */
+  .poster-file-input {
+    display: none;
+  }
+
+  .poster-dropzone {
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 1.75rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover, &.drag-over {
+      border-color: $green;
+      background: rgba(141, 198, 63, 0.05);
+    }
+  }
+
+  .dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .dropzone-icon-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(108, 43, 217, 0.15);
+    border: 1px solid rgba(108, 43, 217, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c084fc;
+  }
+
+  .dropzone-primary-text {
+    font-size: 0.88rem;
+    color: #d1d5db;
+    margin: 0;
+
+    .browse-link-btn {
+      background: none;
+      border: none;
+      color: $green;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+
+      &:hover {
+        color: #a3e635;
+      }
+    }
+  }
+
+  .dropzone-hint {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin: 0.35rem 0 0;
+  }
+
+  /* PREVIEW CARD */
+  .poster-preview-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: #0b0d17;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 1rem;
+
+    @media (max-width: 640px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  .poster-preview-media {
+    position: relative;
+    width: 140px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1e2238;
+    flex-shrink: 0;
+
+    @media (max-width: 640px) {
+      width: 100%;
+      height: 160px;
+    }
+  }
+
+  .poster-preview-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .poster-upload-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(11, 13, 23, 0.82);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .upload-status-text {
+    font-size: 0.72rem;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: $green;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .poster-preview-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .preview-filename-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .preview-filename {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upload-badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+
+    &.success-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    &.uploading-badge {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    &.error-badge {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+  }
+
+  .preview-meta {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &.replace-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+    }
+
+    &.remove-btn {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #f87171;
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.2);
+      }
+    }
+  }
+
+  .poster-upload-error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+
+    &.hidden {
+      display: none;
+    }
+  }
+
+  .hidden { display: none !important; }
+</style>

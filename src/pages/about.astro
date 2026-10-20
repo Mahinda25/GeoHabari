@@ -1,0 +1,395 @@
+---
+import Image from "astro/components/Image.astro";
+import Layout from "../layout/Layout.astro";
+import NairobiMap from "../images/cities/nairobi.svg"
+import KampalaMap from "../images/cities/kampala.svg"
+import team_members from '../data/team.json';
+
+import '../styles/about.scss';
+---
+
+<Layout title="About" darkHero={true}>
+  <!-- Hero intro -->
+  <section class="about-hero">
+    <div class="about-hero-bg"></div>
+    <div class="about-hero-cosmos">
+      <div class="about-cosmos-grid"></div>
+      <div class="about-glow about-glow-purple"></div>
+      <div class="about-glow about-glow-green"></div>
+      <div class="about-ring about-ring-1"></div>
+      <div class="about-ring about-ring-2"></div>
+    </div>
+    <div class="logo-dots logo-dots-white logo-dots-lg about-hero-dots" style="position:absolute;top:15%;right:8%;z-index:1;opacity:0.08;">
+      <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+      <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+      <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+    </div>
+    <div class="logo-dots logo-dots-white" style="position:absolute;bottom:18%;left:6%;z-index:1;opacity:0.06;">
+      <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+      <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+      <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+    </div>
+    <div class="about-hero-particles">
+      <div class="particle p1"></div>
+      <div class="particle p2"></div>
+      <div class="particle p3"></div>
+      <div class="particle p4"></div>
+      <div class="particle p5"></div>
+    </div>
+    <div class="about-hero-content">
+      <div class="about-hero-badge">
+        <span class="badge-pulse"></span>
+        <span class="badge-label">About Us</span>
+      </div>
+      <h1 class="heading">
+        We're a <span class="hero-accent">community</span><br/>
+        first — then a podcast
+      </h1>
+      <p class="about-subtitle">
+        Geohabari is where African geospatial and tech voices gather to share stories, learn, and grow together.
+      </p>
+    </div>
+  </section>
+
+  <!-- Identity -->
+  <section class="identity">
+    <div class="identity-inner">
+      <Image
+        src="https://plus.unsplash.com/premium_photo-1679079456790-bf73ddd14964?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        alt="Identity Image"
+        width={600}
+        height={400}
+        class="identity-image"
+      />
+      <div class="identity-text">
+        <span class="section-label">Who We Are</span>
+        <h2>
+          A community of makers, mappers, and storytellers
+        </h2>
+        <div class="identity-details">
+          <p>
+            Geohabari started as a space for African geospatial and tech voices — and it's grown into a community. We focus on the people behind the tech: the builders, the thinkers, and everyone who believes African innovation deserves a bigger stage.
+          </p>
+          <p class="identity-highlight">
+            We're not just a podcast.
+            <br/>We're a community.
+            <br/>A platform for connection.
+            <br/>A place where stories and ideas meet.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mission & Vision -->
+  <section class="misvis">
+    <div class="misvis-inner">
+      <div class="misvis-text">
+        <span class="section-label">What Drives Us</span>
+        <p class="misvis-intro">Our mission and vision guide everything we do as a community — from the conversations we host to the people we platform.</p>
+        <div class="misvis-cards">
+          <div class="misvis-card mission-card">
+            <div class="misvis-icon">
+              <Image src={NairobiMap} alt="Mission" width={80} height={80} class="misvis_map" />
+            </div>
+            <h3>Mission</h3>
+            <p>
+              To amplify African geospatial and tech stories, making complex ideas simple, relatable, and impactful — one conversation at a time. We build community by sharing knowledge and lifting each other up.
+            </p>
+          </div>
+          <div class="misvis-card vision-card">
+            <div class="misvis-icon">
+              <Image src={KampalaMap} alt="Vision" width={80} height={80} class="misvis_map" />
+            </div>
+            <h3>Vision</h3>
+            <p>
+              A world where African voices shape the narrative of innovation, technology, and place — from the ground up. A community where every member can learn, contribute, and grow.
+            </p>
+          </div>
+        </div>
+      </div>
+      <Image
+        src="https://images.unsplash.com/photo-1642165870627-cd54c078a11f?q=80&w=685&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        alt="Mission and Vision"
+        width={600}
+        height={400}
+        class="misvis-image"
+      />
+    </div>
+  </section>
+
+  <!-- Purpose -->
+  <section class="purpose">
+    <div class="purpose-intro">
+      <span class="section-label">Why We Exist</span>
+      <h2>Elevating voices, building community</h2>
+      <p>
+        Geospatial and tech shape the world we live in — but too often the stories behind them feel distant or out of reach. Geohabari exists to change that: we demystify the tech, spotlight African innovation, and bring together a community that learns and grows together.
+      </p>
+    </div>
+    <div class="purpose-details">
+      <Image
+        src="https://plus.unsplash.com/premium_photo-1712254285216-26092c37cf8c?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        alt="Purpose Image"
+        width={600}
+        height={200}
+        class="purpose-image"
+      />
+      <div class="purpose-text">
+        <p>
+          Aligned with our mission and vision, we break down complex ideas into everyday language and give a platform to the thinkers, builders, and mappers solving real problems across the continent. Every episode is a chance for our community to learn something new and connect with the people behind the tech.
+        </p>
+        <blockquote>
+          "When you understand space, you understand power. That's why we tell these stories — together."
+        </blockquote>
+      </div>
+    </div>
+  </section>
+
+  <!-- Team -->
+  <section class="team">
+    <span class="section-label">The People</span>
+    <h2>Meet the team behind the community</h2>
+    <div class="team-carousel">
+      <div class="team-thumbnails">
+        {team_members.map((member, index) => (
+          <div class={`team-thumbnail ${index === 0 ? 'active' : ''}`} data-index={index}>
+            <img
+              src={member.profile_photo}
+              alt={member.name}
+              class="thumbnail-photo"
+              loading="lazy"
+            />
+          </div>
+        ))}
+      </div>
+      
+      <div class="team-spotlight">
+        <div class="spotlight-image">
+          <img
+            src={team_members[0].profile_photo}
+            alt={team_members[0].name}
+            class="main-photo"
+            id="main-photo"
+            loading="lazy"
+          />
+        </div>
+        
+        <div class="spotlight-details">
+          <h3 class="spotlight-name" id="spotlight-name">{team_members[0].name}</h3>
+          <h4 class="spotlight-role" id="spotlight-role">{team_members[0].position}</h4>
+          <p class="spotlight-bio" id="spotlight-bio">{team_members[0].bio}</p>
+          <div class="social-links" id="social-links">
+            {Object.entries(team_members[0].socials).map(([platform, url]) => (
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {platform.charAt(0).toUpperCase() + platform.slice(1)}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+
+<script>
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/all";
+gsap.registerPlugin(ScrollTrigger);
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Staggered section reveals
+  gsap.utils.toArray(".identity-inner, .misvis-inner, .purpose-intro, .purpose-details").forEach(el => {
+    gsap.from(el, {
+      scrollTrigger: { trigger: el, start: "top 85%", once: true },
+      y: 50, opacity: 0, duration: 0.9, ease: "power3.out"
+    });
+  });
+
+  // Mission/Vision cards
+  gsap.utils.toArray(".misvis-card").forEach((card, i) => {
+    gsap.from(card, {
+      scrollTrigger: { trigger: card, start: "top 88%", once: true },
+      y: 40, opacity: 0, scale: 0.95, duration: 0.7, delay: i * 0.15, ease: "back.out(1.2)"
+    });
+  });
+
+  // Hero text reveal
+  gsap.from(".about-hero-content", { y: 40, opacity: 0, duration: 1, delay: 0.3, ease: "power3.out" });
+
+  // Team section entrance
+  gsap.from(".team-carousel", {
+    scrollTrigger: { trigger: ".team-carousel", start: "top 85%", once: true },
+    y: 50, opacity: 0, duration: 0.8, ease: "power2.out"
+  });
+
+  const teamMembers = [
+    {
+      name: "Yariwo Kitiyo",
+      bio: "Yariwo is a geospatial enthusiast and the founder of Geohabari. With a background in GIS and remote sensing, he is passionate about storytelling and using technology to solve real-world problems.",
+      position: "Founder & Host",
+      profile_photo: "/images/team/yariwo.jpg",
+      socials: {
+        x: "https://twitter.com/yariwo",
+        linkedin: "https://linkedin.com/in/yariwo",
+        github: "https://github.com/yariwo",
+        website: "https://yariwo.dev"
+      }
+    },
+    {
+      name: "Charles Mwangi",
+      bio: "Charles is a geospatial analyst with expertise in spatial data visualization and cartography. He loves transforming complex datasets into compelling visual stories that resonate with audiences.",
+      position: "Host",
+      profile_photo: "https://images.ctfassets.net/bmflyv4pf0a9/1oHDc4M3S3HuxumJH85PIp/643ec66b92b4d8dc263f1951b3cae0b5/Charles_Mwangi.jpeg",
+      socials: {
+        x: "https://x.com/charlesmwangi",
+        linkedin: "https://linkedin.com/in/charlesmwangi",
+        github: "https://github.com/charlesmwangi",
+        email: "mailto:charlesmwangi@geohabari.com"
+      }
+    },
+    {
+      name: "Linus Anari",
+      bio: "Linus is a GIS specialist with a knack for geospatial data analysis and environmental applications. He is dedicated to leveraging geospatial technologies to address environmental challenges and promote sustainable development.",
+      position: "Host",
+      profile_photo: "/images/team/lanari.jpg",
+      socials: {
+        x: "https://x.com/charlesmwangi",
+        linkedin: "https://linkedin.com/in/charlesmwangi",
+        github: "https://github.com/charlesmwangi",
+        email: "mailto:charlesmwangi@geohabari.com"
+      }
+    },
+    {
+      name: "Vincent Cheruiyot",
+      bio: "Vincent is a visual creative making brands heard and seen. Loves sports, music, and farm. Good in Geo.",
+      position: "Visual Creative",
+      profile_photo: "/images/team/vincent.jpeg",
+      socials: {
+        x: "https://x.com/vincent",
+        linkedin: "https://linkedin.com/in/vincent",
+        github: "https://github.com/vincent",
+        email: "mailto:vincent@geohabari.com"
+      }
+    },
+    {
+      name: "JohnMark Ochieng",
+      bio: "Johnmark is a space communicator making space simple. Big on hiking and adventure, bigger on adrenaline. I think better at altitude.",
+      position: "Space Communicator",
+      profile_photo: "/images/team/jmochieng.jpeg",
+      socials: {
+        x: "https://x.com/johnmarkochieng",
+        linkedin: "https://linkedin.com/in/johnmarkochieng",
+        github: "https://github.com/johnmarkochieng",
+        email: "mailto:johnmarkochieng@geohabari.com"
+      }
+    }
+  ];
+
+
+  const thumbnails = document.querySelectorAll('.team-thumbnail');
+  const mainPhoto = document.getElementById('main-photo');
+  const spotlightName = document.getElementById('spotlight-name');
+  const spotlightRole = document.getElementById('spotlight-role');
+  const spotlightBio = document.getElementById('spotlight-bio');
+  const socialLinks = document.getElementById('social-links');
+  const teamCarousel = document.querySelector('.team-carousel');
+
+  let currentIndex = 0;
+  let autoPlayInterval;
+  let isAnimating = false;
+
+  function updateSpotlight(index, animate = true) {
+    if (isAnimating && animate) return;
+    
+    const member = teamMembers[index];
+    currentIndex = index;
+
+    thumbnails.forEach((thumb, i) => {
+      thumb.classList.toggle('active', i === index);
+    });
+
+    if (animate) {
+      isAnimating = true;
+      
+      gsap.to([mainPhoto, spotlightName, spotlightRole, spotlightBio, socialLinks], {
+        opacity: 0,
+        x: 30,
+        duration: 0.3,
+        ease: "power2.out",
+        onComplete: function() {
+          updateContent(member);
+          
+          gsap.to([mainPhoto, spotlightName, spotlightRole, spotlightBio, socialLinks], {
+            opacity: 1,
+            x: 0,
+            duration: 0.4,
+            ease: "power2.out",
+            stagger: 0.05,
+            onComplete: function() {
+              isAnimating = false;
+            }
+          });
+        }
+      });
+    } else {
+      updateContent(member);
+    }
+  }
+
+  function updateContent(member) {
+    mainPhoto.src = member.profile_photo;
+    mainPhoto.alt = member.name;
+    spotlightName.textContent = member.name;
+    spotlightRole.textContent = member.position;
+    spotlightBio.textContent = member.bio;
+
+    socialLinks.innerHTML = '';
+    Object.entries(member.socials).forEach(([platform, url]) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = platform.charAt(0).toUpperCase() + platform.slice(1);
+      socialLinks.appendChild(link);
+    });
+  }
+
+  function startAutoPlay() {
+    autoPlayInterval = setInterval(() => {
+      const nextIndex = (currentIndex + 1) % teamMembers.length;
+      updateSpotlight(nextIndex, true);
+    }, 5000);
+  }
+
+  function stopAutoPlay() {
+    if (autoPlayInterval) {
+      clearInterval(autoPlayInterval);
+    }
+  }
+
+  function resetAutoPlay() {
+    stopAutoPlay();
+    startAutoPlay();
+  }
+
+  thumbnails.forEach((thumbnail, index) => {
+    thumbnail.addEventListener('click', function() {
+      if (index !== currentIndex && !isAnimating) {
+        updateSpotlight(index, true);
+        resetAutoPlay();
+      }
+    });
+  });
+
+  teamCarousel.addEventListener('mouseenter', stopAutoPlay);
+  teamCarousel.addEventListener('mouseleave', startAutoPlay);
+
+  updateSpotlight(0, false);
+  
+  setTimeout(() => {
+    startAutoPlay();
+  }, 5000);
+});
+</script>

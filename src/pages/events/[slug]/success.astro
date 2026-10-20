@@ -1,0 +1,78 @@
+---
+import Layout from "../../../layout/Layout.astro";
+const reference = Astro.url.searchParams.get("reference");
+---
+
+<Layout
+  title="Ticket confirmed"
+  description="Your event ticket has been confirmed."
+>
+  <div class="success-shell">
+    <div class="success-card">
+      <span class="badge">Confirmed</span>
+      <h1>Tickets are ready.</h1>
+      <p>
+        Your payment was received successfully. Your confirmation reference is <strong
+          >{reference || "N/A"}</strong
+        >.
+      </p>
+      <a href="/events" class="primary-btn">Back to events</a>
+    </div>
+  </div>
+</Layout>
+
+<style lang="scss">
+  @use "../../../styles/partials/combined.scss" as *;
+
+  .success-shell {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    padding: 7rem 1.25rem 4rem;
+  }
+
+  .success-card {
+    max-width: 620px;
+    width: 100%;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 28px;
+    padding: 2.2rem;
+    box-shadow: 0 30px 60px rgba(17, 24, 39, 0.08);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(141, 198, 63, 0.12);
+    color: #2f6b1a;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    margin: 0 0 1rem;
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+  }
+
+  p {
+    color: rgba(15, 23, 42, 0.72);
+    line-height: 1.8;
+    margin-bottom: 1.6rem;
+  }
+
+  .primary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0.8rem 1.3rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, $purple, $green);
+    color: $white-pure;
+    text-decoration: none;
+    font-weight: 700;
+  }
+</style>

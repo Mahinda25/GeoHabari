@@ -1,0 +1,368 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { listStudentVerifications, readStore, purgeExpiredStudentDocuments, appendAuditLog } from '../../lib/ticketing-store.js';
+import { deletePrivateFile } from '../../lib/private-storage.js';
+
+let actionMessage = null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const action = formData.get('action');
+
+    if (action === 'purge_retention') {
+      const store = readStore();
+      const nowIso = new Date().toISOString();
+      let filesDeleted = 0;
+
+      for (const record of store.student_verifications) {
+        if (record.retention_expires_at && record.retention_expires_at <= nowIso && !record.purged_at) {
+          if (record.document_storage_key) {
+            deletePrivateFile(record.document_storage_key);
+            filesDeleted += 1;
+          }
+        }
+      }
+
+      const { purgedCount } = purgeExpiredStudentDocuments(nowIso);
+      actionMessage = `Purged ${purgedCount} expired verification records and deleted ${filesDeleted} private documents.`;
+
+      appendAuditLog({
+        action: 'admin_ui_retention_purge',
+        entity: 'student_verification',
+        entity_id: null,
+        details: { purgedCount, filesDeleted },
+      });
+    }
+  } catch (err) {
+    actionMessage = `Purge failed: ${(err as any).message}`;
+  }
+}
+
+const verifications = listStudentVerifications();
+const store = readStore();
+
+const total = verifications.length;
+const approved = verifications.filter((v) => v.status === 'approved').length;
+const emailMethod = verifications.filter((v) => v.method === 'university_email').length;
+const idMethod = verifications.filter((v) => v.method === 'student_id_name_match').length;
+const flagged = verifications.filter((v) => v.is_duplicate_flagged || v.status === 'retry_required').length;
+---
+
+<AdminLayout title="Student Verifications" activeNav="verifications">
+  <div class="verifications-shell">
+    {actionMessage && (
+      <div class="notice-alert">
+        <span>{actionMessage}</span>
+      </div>
+    )}
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Total Submissions</span>
+        <span class="stat-num">{total}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Approved (Eligible KES 600)</span>
+        <span class="stat-num text-green">{approved}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">.ac.ke Email OTP</span>
+        <span class="stat-num">{emailMethod}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Student ID OCR Match</span>
+        <span class="stat-num">{idMethod}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Flagged / Retry Required</span>
+        <span class="stat-num text-amber">{flagged}</span>
+      </div>
+    </div>
+
+    <!-- RETENTION BAR -->
+    <div class="retention-card">
+      <div>
+        <h3 class="retention-title">Document Retention Policy</h3>
+        <p class="retention-desc">Student ID scans are stored in private storage outside webroot and scheduled for deletion 30 days after events.</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="purge_retention" />
+        <button type="submit" class="purge-btn">Run Retention Purge Now</button>
+      </form>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-container">
+      <table class="verifications-table">
+        <thead>
+          <tr>
+            <th>Buyer Name</th>
+            <th>Method</th>
+            <th>Email / Institution</th>
+            <th>Match Score</th>
+            <th>Status</th>
+            <th>Private ID File</th>
+            <th>Retention Expiry</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {verifications.length === 0 ? (
+            <tr>
+              <td colspan="8" class="empty-state">No student verification submissions recorded.</td>
+            </tr>
+          ) : (
+            verifications.map((v) => (
+              <tr>
+                <td class="font-bold">{v.buyer_name}</td>
+                <td>
+                  <span class="method-tag">
+                    {v.method === 'university_email' ? 'University Email' : 'Student ID OCR'}
+                  </span>
+                </td>
+                <td class="font-mono text-xs">
+                  {v.email || (v.document_mime ? `${v.document_mime} (${v.document_size ? Math.round(v.document_size / 1024) : 0} KB)` : 'N/A')}
+                </td>
+                <td>
+                  {v.match_score ? (
+                    <span class={`score-pill ${Number(v.match_score) >= 80 ? 'score-high' : 'score-med'}`}>
+                      {v.match_score}%
+                    </span>
+                  ) : (
+                    <span class="text-muted">—</span>
+                  )}
+                </td>
+                <td>
+                  <span class={`status-pill ${v.status === 'approved' ? 'status-approved' : 'status-pending'}`}>
+                    {v.status}
+                  </span>
+                </td>
+                <td>
+                  {v.purged_at ? (
+                    <span class="purged-tag">Purged</span>
+                  ) : v.document_storage_key ? (
+                    <span class="stored-tag">Encrypted on Disk</span>
+                  ) : (
+                    <span class="text-muted">None</span>
+                  )}
+                </td>
+                <td class="text-xs text-muted">
+                  {v.retention_expires_at ? new Date(v.retention_expires_at).toLocaleDateString() : 'N/A'}
+                </td>
+                <td class="text-xs text-muted">
+                  {new Date(v.created_at).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .verifications-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .notice-alert {
+    background: rgba(108, 43, 217, 0.2);
+    border: 1px solid rgba(108, 43, 217, 0.4);
+    padding: 0.85rem 1.25rem;
+    border-radius: 10px;
+    color: #e9d5ff;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .stat-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    font-weight: 500;
+  }
+
+  .stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #ffffff;
+  }
+
+  .text-green { color: #a3e635; }
+  .text-amber { color: #fbbf24; }
+  .text-muted { color: #6b7280; }
+  .font-mono { font-family: ui-monospace, monospace; }
+  .text-xs { font-size: 0.75rem; }
+  .font-bold { font-weight: 600; color: #ffffff; }
+
+  .retention-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .retention-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 0.25rem;
+  }
+
+  .retention-desc {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .purge-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+  }
+
+  .table-container {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow-x: auto;
+  }
+
+  .verifications-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+
+    th {
+      padding: 0.85rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #d1d5db;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .method-tag {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #e5e7eb;
+  }
+
+  .score-pill {
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+
+    &.score-high {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    &.score-med {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+  }
+
+  .status-pill {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+
+    &.status-approved {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    &.status-pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+  }
+
+  .stored-tag {
+    background: rgba(108, 43, 217, 0.15);
+    color: #c084fc;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .purged-tag {
+    background: rgba(255, 255, 255, 0.05);
+    color: #6b7280;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem !important;
+    color: #6b7280;
+  }
+</style>

@@ -1,0 +1,482 @@
+@use './partials/combined.scss' as *;
+@use './globals.css' as *;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  text-decoration: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: $white;
+  overflow-x: hidden;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+section {
+  padding: $spacing-9 $spacing-7;
+  width: 100%;
+  max-width: 1440px;
+
+  @media (max-width: 1024px) {
+    padding: $spacing-7 $spacing-5;
+  }
+  @media (max-width: 768px) {
+    padding: $spacing-6 $spacing-4;
+  }
+  @media (max-width: 480px) {
+    padding: $spacing-5 $spacing-4;
+  }
+}
+
+// ==============================
+// Form fields
+// ==============================
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: $spacing-4;
+  width: 100%;
+
+  label {
+    margin-bottom: $spacing-2;
+    font-weight: 600;
+    color: $black;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  input, textarea {
+    outline: none;
+    padding: $spacing-3 $spacing-4;
+    border: 2px solid $gray-light;
+    border-radius: $radius-md;
+    color: $black;
+    background-color: $white;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    transition: border-color $transition-base, box-shadow $transition-base;
+
+    &::placeholder {
+      color: $gray;
+    }
+
+    &:hover {
+      border-color: $purple-light;
+    }
+
+    &:focus {
+      border-color: $purple;
+      box-shadow: 0 0 0 4px rgba(108, 43, 217, 0.1);
+      outline: none;
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+}
+
+// ==============================
+// Text truncation
+// ==============================
+
+.truncate {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ==============================
+// Buttons
+// ==============================
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-2;
+  border: none;
+  padding: $spacing-3 $spacing-5;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-base;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+
+  &.primary {
+    background: $gradient-purple;
+    color: $white-pure;
+    box-shadow: 0 4px 15px rgba(108, 43, 217, 0.3);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(108, 43, 217, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(108, 43, 217, 0.3);
+    }
+  }
+
+  &.secondary {
+    background-color: transparent;
+    color: $purple;
+    border: 2px solid $purple;
+
+    &:hover {
+      background-color: $purple;
+      color: $white-pure;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(108, 43, 217, 0.3);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &.tertiary {
+    background-color: transparent;
+    color: $green-dark;
+    border: 2px solid $green;
+
+    &:hover {
+      background-color: $green;
+      color: $white-pure;
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+// ==============================
+// Links
+// ==============================
+
+.link {
+  text-decoration: none;
+  color: $black;
+  font-weight: 600;
+  transition: color $transition-base;
+  padding: $spacing-1;
+  height: max-content;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: $gradient-accent;
+    transition: width $transition-base;
+    border-radius: 2px;
+  }
+
+  &:hover {
+    color: $purple;
+    &::after {
+      width: 100%;
+    }
+  }
+}
+
+// ==============================
+// Section label
+// ==============================
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-2;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: $purple;
+  margin-bottom: $spacing-4;
+
+  &::before {
+    content: '';
+    display: inline-flex;
+    gap: 3px;
+    width: 24px;
+    height: 2px;
+    background: $gradient-accent;
+    border-radius: 2px;
+  }
+}
+
+// Section label variant with logo dots
+.section-label-dots {
+  @extend .section-label;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $green;
+  }
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $green;
+    opacity: 0.5;
+    margin-left: -$spacing-2;
+    margin-right: $spacing-1;
+  }
+}
+
+// ==============================
+// Utility classes
+// ==============================
+
+.text-gradient {
+  @include gradient-text($gradient-text);
+}
+
+.text-gradient-purple {
+  @include gradient-text($gradient-purple);
+}
+
+// ==============================
+// Logo Dots Pattern — the signature 7-dot GeoHabari motif
+// Arrangement:  ●  _  ● ●
+//               ● ●
+//               ● ●
+// ==============================
+
+.logo-dots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
+  width: fit-content;
+  pointer-events: none;
+
+  .ld { 
+    width: 10px; height: 10px; border-radius: 50%;
+    background: $green; opacity: 0.5;
+  }
+  .ld-empty { width: 10px; height: 10px; opacity: 0; }
+
+  &.logo-dots-sm .ld, &.logo-dots-sm .ld-empty { width: 6px; height: 6px; }
+  &.logo-dots-lg .ld, &.logo-dots-lg .ld-empty { width: 14px; height: 14px; }
+  &.logo-dots-xl .ld, &.logo-dots-xl .ld-empty { width: 20px; height: 20px; }
+  &.logo-dots-white .ld { background: rgba(255, 255, 255, 0.35); }
+  &.logo-dots-purple .ld { background: $purple; }
+  &.logo-dots-bright .ld { opacity: 0.8; }
+}
+
+// ==============================
+// Intro Loader — built from the 7-dot logo pattern
+// ==============================
+
+.intro-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #060818;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2rem;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+
+  &.done {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .loader-dots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 10px;
+
+    .loader-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: $green;
+      opacity: 0;
+      transform: scale(0);
+      animation: dot-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+
+      &.d1 { animation-delay: 0.1s; }
+      &.d2 { animation-delay: 0.2s; }
+      &.d3 { animation-delay: 0.3s; }
+      &.d4 { animation-delay: 0.15s; }
+      &.d5 { animation-delay: 0.35s; }
+      &.d6 { animation-delay: 0.25s; }
+      &.d7 { animation-delay: 0.45s; }
+
+      &.empty {
+        background: none;
+        animation: none;
+      }
+    }
+  }
+
+  .loader-dots.pulse .loader-dot:not(.empty) {
+    animation: dot-pulse 1.2s ease-in-out infinite;
+    opacity: 1;
+    transform: scale(1);
+
+    &.d1 { animation-delay: 0s; }
+    &.d2 { animation-delay: 0.1s; }
+    &.d3 { animation-delay: 0.2s; }
+    &.d4 { animation-delay: 0.05s; }
+    &.d5 { animation-delay: 0.25s; }
+    &.d6 { animation-delay: 0.15s; }
+    &.d7 { animation-delay: 0.3s; }
+  }
+
+}
+
+@keyframes dot-pop {
+  0% { opacity: 0; transform: scale(0); }
+  70% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+// ==============================
+// Custom Cursor
+// ==============================
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  background: $purple;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99998;
+  mix-blend-mode: difference;
+  transition: width 0.2s, height 0.2s, background 0.2s;
+  will-change: transform;
+
+  &.hover {
+    width: 6px;
+    height: 6px;
+    background: $green;
+  }
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid rgba(108, 43, 217, 0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99997;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1), height 0.3s cubic-bezier(0.4,0,0.2,1), border-color 0.3s;
+  will-change: transform;
+
+  &.hover {
+    width: 56px;
+    height: 56px;
+    border-color: rgba(141, 198, 63, 0.5);
+  }
+}
+
+@media (pointer: coarse) {
+  .cursor-dot, .cursor-ring { display: none !important; }
+}
+
+// ==============================
+// Logo dot grid pattern (inspired by Geohabari logo)
+// ==============================
+
+.dot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 6px;
+  width: fit-content;
+  pointer-events: none;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $green;
+    opacity: 0.4;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  &.dot-grid-sm .dot { width: 5px; height: 5px; }
+  &.dot-grid-lg .dot { width: 10px; height: 10px; }
+  &.dot-grid-purple .dot { background: $purple; }
+  &.dot-grid-white .dot { background: rgba(255, 255, 255, 0.3); }
+}
+
+// ==============================
+// Scroll progress bar
+// ==============================
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 3px;
+  background: linear-gradient(90deg, $purple, $green);
+  z-index: 10001;
+  transition: none;
+  will-change: width;
+}

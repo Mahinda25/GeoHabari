@@ -1,0 +1,26 @@
+[
+  {
+    "id": "spotify",
+    "name": "Spotify",
+    "url": "https://open.spotify.com/show/5n3pUUtfdAdGS4d2hMz2yc?si=327dae6667fa4c5a",
+    "icon": "/icons/spotify.png"
+  },
+  {
+    "id": "apple_podcasts",
+    "name": "Apple Podcasts",
+    "url": "https://podcasts.apple.com/ke/podcast/geohabari/id1747885525",
+    "icon": "/icons/apple_podcast.png"
+  },
+  {
+    "id": "podcast_addict",
+    "name": "Podcast Addict",
+    "url": "https://podcastaddict.com/podcast/geohabari/5021923",
+    "icon": "/icons/podcast_addict.png"
+  },
+  {
+    "id": "youtube",
+    "name": "YouTube Podcasts",
+    "url": "https://www.youtube.com/@GeohabariPod",
+    "icon": "/icons/youtube.png"
+  }
+]
