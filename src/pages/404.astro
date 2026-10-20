@@ -1,0 +1,180 @@
+---
+import Layout from "../layout/Layout.astro";
+import Nairobigray from "../images/nairobi_gray.png";
+import Image from "astro/components/Image.astro";
+---
+<Layout title="Page Not Found" darkHero={true}>
+  <section class="page-lost">
+    <div class="lost-bg"></div>
+    <div class="logo-dots logo-dots-white logo-dots-lg" style="position:absolute;top:20%;left:8%;opacity:0.06;z-index:1;">
+      <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+      <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+      <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+    </div>
+    <div class="lost-content">
+      <span class="lost-label">Lost in the map?</span>
+      <h1 class="lost-code">404</h1>
+      <h2 class="lost-title">Page Not Found</h2>
+      <p class="lost-quote">"Not all those who wander are lost." -- <em>J.R.R. Tolkien</em></p>
+      <a href="/" class="lost-cta">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to Home
+      </a>
+    </div>
+    <Image
+      src={Nairobigray}
+      alt="404 illustration"
+      width={400}
+      height={400}
+      class="lost-map"
+    />
+  </section>
+</Layout>
+
+<style lang="scss">
+  @use '../styles/partials/combined.scss' as *;
+
+  .page-lost {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    text-align: center;
+    overflow: hidden;
+    padding: $spacing-9 $spacing-7;
+  }
+
+  .lost-bg {
+    position: absolute;
+    inset: 0;
+    background: $gradient-hero;
+    z-index: 0;
+  }
+
+  .lost-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-3;
+  }
+
+  .lost-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: $green;
+  }
+
+  .lost-code {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(8rem, 20vw, 14rem);
+    font-weight: 800;
+    line-height: 1;
+    margin: 0;
+    @include gradient-text(linear-gradient(135deg, $purple, $green, $purple-light));
+    position: relative;
+    animation: glitch-skew 4s ease-in-out infinite alternate;
+
+    &::before, &::after {
+      content: '404';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    &::before {
+      color: $purple;
+      animation: glitch-before 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+      clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+      opacity: 0.6;
+    }
+
+    &::after {
+      color: $green;
+      animation: glitch-after 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite reverse;
+      clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+      opacity: 0.6;
+    }
+  }
+
+  @keyframes glitch-before {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(-3px, 3px); }
+    40% { transform: translate(-3px, -3px); }
+    60% { transform: translate(3px, 3px); }
+    80% { transform: translate(3px, -3px); }
+  }
+
+  @keyframes glitch-after {
+    0%, 100% { transform: translate(0); }
+    20% { transform: translate(3px, -2px); }
+    40% { transform: translate(3px, 2px); }
+    60% { transform: translate(-3px, -2px); }
+    80% { transform: translate(-3px, 2px); }
+  }
+
+  @keyframes glitch-skew {
+    0%, 100% { transform: skew(0deg); }
+    2% { transform: skew(-1deg); }
+    4% { transform: skew(0deg); }
+    50% { transform: skew(0deg); }
+    52% { transform: skew(0.5deg); }
+    54% { transform: skew(0deg); }
+  }
+
+  .lost-title {
+    color: $white-pure;
+    font-size: 1.5rem;
+    margin: 0;
+  }
+
+  .lost-quote {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1rem;
+    font-style: italic;
+    margin-top: $spacing-2;
+    max-width: 400px;
+  }
+
+  .lost-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-2;
+    margin-top: $spacing-5;
+    padding: $spacing-3 $spacing-6;
+    background: $gradient-purple;
+    color: $white-pure;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: $radius-full;
+    transition: all $transition-base;
+    box-shadow: 0 4px 15px rgba(108, 43, 217, 0.3);
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(108, 43, 217, 0.4);
+    }
+  }
+
+  .lost-map {
+    position: absolute;
+    right: 5%;
+    top: 20%;
+    z-index: 1;
+    opacity: 0.06;
+    width: clamp(200px, 30vw, 400px);
+    height: auto;
+  }
+</style>

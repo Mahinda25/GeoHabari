@@ -1,0 +1,776 @@
+---
+import ThemeCard from "../components/ThemeCard.astro";
+import Layout from "../layout/Layout.astro"
+import AudioPlayer from "../components/AudioPlayer.astro";
+import { RightArrow } from "../components/Icons";
+import '../styles/home.scss';
+import { getRecentEpisodes, getAllEpisodes, getSeasonList } from "../utils/buzzsprout.js";
+import { contentfulClient } from "../utils/contentful";
+import { dummyThemes, dummyQuoteCards, dummyNextEp } from "../data/dummy.js";
+import platforms from "../data/platforms.json"
+import teamMembers from "../data/team.json"
+import { getLatestVideos, getMostViewedVideos, formatViewCount } from "../utils/youtube.js";
+
+// --- Data fetching with fallbacks ---
+let recentEpisodes = [];
+try { recentEpisodes = await getRecentEpisodes(); } catch(e) { console.warn("Episodes fallback"); }
+const latestEpisode = recentEpisodes[0] || {};
+
+// Dynamic stats from Buzzsprout
+let totalEpisodes = 30;
+let totalSeasons = 3;
+try {
+  const allEps = await getAllEpisodes();
+  totalEpisodes = allEps.length || 30;
+  const seasons = await getSeasonList();
+  totalSeasons = seasons.length || 3;
+} catch(e) { console.warn("Stats fallback"); }
+
+let quoteCards = dummyQuoteCards;
+try {
+  const res = await contentfulClient.getEntries({ content_type: "episodeQuoteCards" });
+  if (res.items.length > 0) quoteCards = res;
+} catch(e) {}
+
+let nextEp = null;
+try {
+  const res = await contentfulClient.getEntries({ content_type: "upcomingEpisode" });
+  nextEp = res.items[0] || dummyNextEp;
+} catch(e) { nextEp = dummyNextEp; }
+
+const date = nextEp?.fields?.releaseDate ? new Date(String(nextEp.fields.releaseDate)) : new Date()
+const releaseDate = date.getDate().toString().padStart(2, '0') + "-" +
+                  (date.getMonth() + 1).toString().padStart(2, '0') + "-" +
+                  date.getFullYear()
+const today = new Date();
+const recentEps = recentEpisodes.slice(0, 5);
+
+// Fetch YouTube videos: most viewed for featured, latest 4 for grid
+let mostViewedVideos = [];
+let latestVideos = [];
+try { mostViewedVideos = await getMostViewedVideos(1); } catch(e) { console.warn("YouTube most-viewed fallback"); }
+try { latestVideos = await getLatestVideos(4); } catch(e) { console.warn("YouTube latest fallback"); }
+const featuredVideo = mostViewedVideos[0] || latestVideos[0] || null;
+// Filter out the featured video from latest to avoid duplicates
+const gridVideos = latestVideos.filter(v => v.id !== featuredVideo?.id).slice(0, 4);
+
+let themes = dummyThemes;
+try {
+  const res = await contentfulClient.getEntries({ content_type: "podcastThemes" });
+  if (res.items.length > 0) {
+    themes = res.items.map(item => ({
+      title: item.fields.themeTitle,
+      description: item.fields.themeDescription,
+      background: typeof item.fields.backgroundImage === 'object' && item.fields.backgroundImage?.fields?.file?.url || "https://placehold.co/400",
+    }));
+  }
+} catch(e) {}
+---
+
+<Layout title="Home" darkHero={true}>
+
+  <!-- ======================= HERO ======================= -->
+  <section class="hero-immersive">
+    <!-- Animated background elements -->
+    <div class="hero-cosmos">
+      <div class="cosmos-gradient"></div>
+      <div class="cosmos-grid"></div>
+      <div class="cosmos-noise"></div>
+
+      <!-- Floating rings -->
+      <div class="floating-ring ring-1"></div>
+      <div class="floating-ring ring-2"></div>
+      <div class="floating-ring ring-3"></div>
+
+      <!-- Glowing orbs -->
+      <div class="glow-orb orb-purple"></div>
+      <div class="glow-orb orb-green"></div>
+      <div class="glow-orb orb-blue"></div>
+
+      <!-- Orbit lines -->
+      <div class="orbit-line orbit-1"></div>
+      <div class="orbit-line orbit-2"></div>
+
+      <!-- Logo 7-dot motifs -->
+      <div class="logo-dots logo-dots-white logo-dots-lg hero-dots hero-dots-1">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+      <div class="logo-dots logo-dots-white hero-dots hero-dots-2">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+
+      <!-- Africa continent outline (geospatial emphasis) -->
+      <div class="africa-outline">
+        <svg viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M200 20 C190 25, 175 30, 165 35 C155 40, 140 42, 130 48 C118 55, 108 62, 102 72 C96 82, 92 95, 88 108 C84 120, 78 135, 75 148 C72 160, 68 175, 66 188 C64 200, 62 215, 60 228 C58 240, 55 255, 54 268 C53 280, 52 295, 55 308 C58 320, 64 332, 72 342 C80 352, 92 360, 105 370 C118 380, 132 388, 145 395 C155 400, 168 404, 178 408 C188 412, 195 415, 198 418 C200 420, 198 422, 195 425 C192 428, 186 430, 182 435 C178 440, 175 448, 178 455 C182 462, 190 468, 200 470 C210 468, 218 462, 222 455 C225 448, 222 440, 218 435 C214 430, 208 428, 205 425 C202 422, 200 420, 202 418 C205 415, 215 410, 228 404 C240 398, 258 388, 275 375 C290 362, 302 348, 310 332 C318 316, 322 298, 324 280 C326 262, 325 242, 322 225 C319 208, 315 192, 310 178 C305 165, 298 152, 290 140 C282 128, 272 118, 262 108 C252 98, 242 90, 235 80 C228 70, 222 60, 215 50 C210 42, 205 32, 200 20Z" stroke="url(#africaGrad)" stroke-width="1" opacity="0.15"/>
+          <defs>
+            <linearGradient id="africaGrad" x1="60" y1="20" x2="325" y2="470">
+              <stop offset="0%" stop-color="#8dc63f"/>
+              <stop offset="50%" stop-color="#6c2bd9"/>
+              <stop offset="100%" stop-color="#8dc63f"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <!-- Radar ping from Nairobi -->
+        <div class="radar-ping"></div>
+        <div class="radar-ping ping-2"></div>
+        <div class="radar-dot"></div>
+      </div>
+
+      <!-- Topographic contour lines -->
+      <div class="topo-lines">
+        <svg viewBox="0 0 600 200" fill="none" preserveAspectRatio="none">
+          <path d="M0 100 Q75 60, 150 90 T300 80 T450 100 T600 70" stroke="rgba(141,198,63,0.06)" stroke-width="1" fill="none"/>
+          <path d="M0 120 Q75 80, 150 110 T300 100 T450 120 T600 90" stroke="rgba(108,43,217,0.05)" stroke-width="1" fill="none"/>
+          <path d="M0 140 Q75 100, 150 130 T300 120 T450 140 T600 110" stroke="rgba(141,198,63,0.04)" stroke-width="1" fill="none"/>
+          <path d="M0 80 Q75 40, 150 70 T300 60 T450 80 T600 50" stroke="rgba(108,43,217,0.04)" stroke-width="1" fill="none"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="hero-layout">
+      <div class="hero-text-side">
+        <div class="hero-badge">
+          <span class="badge-pulse"></span>
+          <span class="badge-label">Live on All Platforms</span>
+        </div>
+
+        <h1 class="hero-title">
+          <span class="line-1">Amplifying African</span>
+          <span class="line-2"><span class="accent">Geo-Tech</span> Stories</span>
+        </h1>
+
+        <p class="hero-description">
+          From Nairobi to Lagos, Cape Town to Accra — Geohabari is the pan-African platform for geospatial innovation, tech stories, and the brilliant minds mapping the continent's future.
+        </p>
+
+        <!-- Geo-coordinates decoration -->
+        <div class="hero-coords">
+          <span class="coord">1.2921°S</span>
+          <span class="coord-sep">/</span>
+          <span class="coord">36.8219°E</span>
+        </div>
+
+        <div class="hero-cta-group">
+          <a href="/episodes" class="cta-primary">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span>Start Listening</span>
+          </a>
+          <a href="/about" class="cta-secondary">
+            <span>Learn More</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+
+        <div class="hero-platforms">
+          <span class="platforms-label">Available on</span>
+          <div class="platforms-row">
+            {platforms.map((p) => (
+              <a href={p.url} target="_blank" class="platform-pill" title={p.name}>
+                <img src={p.icon} alt={p.name} width="24" height="24" />
+                <span>{p.name}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual-side">
+        <div class="visual-composition">
+          <!-- Africa-centered globe (NASA Blue Marble) -->
+          <div class="artwork-hero">
+            <img src="https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600&h=600&fit=crop" alt="Earth from space showing Africa" class="artwork-img globe-photo" />
+            <div class="artwork-glow"></div>
+          </div>
+
+          <!-- Floating team photos -->
+          <div class="floating-photo fp-1">
+            <img src={teamMembers[0].profile_photo} alt={teamMembers[0].name} width="80" height="80" class="fp-img" />
+          </div>
+          <div class="floating-photo fp-2">
+            <img src={teamMembers[1].profile_photo} alt={teamMembers[1].name} width="64" height="64" class="fp-img" />
+          </div>
+          <div class="floating-photo fp-3">
+            <img src={teamMembers[2].profile_photo} alt={teamMembers[2].name} width="72" height="72" class="fp-img" />
+          </div>
+
+          <!-- Floating stat cards -->
+          <div class="float-stat fs-episodes">
+            <span class="fs-number">30+</span>
+            <span class="fs-label">Episodes</span>
+          </div>
+          <div class="float-stat fs-listeners">
+            <span class="fs-number">5K+</span>
+            <span class="fs-label">Listeners</span>
+          </div>
+
+          <!-- Waveform decoration -->
+          <div class="waveform-deco">
+            <svg viewBox="0 0 120 40" fill="none">
+              <rect x="0" y="12" width="4" height="16" rx="2" fill="currentColor" opacity="0.6"/>
+              <rect x="8" y="8" width="4" height="24" rx="2" fill="currentColor" opacity="0.8"/>
+              <rect x="16" y="4" width="4" height="32" rx="2" fill="currentColor"/>
+              <rect x="24" y="10" width="4" height="20" rx="2" fill="currentColor" opacity="0.7"/>
+              <rect x="32" y="6" width="4" height="28" rx="2" fill="currentColor" opacity="0.9"/>
+              <rect x="40" y="14" width="4" height="12" rx="2" fill="currentColor" opacity="0.5"/>
+              <rect x="48" y="2" width="4" height="36" rx="2" fill="currentColor"/>
+              <rect x="56" y="10" width="4" height="20" rx="2" fill="currentColor" opacity="0.6"/>
+              <rect x="64" y="6" width="4" height="28" rx="2" fill="currentColor" opacity="0.8"/>
+              <rect x="72" y="12" width="4" height="16" rx="2" fill="currentColor" opacity="0.5"/>
+              <rect x="80" y="4" width="4" height="32" rx="2" fill="currentColor" opacity="0.9"/>
+              <rect x="88" y="8" width="4" height="24" rx="2" fill="currentColor" opacity="0.7"/>
+              <rect x="96" y="14" width="4" height="12" rx="2" fill="currentColor" opacity="0.4"/>
+              <rect x="104" y="6" width="4" height="28" rx="2" fill="currentColor" opacity="0.8"/>
+              <rect x="112" y="10" width="4" height="20" rx="2" fill="currentColor" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll indicator — dot-inspired -->
+    <div class="scroll-hint">
+      <div class="scroll-dots">
+        <div class="scroll-dot sd-1"></div>
+        <div class="scroll-dot sd-2"></div>
+        <div class="scroll-dot sd-3"></div>
+      </div>
+      <span>Scroll to explore</span>
+    </div>
+  </section>
+
+
+  <!-- ======================= STATS ======================= -->
+  <section class="stats-strip">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value"><span class="stat-number" data-count={totalEpisodes}>0</span><span class="stat-plus">+</span></div>
+        <span class="stat-label">Episodes</span>
+        <div class="stat-accent"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><span class="stat-number" data-count="5000">0</span><span class="stat-plus">+</span></div>
+        <span class="stat-label">Listeners</span>
+        <div class="stat-accent"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><span class="stat-number" data-count={totalSeasons}>0</span></div>
+        <span class="stat-label">Seasons</span>
+        <div class="stat-accent"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><span class="stat-number" data-count="7">0</span></div>
+        <span class="stat-label">Themes</span>
+        <div class="stat-accent"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><span class="stat-number" data-count="12">0</span><span class="stat-plus">+</span></div>
+        <span class="stat-label">Countries</span>
+        <div class="stat-accent"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================= THEMES ======================= -->
+  <section class="themes-section">
+    <div class="themes-header">
+      <span class="section-label">What We Talk About</span>
+      <h2>Conversations that<br/><span class="text-gradient-purple">cut across the board</span></h2>
+      <p class="themes-subtitle">Curated themes that resonate with our audience and reflect the diverse facets of the tech industry across Africa.</p>
+    </div>
+    <div class="themes-grid">
+      {themes.map(theme => (
+        <ThemeCard 
+          title={theme.title}
+          description={theme.description}
+          background={theme.background}
+        />
+      ))}
+    </div>
+  </section>
+
+
+  <!-- ======================= LATEST EPISODE ======================= -->
+  <section class="latest-section">
+    <div class="latest-inner">
+      <div class="latest-text">
+        <span class="section-label">Tune In</span>
+        <h2>New episodes<br/>every other week</h2>
+        <p>Dive into our latest conversation and catch a glimpse of what we're all about.</p>
+      </div>
+      <div class="latest-player">
+        <AudioPlayer 
+          audioUrl={latestEpisode.audio_url || ""}
+          title={latestEpisode.title || "The Space Economy Playbook"}
+          episodeNumber={latestEpisode.season_number && latestEpisode.episode_number 
+            ? `LATEST EPISODE #S${latestEpisode.season_number}E${latestEpisode.episode_number.toString().padStart(2, '0')}`
+            : "LATEST EPISODE #S3E01"
+          }
+          coverImageUrl={latestEpisode.artwork_url || "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=400&h=400&fit=crop"}
+          duration={latestEpisode.duration || 2640}
+          autoLoad={true}
+        />
+        <div class="latest-actions">
+          <a href={`/episodes#${latestEpisode.id || ''}`} class="btn secondary">Go to Episode</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================= UPCOMING EPISODE ======================= -->
+  {
+    nextEp?.fields?.releaseDate && nextEp.fields.releaseDate > today.toISOString() && (
+      <section class="nextep">
+        <div class="nextep-inner">
+          <div class="host profile">
+            <img
+              src={nextEp?.fields?.host?.fields?.file?.url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"}
+              alt="Host Image"
+              width="140"
+              height="140"
+              class="image profile"
+            />
+            <div class="info">
+              <h4 class="name">{nextEp?.fields?.host?.fields?.title || "Yariwo Kitiyo"}</h4>
+              <h5 class="title">Host</h5>
+            </div>
+          </div>
+          <div class="nextep_details">
+            <span class="nextep_badge">UP NEXT</span>
+            <h3 class="nextep_title">{nextEp.fields.episodeTitle}</h3>
+            <p class="nextep_date">Releasing on: {releaseDate}</p>
+          </div>
+          <div class="nextep_guests">
+            {nextEp?.fields?.guests?.map(guest => (
+              <div class="guest profile">
+                <img
+                  src={guest.fields.file.url}          
+                  alt="Guest Image"
+                  width="100"
+                  height="100"
+                  class="image"
+                />
+                <div class="info">
+                  <h4 class="name">{guest.fields.title}</h4>
+                  <h5 class="title">Guest</h5>
+                </div>
+              </div>
+            ))}      
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+
+  <!-- ======================= RECENT EPISODES ======================= -->
+  <section class="episodes-showcase">
+    <div class="episodes-header">
+      <span class="section-label">Latest Content</span>
+      <h2>Recent <span class="text-gradient-purple">Episodes</span></h2>
+      <p>Dive into our latest conversations with industry leaders, innovators, and creative minds.</p>
+    </div>
+
+    <div class="episodes-carousel">
+      <div class="episodes-track" id="ep-track">
+        {recentEps.map((episode, i) => (
+          <a href={`/episodes#${episode.id}`} class="ep-card">
+            <div class="ep-card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </div>
+            <div class="ep-card-info">
+              <span class="ep-card-tag">S{episode.season_number}E{String(episode.episode_number).padStart(2,'0')}</span>
+              <h4 class="ep-card-title">{episode.title}</h4>
+              <span class="ep-card-duration">{Math.floor((episode.duration || 0) / 60)} min</span>
+            </div>
+            <div class="ep-card-play">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+          </a>
+        ))}
+      </div>
+      <div class="episodes-nav">
+        <button id="ep-prev" class="ep-nav-btn" aria-label="Previous">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+        </button>
+        <button id="ep-next" class="ep-nav-btn" aria-label="Next">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================= YOUTUBE ======================= -->
+  <section class="youtube-section">
+    <div class="youtube-cosmos">
+      <div class="yt-glow yt-glow-1"></div>
+      <div class="yt-glow yt-glow-2"></div>
+      <div class="yt-ring"></div>
+      <div class="logo-dots logo-dots-white logo-dots-lg" style="position:absolute;top:8%;right:6%;opacity:0.06;">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+    </div>
+    <div class="youtube-inner">
+      <div class="youtube-header">
+        <span class="section-label" style="color: rgba(255,255,255,0.6);">Now on YouTube</span>
+        <h2>Watch us <span class="accent-text">in action</span></h2>
+        <p>We're bringing our conversations to life on video. Subscribe to our YouTube channel for exclusive content, behind-the-scenes footage, and visual storytelling.</p>
+      </div>
+      <div class="youtube-grid">
+        {featuredVideo && (
+          <a href={featuredVideo.url} target="_blank" class="yt-card yt-card-featured">
+            <div class="yt-card-thumb">
+              <img src={featuredVideo.thumbnail} alt={featuredVideo.title} loading="lazy" />
+              <div class="yt-card-overlay">
+                <div class="yt-play-btn">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+              </div>
+              <span class="yt-badge">Most Viewed</span>
+              {featuredVideo.duration && <span class="yt-duration">{featuredVideo.duration}</span>}
+            </div>
+            <div class="yt-card-info">
+              <h4>{featuredVideo.title}</h4>
+              {featuredVideo.description && <p>{featuredVideo.description.slice(0, 120)}{featuredVideo.description.length > 120 ? '...' : ''}</p>}
+              <div class="yt-card-meta">
+                {featuredVideo.viewCount > 0 && <span class="yt-views">{formatViewCount(featuredVideo.viewCount)} views</span>}
+                <span class="yt-channel-tag">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  @GeohabariPod
+                </span>
+              </div>
+            </div>
+          </a>
+        )}
+        {gridVideos.map((video) => (
+          <a href={video.url} target="_blank" class="yt-card">
+            <div class="yt-card-thumb">
+              <img src={video.thumbnailMedium || video.thumbnail} alt={video.title} loading="lazy" />
+              <div class="yt-card-overlay">
+                <div class="yt-play-btn">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+              </div>
+              {video.duration && <span class="yt-duration">{video.duration}</span>}
+            </div>
+            <div class="yt-card-info">
+              <h4>{video.title}</h4>
+              <div class="yt-card-meta">
+                {video.viewCount > 0 && <span class="yt-views">{formatViewCount(video.viewCount)} views</span>}
+                <span class="yt-channel-tag">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                  Watch Now
+                </span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+      <div class="youtube-cta">
+        <a href="https://www.youtube.com/@GeohabariPod" target="_blank" class="yt-subscribe-btn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <span>Subscribe on YouTube</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ======================= QUOTES ======================= -->
+  <section class="quotes-section">
+    <div class="quotes-header">
+      <span class="section-label">Words That Inspire</span>
+      <h2>From our <span class="text-gradient-purple">conversations</span></h2>
+    </div>
+    <div class="quotes-carousel">
+      <div class="nav_button prev" id="prevBtn"><RightArrow/></div>
+      <div class="carousel-wrapper">
+        <div class="contaier-quotes" id="carouselTrack">
+          {quoteCards.items.map(item => (
+            <img
+              src={item.fields.quoteCard?.fields?.file?.url ?? 'https://placehold.co/400'}
+              alt={item.fields.quoteCard?.fields?.title ?? 'Quote Card'}
+              width="400"
+              height="400"
+              class="quote_image"
+            />
+          ))}
+        </div>
+      </div>
+      <div class="nav_button next" id="nextBtn"><RightArrow/></div>
+    </div>
+  </section>
+
+
+  <!-- ======================= NEWSLETTER ======================= -->
+  <section class="newsletter-immersive">
+    <div class="newsletter-cosmos">
+      <div class="nl-glow nl-glow-1"></div>
+      <div class="nl-glow nl-glow-2"></div>
+      <div class="nl-ring nl-ring-1"></div>
+      <div class="logo-dots logo-dots-white logo-dots-xl" style="position:absolute;top:10%;left:5%;opacity:0.06;">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+      <div class="logo-dots logo-dots-white" style="position:absolute;bottom:15%;right:8%;opacity:0.08;">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+    </div>
+    <div class="newsletter-layout">
+      <div class="newsletter-pitch">
+        <span class="section-label" style="color: rgba(255,255,255,0.6);">Join Our Community</span>
+        <h2>We're building<br/>something <span class="accent-text">bigger</span></h2>
+        <p>Join thousands of African tech enthusiasts, geospatial professionals, and curious minds. Get updates on new episodes, exclusive content, and community events.</p>
+        <div class="nl-platforms">
+          <span class="nl-platforms-label">Available on</span>
+          <div class="nl-platform-icons">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          </div>
+        </div>
+      </div>
+      <form method="POST" class="newsletter-card" name="subscription">
+        <h3>Stay in the loop</h3>
+        <p class="nl-card-sub">Get notified when new episodes drop.</p>
+        <div class="nl-field">
+          <input type="text" id="name" placeholder="Your name" class="name_input" required />
+        </div>
+        <div class="nl-field">
+          <input type="email" id="email" placeholder="your@email.com" class="email_input" required />
+        </div>
+        <button id="submitBtn" class="nl-submit" type="submit" disabled>Subscribe</button>
+        <p class="nl-privacy">No spam. Unsubscribe anytime.</p>
+      </form>
+    </div>
+  </section>
+
+</Layout>
+
+
+<script>
+  import { navigate } from "astro:transitions/client";
+  import { initializeAllCarousels } from "../utils/carousel.js"
+  import { gsap } from "gsap";
+  import { ScrollTrigger, SplitText, Observer } from "gsap/all";
+  gsap.registerPlugin(ScrollTrigger, SplitText, Observer);
+  initializeAllCarousels();
+
+  document.addEventListener("DOMContentLoaded", () => {
+
+    // ===== HERO ANIMATIONS (delayed for loader) =====
+    const heroDelay = 1.4;
+    const tl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: heroDelay });
+
+    tl.from(".hero-badge", { y: 30, opacity: 0, duration: 0.8 })
+      .from(".hero-title .line-1", { y: 80, opacity: 0, duration: 1, rotateX: 40 }, "<0.1")
+      .from(".hero-title .line-2", { y: 80, opacity: 0, duration: 1, rotateX: 40 }, "<0.12")
+      .from(".hero-description", { y: 30, opacity: 0, duration: 0.8 }, "<0.2")
+      .from(".hero-coords", { y: 10, opacity: 0, duration: 0.6 }, "<0.1")
+      .from(".hero-cta-group", { y: 30, opacity: 0, duration: 0.8 }, "<0.15")
+      .from(".hero-platforms", { y: 20, opacity: 0, duration: 0.6 }, "<0.15")
+      .from(".artwork-hero", { scale: 0.8, opacity: 0, duration: 1.2, ease: "back.out(1.4)" }, "<0.1")
+      .from(".africa-outline", { scale: 0.8, opacity: 0, duration: 1.5, ease: "power3.out" }, "<0.2")
+      .from(".floating-photo", { scale: 0, opacity: 0, stagger: 0.1, duration: 0.6, ease: "back.out(2)" }, "<0.3")
+      .from(".float-stat", { y: 20, opacity: 0, stagger: 0.15, duration: 0.6 }, "<0.2")
+      .from(".waveform-deco", { scaleX: 0, opacity: 0, duration: 0.8 }, "<0.2")
+      .from(".scroll-hint", { y: 20, opacity: 0, duration: 0.6 }, "<0.3");
+
+    // Floating animation for photos
+    gsap.to(".fp-1", { y: -15, duration: 3, repeat: -1, yoyo: true, ease: "sine.inOut" });
+    gsap.to(".fp-2", { y: 12, duration: 2.5, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 0.5 });
+    gsap.to(".fp-3", { y: -10, duration: 3.5, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 1 });
+    gsap.to(".fs-episodes", { y: -8, duration: 2.8, repeat: -1, yoyo: true, ease: "sine.inOut" });
+    gsap.to(".fs-listeners", { y: 10, duration: 3.2, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 0.7 });
+
+    // Waveform bars animation
+    gsap.to(".waveform-deco rect", {
+      scaleY: () => 0.4 + Math.random() * 0.6,
+      duration: 0.4,
+      repeat: -1,
+      yoyo: true,
+      ease: "sine.inOut",
+      stagger: { each: 0.05, from: "center" },
+      transformOrigin: "center center"
+    });
+
+
+    // ===== MOUSE PARALLAX ON HERO =====
+    const heroSection = document.querySelector(".hero-immersive");
+    if (heroSection && window.matchMedia("(pointer: fine)").matches) {
+      heroSection.addEventListener("mousemove", (e) => {
+        const rect = heroSection.getBoundingClientRect();
+        const cx = (e.clientX - rect.left) / rect.width - 0.5;
+        const cy = (e.clientY - rect.top) / rect.height - 0.5;
+
+        gsap.to(".floating-ring", { x: cx * 30, y: cy * 20, duration: 1.2, ease: "power2.out" });
+        gsap.to(".glow-orb", { x: cx * -20, y: cy * -15, duration: 1.5, ease: "power2.out" });
+        gsap.to(".artwork-hero", { x: cx * 12, y: cy * 8, duration: 1, ease: "power2.out" });
+        gsap.to(".floating-photo", { x: cx * -18, y: cy * -12, duration: 1.2, ease: "power2.out" });
+        gsap.to(".float-stat", { x: cx * 15, y: cy * 10, duration: 1, ease: "power2.out" });
+        gsap.to(".africa-outline", { x: cx * 10, y: cy * 6, duration: 1.5, ease: "power2.out" });
+      });
+    }
+
+
+    // ===== MAGNETIC BUTTONS =====
+    document.querySelectorAll(".cta-primary, .cta-secondary, .nav-cta").forEach(btn => {
+      if (!window.matchMedia("(pointer: fine)").matches) return;
+      btn.addEventListener("mousemove", (e) => {
+        const rect = btn.getBoundingClientRect();
+        const bx = e.clientX - rect.left - rect.width / 2;
+        const by = e.clientY - rect.top - rect.height / 2;
+        gsap.to(btn, { x: bx * 0.25, y: by * 0.25, duration: 0.3, ease: "power2.out" });
+      });
+      btn.addEventListener("mouseleave", () => {
+        gsap.to(btn, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.4)" });
+      });
+    });
+
+
+    // ===== STATS COUNTER (no scroll trigger — immediate when visible) =====
+    document.querySelectorAll(".stat-number").forEach(el => {
+      const target = parseInt(el.dataset.count);
+      el.textContent = String(target);
+    });
+
+
+    // ===== THEME CARD HOVER =====
+    gsap.utils.toArray(".card-theme").forEach((card) => {
+      if (!card) return;
+      let imgbg = card.querySelector(".bg-image");
+      Observer.create({
+        target: card,
+        type: "pointer",
+        onHover: () => {
+          gsap.to(card, { scale: 1.04, ease: "power2.out", duration: 0.3 });
+          gsap.to(imgbg, { filter: "blur(4px) brightness(0.5)" });
+        },
+        onHoverEnd: () => {
+          gsap.to(card, { scale: 1, ease: "power2.out", duration: 0.3 });
+          gsap.to(imgbg, { filter: "blur(0px) brightness(1)" });
+        }
+      });
+    });
+
+
+    // ===== EPISODE CAROUSEL =====
+    const track = document.getElementById("ep-track");
+    const prevBtn = document.getElementById("ep-prev");
+    const nextBtn = document.getElementById("ep-next");
+    let epIndex = 0;
+    const cards = track?.querySelectorAll(".ep-card");
+    const total = cards?.length || 0;
+
+    function scrollEp(dir) {
+      if (!track || !cards?.length) return;
+      epIndex = Math.max(0, Math.min(epIndex + dir, total - 1));
+      const card = cards[epIndex];
+      track.scrollTo({ left: card.offsetLeft - 20, behavior: "smooth" });
+    }
+    prevBtn?.addEventListener("click", () => scrollEp(-1));
+    nextBtn?.addEventListener("click", () => scrollEp(1));
+
+
+    // ===== SECTION REVEAL ANIMATIONS (staggered children) =====
+    // ===== YOUTUBE SECTION ANIMATIONS =====
+    gsap.from(".youtube-header", {
+      scrollTrigger: { trigger: ".youtube-section", start: "top 80%", once: true },
+      y: 50, opacity: 0, duration: 0.9, ease: "power3.out"
+    });
+    gsap.utils.toArray(".yt-card").forEach((card, i) => {
+      gsap.from(card, {
+        scrollTrigger: { trigger: card, start: "top 90%", once: true },
+        y: 60, opacity: 0, scale: 0.92, duration: 0.7, delay: i * 0.12, ease: "back.out(1.2)"
+      });
+    });
+    gsap.from(".yt-subscribe-btn", {
+      scrollTrigger: { trigger: ".youtube-cta", start: "top 90%", once: true },
+      y: 30, opacity: 0, duration: 0.6, ease: "power2.out"
+    });
+
+
+    gsap.utils.toArray(".section-label, .themes-header, .episodes-header, .latest-text, .newsletter-pitch").forEach(el => {
+      gsap.from(el, {
+        scrollTrigger: { trigger: el, start: "top 88%", once: true },
+        y: 50, opacity: 0, duration: 0.9, ease: "power3.out"
+      });
+    });
+
+    gsap.utils.toArray(".card-theme").forEach((card, i) => {
+      gsap.from(card, {
+        scrollTrigger: { trigger: card, start: "top 90%", once: true },
+        y: 60, opacity: 0, scale: 0.92, duration: 0.7, delay: i * 0.08, ease: "back.out(1.2)"
+      });
+    });
+
+    gsap.utils.toArray(".ep-card").forEach((card, i) => {
+      gsap.from(card, {
+        scrollTrigger: { trigger: card, start: "top 90%", once: true },
+        y: 40, opacity: 0, duration: 0.6, delay: i * 0.1, ease: "power2.out"
+      });
+    });
+
+    gsap.utils.toArray("section:not(.hero-immersive):not(.themes-section):not(.episodes-showcase):not(.stats-strip)").forEach(section => {
+      gsap.from(section, {
+        scrollTrigger: { trigger: section, start: "top 85%", once: true },
+        y: 40, opacity: 0, duration: 0.8, ease: "power2.out"
+      });
+    });
+
+
+    // ===== NEWSLETTER FORM =====
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxIuL6LcFNe55Izy0n9aL1cA85_pYm6lSMEtS5QZJkZMZk2yJUmpHBlat3RRsl66d7W/exec';
+    const form = document.forms['subscription'];
+    const field_name = document.querySelector("input#name");
+    const field_email = document.querySelector("input#email");
+    const submitBtn = document.querySelector("#submitBtn");
+
+    const validateForm = () => {
+      if (!submitBtn || !field_name || !field_email) return;
+      submitBtn.disabled = !(field_name.value.trim() && field_email.value.trim());
+    };
+    field_name?.addEventListener('input', validateForm);
+    field_email?.addEventListener('input', validateForm);
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending...";
+      const formData = new FormData();
+      formData.append("name", field_name.value);
+      formData.append("email", field_email.value);
+      fetch(scriptURL, { method: 'POST', body: formData })
+        .then(() => {
+          field_name.value = '';
+          field_email.value = '';
+          submitBtn.textContent = "Subscribe";
+          submitBtn.disabled = true;
+          alert("Welcome to Geohabari! Subscription successful.");
+        })
+        .catch(() => {
+          submitBtn.textContent = "Subscribe";
+          submitBtn.disabled = false;
+          alert("An error occurred. Please try again.");
+        });
+    });
+
+    // CTA navigation
+    document.querySelector(".cta-primary")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/episodes");
+    });
+  });
+</script>

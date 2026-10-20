@@ -1,0 +1,520 @@
+---
+import { MenuIcon, CloseIcon } from "./Icons";
+import LogoImage from "../images/logo/geopod-dark.svg";
+import LogoLight from "../images/logo/geopod-green.svg";
+import Button from "./Button.astro";
+import Link from "./Link.astro";
+
+interface Props {
+  darkHero?: boolean;
+}
+
+const { darkHero = false } = Astro.props;
+const currentPath = Astro.url.pathname;
+
+function isActive(href: string): boolean {
+  if (href === "/") return currentPath === "/";
+  return currentPath.startsWith(href);
+}
+---
+
+<script>
+  import { navigate } from "astro:transitions/client";
+  const menuicon = document.querySelector("div.icon_menu");
+  const closeicon = document.querySelector("div.close_icon");
+  const toEpisode = document.querySelector("#to_episodes");
+  const drawer = document.querySelector(".drawer");
+
+  menuicon?.addEventListener("click", () => {
+    drawer?.classList.replace("closed", "open");
+    document.body.style.overflow = "hidden";
+  });
+
+  closeicon?.addEventListener("click", () => {
+    drawer?.classList.replace("open", "closed");
+    document.body.style.overflow = "";
+  });
+
+  toEpisode?.addEventListener("click", () => {
+    drawer?.classList.replace("open", "closed");
+    document.body.style.overflow = "";
+    navigate("/episodes");
+  });
+
+  // Close drawer on link click
+  document.querySelectorAll(".drawer_nav a").forEach((link) => {
+    link.addEventListener("click", () => {
+      drawer?.classList.replace("open", "closed");
+      document.body.style.overflow = "";
+    });
+  });
+
+  import gsap from "gsap";
+  import { ScrollTrigger } from "gsap/all";
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Scroll progress bar
+  const progressBar = document.getElementById("scrollProgress");
+  if (progressBar) {
+    window.addEventListener(
+      "scroll",
+      () => {
+        const h = document.documentElement.scrollHeight - window.innerHeight;
+        progressBar.style.width =
+          h > 0 ? `${(window.scrollY / h) * 100}%` : "0%";
+      },
+      { passive: true },
+    );
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    ScrollTrigger.create({
+      trigger: "header",
+      start: "top top",
+      end: "bottom top",
+      onLeave: () => {
+        const header = document.querySelector("header");
+        header?.classList.toggle("floating", true);
+
+        gsap.fromTo(
+          header,
+          { y: -100, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" },
+        );
+      },
+      onEnterBack: () => {
+        const header = document.querySelector("header");
+        gsap.to(header, {
+          y: -100,
+          opacity: 0,
+          duration: 0.3,
+          ease: "power2.in",
+          onComplete: () => {
+            header?.classList.remove("floating");
+            gsap.fromTo(
+              header,
+              { y: -50, opacity: 0.8 },
+              { y: 0, opacity: 1, duration: 0.3, ease: "power2.out" },
+            );
+          },
+        });
+      },
+      onRefresh: ({ progress, isActive }) => {
+        const header = document.querySelector("header");
+        header?.classList.toggle("floating", isActive);
+        header?.classList.toggle("floating", progress > 0.1);
+
+        gsap.fromTo(
+          header,
+          {
+            y: isActive ? -50 : 0,
+            opacity: isActive ? 0.8 : 1,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.3,
+            delay: 0.5,
+            ease: "power2.out",
+          },
+        );
+      },
+    });
+  });
+</script>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+<header class={darkHero ? "header-transparent" : ""}>
+  <a href="/" class="container_logo">
+    <LogoImage class="logo-vector logo-dark" width={140} height={48} />
+    <LogoLight class="logo-vector logo-light" width={140} height={48} />
+  </a>
+  <nav class="container_nav">
+    <a class={`nav-link ${isActive("/") ? "active" : ""}`} href="/">Home</a>
+    <a class={`nav-link ${isActive("/about") ? "active" : ""}`} href="/about"
+      >About</a
+    >
+    <a class={`nav-link ${isActive("/events") ? "active" : ""}`} href="/events"
+      >Events</a
+    >
+    <a
+      class={`nav-link ${isActive("/contact") ? "active" : ""}`}
+      href="/contact">Contact</a
+    >
+    <a
+      class={`nav-cta ${isActive("/episodes") ? "active" : ""}`}
+      href="/episodes">Episodes</a
+    >
+  </nav>
+  <div class="icon_menu">
+    <MenuIcon />
+  </div>
+</header>
+
+<div class="drawer closed">
+  <div class="drawer_backdrop"></div>
+  <div class="drawer_panel">
+    <div class="drawer_header">
+      <LogoLight class="logo-vector" width={130} height={44} />
+      <div class="close_icon">
+        <CloseIcon />
+      </div>
+    </div>
+    <nav class="drawer_nav">
+      <a class={`drawer-link ${isActive("/") ? "active" : ""}`} href="/">Home</a
+      >
+      <a
+        class={`drawer-link ${isActive("/about") ? "active" : ""}`}
+        href="/about">About</a
+      >
+      <a
+        class={`drawer-link ${isActive("/events") ? "active" : ""}`}
+        href="/events">Events</a
+      >
+      <a
+        class={`drawer-link ${isActive("/contact") ? "active" : ""}`}
+        href="/contact">Contact</a
+      >
+      <a class="drawer-cta" href="/episodes">Listen to Episodes</a>
+    </nav>
+    <div class="drawer_footer">
+      <p>Amplifying African Tech Stories</p>
+    </div>
+  </div>
+</div>
+
+<style lang="scss">
+  @use "../styles/partials/combined.scss" as *;
+
+  header {
+    @include flexbox(row, space-between, center);
+    padding: $spacing-4 $spacing-7;
+    z-index: 1000;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: all $transition-base;
+
+    // Start transparent for dark hero pages
+    &.header-transparent {
+      .logo-dark {
+        display: none;
+      }
+      .logo-light {
+        display: block;
+      }
+
+      .container_nav .nav-link {
+        color: #ffffff;
+        &::after {
+          background: linear-gradient(135deg, $green, #a3e635);
+        }
+        &:hover {
+          color: $white-pure;
+        }
+        &.active {
+          color: $white-pure;
+          &::after {
+            background: $green;
+          }
+        }
+      }
+
+      .icon_menu {
+        color: $white-pure;
+      }
+    }
+
+    .logo-light {
+      display: none;
+    }
+
+    &.floating {
+      position: fixed;
+      top: $spacing-3;
+      left: 0;
+      right: 0;
+      margin-left: auto;
+      margin-right: auto;
+      width: min(90%, 1200px);
+      border-radius: $radius-xl;
+      @include glass(0.88, 24px);
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.08);
+      padding: $spacing-3 $spacing-5;
+
+      // When floating, always use dark logo + dark text
+      &.header-transparent {
+        .logo-dark {
+          display: block;
+        }
+        .logo-light {
+          display: none;
+        }
+
+        .container_nav .nav-link {
+          color: $black;
+          &::after {
+            background: $gradient-accent;
+          }
+          &:hover {
+            color: $purple;
+          }
+          &.active {
+            color: $purple;
+            &::after {
+              background: $purple;
+            }
+          }
+        }
+        .icon_menu {
+          color: $black;
+        }
+      }
+    }
+
+    .container_logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform $transition-fast;
+      z-index: 2;
+
+      &:hover {
+        transform: scale(1.03);
+      }
+
+      .logo-vector {
+        height: 48px;
+        width: auto;
+      }
+    }
+
+    .container_nav {
+      @include flexbox(row, flex-end, center);
+      gap: $spacing-5;
+
+      .nav-link {
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: $black;
+        position: relative;
+        transition: color $transition-base;
+        padding: $spacing-1 $spacing-2;
+        letter-spacing: 0.01em;
+
+        &::after {
+          content: "";
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          width: 0;
+          height: 2px;
+          background: $gradient-accent;
+          transform: translateX(-50%);
+          transition: width $transition-base;
+          border-radius: 2px;
+        }
+
+        &:hover {
+          color: $purple;
+          &::after {
+            width: 100%;
+          }
+        }
+
+        &.active {
+          color: $purple;
+          font-weight: 600;
+          &::after {
+            width: 100%;
+            background: $purple;
+          }
+        }
+      }
+
+      .nav-cta {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: $white-pure;
+        background: $gradient-purple;
+        padding: $spacing-2 $spacing-5;
+        border-radius: $radius-full;
+        transition: all $transition-base;
+        box-shadow: 0 4px 15px rgba(108, 43, 217, 0.25);
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(108, 43, 217, 0.4);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
+
+    .icon_menu {
+      display: none;
+      cursor: pointer;
+      transition: transform $transition-fast;
+      z-index: 2;
+      padding: $spacing-2;
+      border-radius: $radius-md;
+
+      &:hover {
+        transform: scale(1.1);
+        background: rgba(0, 0, 0, 0.05);
+      }
+
+      @include media(md) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+
+    @include media(md) {
+      padding: $spacing-3 $spacing-4;
+
+      .container_nav {
+        display: none;
+      }
+    }
+  }
+
+  // ==============================
+  // Mobile Drawer
+  // ==============================
+
+  .drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    pointer-events: none;
+
+    &.open {
+      pointer-events: all;
+
+      .drawer_backdrop {
+        opacity: 1;
+      }
+
+      .drawer_panel {
+        transform: translateX(0);
+      }
+    }
+
+    .drawer_backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(11, 13, 23, 0.6);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .drawer_panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(85vw, 380px);
+      height: 100vh;
+      background: $black-deep;
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      @include flexbox(column, flex-start, stretch);
+      overflow-y: auto;
+    }
+
+    .drawer_header {
+      @include flexbox(row, space-between, center);
+      padding: $spacing-5;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .close_icon {
+      cursor: pointer;
+      padding: $spacing-2;
+      border-radius: $radius-md;
+      transition: all $transition-base;
+      color: $white;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: rotate(90deg);
+      }
+    }
+
+    .drawer_nav {
+      @include flexbox(column, flex-start, stretch);
+      padding: $spacing-5;
+      gap: $spacing-1;
+      flex: 1;
+
+      .drawer-link {
+        color: rgba(255, 255, 255, 0.7);
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 500;
+        font-size: 1.1rem;
+        padding: $spacing-3 $spacing-4;
+        border-radius: $radius-md;
+        transition: all $transition-base;
+        position: relative;
+
+        &:hover {
+          color: $white-pure;
+          background: rgba(255, 255, 255, 0.05);
+          transform: translateX(8px);
+        }
+
+        &.active {
+          color: $white-pure;
+          font-weight: 600;
+          background: rgba(108, 43, 217, 0.12);
+          border-left: 3px solid $purple;
+        }
+      }
+
+      .drawer-cta {
+        margin-top: $spacing-4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 0.95rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: $white-pure;
+        background: $gradient-purple;
+        padding: $spacing-4;
+        border-radius: $radius-md;
+        transition: all $transition-base;
+
+        &:hover {
+          box-shadow: 0 8px 25px rgba(108, 43, 217, 0.4);
+          transform: translateY(-2px);
+        }
+      }
+    }
+
+    .drawer_footer {
+      padding: $spacing-5;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+      p {
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 0.8rem;
+        font-style: italic;
+        text-align: center;
+      }
+    }
+  }
+</style>

@@ -1,0 +1,411 @@
+---
+import Layout from "../layout/Layout.astro"
+import AudioPlayer from "../components/AudioPlayer.astro"
+import "../styles/episodes.scss";
+import { getAllEpisodes, getSeasonList } from "../utils/buzzsprout";
+import { dummySegments } from "../data/dummy.js";
+import platforms from "../data/platforms.json"
+
+const url = new URL(Astro.request.url);
+const tagParam = url.searchParams.get('tag');
+const seasonParam = url.searchParams.get('season');
+const segmentParam = url.searchParams.get('segment');
+
+const seasons = await getSeasonList();
+const episodes = await getAllEpisodes();
+
+const episodesBySeason = {};
+episodes?.forEach(ep => {
+  const seasonNum = ep.season_number || ep.season || 1;
+  if (!episodesBySeason[seasonNum]) episodesBySeason[seasonNum] = [];
+  episodesBySeason[seasonNum].push({ ...ep, season: seasonNum, episodeNumber: ep.episode_number || ep.episodeNumber || ep.number });
+});
+
+Object.keys(episodesBySeason).forEach(season => {
+  episodesBySeason[season].sort((a, b) => (b.episodeNumber || 0) - (a.episodeNumber || 0));
+});
+
+const allTags = new Set();
+episodes?.forEach(ep => { if (ep.tags) ep.tags.split(',').forEach(tag => allTags.add(tag.trim().toLowerCase())); });
+
+const availableSeasons = seasons.sort((a, b) => (b.season || b.season_number) - (a.season || a.season_number));
+const defaultSeason = seasonParam ? parseInt(seasonParam) : (availableSeasons[0]?.season || availableSeasons[0]?.season_number || 1);
+
+const firstSeasonEpisodes = episodesBySeason[defaultSeason] || [];
+const initialEpisode = firstSeasonEpisodes[0];
+const segments = dummySegments;
+---
+
+<Layout title="Episodes" darkHero={true}>
+  <!-- ======================= DARK HERO ======================= -->
+  <section class="ep-hero-immersive">
+    <div class="ep-hero-cosmos">
+      <div class="ep-cosmos-gradient"></div>
+      <div class="ep-cosmos-grid"></div>
+      <div class="ep-glow-orb ep-orb-purple"></div>
+      <div class="ep-glow-orb ep-orb-green"></div>
+      <div class="ep-floating-ring ep-ring-1"></div>
+      <div class="ep-floating-ring ep-ring-2"></div>
+      <div class="logo-dots logo-dots-white logo-dots-lg" style="position:absolute;top:12%;right:8%;opacity:0.06;">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+      <div class="logo-dots logo-dots-white" style="position:absolute;bottom:15%;left:5%;opacity:0.04;">
+        <div class="ld"></div><div class="ld"></div><div class="ld-empty"></div>
+        <div class="ld"></div><div class="ld"></div><div class="ld"></div>
+        <div class="ld-empty"></div><div class="ld"></div><div class="ld"></div>
+      </div>
+    </div>
+    <div class="ep-hero-content">
+      <div class="ep-hero-badge">
+        <span class="badge-pulse"></span>
+        <span class="badge-label">Podcast Library</span>
+      </div>
+      <h1 class="ep-hero-title">
+        <span class="ep-line-1">Stories from the</span>
+        <span class="ep-line-2"><span class="ep-accent">Geospatial Frontier</span></span>
+      </h1>
+      <p class="ep-hero-description">From satellite tech to community mapping, every episode unpacks the people and ideas shaping Africa's geospatial future. Browse by series, season, or topic.</p>
+      <div class="ep-hero-stats">
+        <div class="ep-stat">
+          <span class="ep-stat-number">{episodes?.length || 0}</span>
+          <span class="ep-stat-label">Episodes</span>
+        </div>
+        <div class="ep-stat-divider"></div>
+        <div class="ep-stat">
+          <span class="ep-stat-number">{availableSeasons.length}</span>
+          <span class="ep-stat-label">Seasons</span>
+        </div>
+        <div class="ep-stat-divider"></div>
+        <div class="ep-stat">
+          <span class="ep-stat-number">{segments.length}</span>
+          <span class="ep-stat-label">Series</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SEGMENTS ======================= -->
+  <section class="ep-segments">
+    <div class="segments-inner">
+      <div class="segments-header">
+        <span class="section-label">Browse by Series</span>
+        <h2>Our Series & Segments</h2>
+        <p class="segments-subtitle">Each series dives deep into a different corner of the geospatial and tech world.</p>
+      </div>
+      <div class="segment-cards">
+        {segments.map(seg => (
+          <button class={`segment-card ${segmentParam === seg.slug ? 'active' : ''}`} data-segment={seg.slug}>
+            <div class="seg-icon" style={`--seg-color: ${seg.color || '#6C2BD9'}`}>
+              {seg.icon === 'users' && (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              )}
+              {seg.icon === 'satellite' && (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="8" stroke-dasharray="4 4"/></svg>
+              )}
+              {seg.icon === 'layers' && (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+              )}
+            </div>
+            <div class="seg-text">
+              <span class="seg-name">{seg.name}</span>
+              <span class="seg-desc">{seg.description}</span>
+            </div>
+            <span class="seg-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= MAIN CONTENT ======================= -->
+  <section class="ep-main-content">
+    <div class="ep-main-inner">
+      <!-- LEFT: Episode browser -->
+      <div class="ep-browser">
+        <div class="ep-browser-controls">
+          <div class="ep-list-header">
+            <h3>Browse Episodes</h3>
+            <p class="ep-list-count" id="ep-count-display">{firstSeasonEpisodes.length} episodes</p>
+          </div>
+          <div class="seasons-tab">
+            {availableSeasons.map((season, index) => {
+              const seasonNum = season.season || season.season_number;
+              const isActive = seasonParam ? seasonNum === defaultSeason : index === 0;
+              return (
+                <div class={`season ${isActive ? 'active' : ''}`} data-season={seasonNum}>
+                  <h5>SEASON {seasonNum}</h5>
+                </div>
+              );
+            })}
+          </div>
+          <div class="ep-filter">
+            <div class="tag-pills" id="tag-pills-container">
+              <button class={`tag-pill ${!tagParam ? 'active' : ''}`} data-tag="all">All Topics</button>
+              {Array.from(allTags).sort().map(tag => (
+                <button class={`tag-pill ${tagParam === tag ? 'active' : ''}`} data-tag={tag}>
+                  {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <ul id="episodes-list-container" class="ep-list"></ul>
+      </div>
+
+      <!-- RIGHT: Now Playing -->
+      <div class="ep-now-playing">
+        <div class="ep-now-playing-sticky">
+          <div class="ep-now-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            <span>Now Playing</span>
+          </div>
+          <AudioPlayer 
+            audioUrl={initialEpisode?.audio_url}
+            title={initialEpisode?.title}
+            episodeNumber={initialEpisode ? `S${initialEpisode.season}E${initialEpisode.episodeNumber}` : undefined}
+            coverImageUrl={initialEpisode?.artwork_url}
+            duration={initialEpisode?.duration}
+            autoLoad={false}
+          />
+          <div class="ep-descr">
+            <p id="current-episode-description"></p>
+          </div>
+          <div class="ep-streaming">
+            <span class="streaming-label">Also available on</span>
+            <div class="streaming-icons">
+              {platforms.map((platform) => (
+                <a href={platform.url} class="streaming-platform" target="_blank" rel="noopener noreferrer">
+                  <img src={platform.icon} alt={platform.name} width={40} height={40} />
+                  <span>{platform.name}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script define:vars={{ episodesBySeason, defaultSeason, episodes, tagParam, seasonParam, segments }} type="module">
+  function getUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return { tag: urlParams.get('tag'), season: urlParams.get('season'), segment: urlParams.get('segment') };
+  }
+
+  function updateUrl(tag, season, segment) {
+    const url = new URL(window.location);
+    if (tag && tag !== 'all') url.searchParams.set('tag', tag); else url.searchParams.delete('tag');
+    if (season && season !== defaultSeason) url.searchParams.set('season', season); else url.searchParams.delete('season');
+    if (segment) url.searchParams.set('segment', segment); else url.searchParams.delete('segment');
+    history.replaceState(null, '', url.toString());
+  }
+
+  function updateTagPillsState(selectedTag) {
+    document.querySelectorAll('.tag-pill').forEach(pill => {
+      pill.classList.toggle('active', pill.getAttribute('data-tag') === selectedTag);
+    });
+  }
+
+  let activeSegment = null;
+
+  function createEpisodesList(episodes, selectedTag = 'all') {
+    const episodeContainer = document.getElementById('episodes-list-container');
+    if (!episodeContainer) return;
+    episodeContainer.innerHTML = '';
+
+    if (!episodes || episodes.length === 0) {
+      episodeContainer.innerHTML = '<li class="no-episodes">No episodes found for this season.</li>';
+      return;
+    }
+
+    let filteredEpisodes = episodes;
+    if (selectedTag !== 'all') {
+      filteredEpisodes = episodes.filter(episode => {
+        const tags = episode.tags ? episode.tags.toLowerCase().split(',').map(tag => tag.trim()) : [];
+        return tags.includes(selectedTag);
+      });
+    }
+
+    if (activeSegment) {
+      const seg = segments.find(s => s.slug === activeSegment);
+      const matchTags = seg?.matchTags || [];
+      filteredEpisodes = filteredEpisodes.filter(ep => {
+        if (!ep.tags) return false;
+        const epTags = ep.tags.toLowerCase().split(',').map(t => t.trim());
+        return matchTags.some(mt => epTags.includes(mt.toLowerCase()));
+      });
+    }
+
+    // Update count display
+    const countEl = document.getElementById('ep-count-display');
+    if (countEl) countEl.textContent = `${filteredEpisodes.length} episode${filteredEpisodes.length !== 1 ? 's' : ''}`;
+
+    if (filteredEpisodes.length === 0) {
+      episodeContainer.innerHTML = '<li class="no-episodes">No episodes found with selected filter.</li>';
+      return;
+    }
+
+    filteredEpisodes.forEach((episode, index) => {
+      const li = document.createElement('li');
+      li.className = 'ep-list-item';
+      li.setAttribute('data-episode-id', episode.id || index);
+      const duration = episode.duration ? `${Math.floor(episode.duration / 60)} min` : '';
+      const description = episode.description ? episode.description.replace(/<[^>]*>/g, '').slice(0, 100) + '...' : '';
+
+      li.innerHTML = `
+        <div class="ep-list-meta">
+          <h6>S${episode.season || 1}E${episode.episodeNumber || 1}</h6>
+          ${duration ? `<span class="ep-list-dur">${duration}</span>` : ''}
+        </div>
+        <h5>${episode.title || 'Untitled Episode'}</h5>
+        <p>${description}</p>
+      `;
+
+      li.addEventListener('click', () => selectEpisode(episode, li));
+      episodeContainer.appendChild(li);
+    });
+
+    return filteredEpisodes;
+  }
+
+  function selectEpisode(episode, listItem) {
+    document.querySelectorAll('.ep-list-item').forEach(item => item.classList.remove('active'));
+    listItem.classList.add('active');
+
+    if (window.audioPlayerController) {
+      window.audioPlayerController.loadEpisode({
+        audioUrl: episode.audio_url,
+        title: episode.title || 'Untitled Episode',
+        episodeNumber: `S${episode.season_number || episode.season || 1}E${episode.episode_number || episode.episodeNumber || 1}`,
+        description: episode.description || '',
+        coverImageUrl: episode.artwork_url || 'https://placehold.co/400x400',
+        duration: episode.duration
+      });
+      document.querySelector("#current-episode-description").innerHTML = episode.description;
+    }
+
+    if (episode.id) history.replaceState(null, '', `#${episode.id}`);
+  }
+
+  function loadEpisodeFromFragment() {
+    const fragment = window.location.hash.substring(1);
+    if (!fragment) return false;
+    const targetEpisode = episodes?.find(ep => ep.id && ep.id.toString() === fragment);
+    if (!targetEpisode) return false;
+
+    const episodeSeason = targetEpisode.season_number || targetEpisode.season || 1;
+    document.querySelectorAll('.seasons-tab .season').forEach(tab => {
+      tab.classList.toggle('active', parseInt(tab.getAttribute('data-season')) === episodeSeason);
+    });
+
+    const seasonEpisodes = episodesBySeason[episodeSeason];
+    if (seasonEpisodes) {
+      createEpisodesList(seasonEpisodes, 'all');
+      document.querySelectorAll('.ep-list-item').forEach(item => {
+        if (item.getAttribute('data-episode-id') === fragment) selectEpisode(targetEpisode, item);
+      });
+    }
+    return true;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const seasonTabs = document.querySelectorAll('.seasons-tab .season');
+    const tagPills = document.querySelectorAll('.tag-pill');
+    const segmentCards = document.querySelectorAll('.segment-card');
+
+    let activeSeasonNumber = defaultSeason;
+    let selectedTag = tagParam || 'all';
+
+    updateTagPillsState(selectedTag);
+
+    const fragmentLoaded = loadEpisodeFromFragment();
+    if (!fragmentLoaded && episodesBySeason[activeSeasonNumber]) {
+      createEpisodesList(episodesBySeason[activeSeasonNumber], selectedTag);
+      // Auto-select first episode so Now Playing isn't empty
+      const firstItem = document.querySelector('.ep-list-item');
+      const firstEp = episodesBySeason[activeSeasonNumber][0];
+      if (firstItem && firstEp) selectEpisode(firstEp, firstItem);
+    }
+
+    seasonTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        seasonTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeSeasonNumber = parseInt(tab.getAttribute('data-season'));
+        if (episodesBySeason[activeSeasonNumber]) createEpisodesList(episodesBySeason[activeSeasonNumber], selectedTag);
+        else document.getElementById('episodes-list-container').innerHTML = '<li class="no-episodes">No episodes found.</li>';
+        updateUrl(selectedTag, activeSeasonNumber, activeSegment);
+      });
+    });
+
+    tagPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        selectedTag = pill.getAttribute('data-tag');
+        updateTagPillsState(selectedTag);
+        if (episodesBySeason[activeSeasonNumber]) createEpisodesList(episodesBySeason[activeSeasonNumber], selectedTag);
+        updateUrl(selectedTag, activeSeasonNumber, activeSegment);
+      });
+    });
+
+    segmentCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const slug = card.getAttribute('data-segment');
+        if (activeSegment === slug) {
+          activeSegment = null;
+          card.classList.remove('active');
+        } else {
+          activeSegment = slug;
+          segmentCards.forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+        }
+        if (episodesBySeason[activeSeasonNumber]) createEpisodesList(episodesBySeason[activeSeasonNumber], selectedTag);
+        updateUrl(selectedTag, activeSeasonNumber, activeSegment);
+      });
+    });
+
+    window.addEventListener('hashchange', () => loadEpisodeFromFragment());
+
+    // ===== GSAP ANIMATIONS =====
+    if (typeof gsap !== 'undefined') {
+      const { ScrollTrigger } = await import("gsap/all");
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Hero animations
+      const heroTl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: 0.3 });
+      heroTl
+        .from(".ep-hero-badge", { y: 30, opacity: 0, duration: 0.8 })
+        .from(".ep-line-1", { y: 60, opacity: 0, duration: 0.9, rotateX: 30 }, "<0.1")
+        .from(".ep-line-2", { y: 60, opacity: 0, duration: 0.9, rotateX: 30 }, "<0.12")
+        .from(".ep-hero-description", { y: 30, opacity: 0, duration: 0.7 }, "<0.2")
+        .from(".ep-hero-stats", { y: 20, opacity: 0, duration: 0.6 }, "<0.15");
+
+      // Floating ring animation
+      gsap.to(".ep-ring-1", { rotation: 360, duration: 25, repeat: -1, ease: "none" });
+      gsap.to(".ep-ring-2", { rotation: -360, duration: 20, repeat: -1, ease: "none" });
+
+      // Segment cards stagger reveal
+      gsap.utils.toArray(".segment-card").forEach((card, i) => {
+        gsap.from(card, {
+          scrollTrigger: { trigger: card, start: "top 90%", once: true },
+          y: 40, opacity: 0, scale: 0.95, duration: 0.6, delay: i * 0.08, ease: "back.out(1.2)"
+        });
+      });
+
+      // Episode list section reveal
+      gsap.from(".ep-main-content", {
+        scrollTrigger: { trigger: ".ep-main-content", start: "top 85%", once: true },
+        y: 50, opacity: 0, duration: 0.8, ease: "power3.out"
+      });
+    }
+  });
+</script>
+
+<script>
+  import { gsap } from "gsap";
+  window.gsap = gsap;
+</script>

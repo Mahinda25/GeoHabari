@@ -1,0 +1,262 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { readStore } from '../../lib/ticketing-store.js';
+
+const store = readStore();
+
+// Sort orders newest first
+const allOrders = [...store.orders]
+  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  .map((order) => {
+    const event = store.events.find((e) => e.id === order.event_id);
+    const ticketType = store.ticket_types.find((t) => t.id === order.ticket_type_id);
+    const payment = store.payments.find((p) => p.order_id === order.id);
+    const tickets = store.tickets.filter((t) => t.order_id === order.id);
+
+    return {
+      id: order.id,
+      reference: order.reference,
+      buyerName: order.buyer_name,
+      email: order.email,
+      phone: order.phone,
+      eventTitle: event?.title || 'Unknown Event',
+      category: ticketType?.name || 'Standard',
+      quantity: order.quantity,
+      amount: order.amount,
+      paymentMethod: order.payment_method || payment?.provider || 'N/A',
+      paymentStatus: order.status,
+      providerReference: payment?.provider_reference || 'N/A',
+      createdAt: order.created_at,
+      confirmedAt: payment?.status === 'paid' ? payment.updated_at : null,
+      ticketsIssued: tickets.length,
+      ticketCodes: tickets.map((t) => t.ticket_code),
+    };
+  });
+---
+
+<AdminLayout title="Orders & Payment Ledger" activeNav="orders">
+  <div class="orders-shell">
+    <div class="header-intro">
+      <p class="intro-text">
+        Read-only transaction ledger. Records reflect verified financial events from Safaricom Daraja, Card processors, and Pesapal.
+        Tickets are issued only upon confirmed, server-verified payment.
+      </p>
+    </div>
+
+    <!-- ORDERS TABLE -->
+    <div class="table-container">
+      <table class="orders-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Buyer</th>
+            <th>Event / Tier</th>
+            <th>Qty</th>
+            <th>Amount (KES)</th>
+            <th>Provider Ref</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Confirmed</th>
+            <th>Tickets</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allOrders.length === 0 ? (
+            <tr>
+              <td colspan="10" class="empty-state">No orders recorded in the ledger.</td>
+            </tr>
+          ) : (
+            allOrders.map((order) => (
+              <tr>
+                <td class="font-mono text-bold">{order.reference}</td>
+                <td>
+                  <div class="buyer-name">{order.buyerName}</div>
+                  <div class="text-xs text-muted">{order.email}</div>
+                </td>
+                <td>
+                  <div class="font-bold">{order.eventTitle}</div>
+                  <div class="text-xs text-muted">{order.category}</div>
+                </td>
+                <td class="font-bold text-center">{order.quantity}</td>
+                <td class="font-mono font-bold">KES {order.amount.toLocaleString()}</td>
+                <td>
+                  <div class="font-mono text-xs">{order.providerReference}</div>
+                  <div class="text-xs text-muted font-bold">{order.paymentMethod.toUpperCase()}</div>
+                </td>
+                <td>
+                  <span class={`status-badge ${order.paymentStatus === 'paid' ? 'status-paid' : order.paymentStatus === 'pending' ? 'status-pending' : 'status-failed'}`}>
+                    {order.paymentStatus === 'paid' ? 'CONFIRMED' : order.paymentStatus.toUpperCase()}
+                  </span>
+                </td>
+                <td class="text-xs text-muted">
+                  {new Date(order.createdAt).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </td>
+                <td class="text-xs text-muted">
+                  {order.confirmedAt ? (
+                    new Date(order.confirmedAt).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  ) : (
+                    <span class="text-muted">—</span>
+                  )}
+                </td>
+                <td>
+                  {order.ticketsIssued > 0 ? (
+                    <div class="tickets-tag issued">
+                      {order.ticketsIssued} issued
+                    </div>
+                  ) : (
+                    <div class="tickets-tag unissued">
+                      None
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .orders-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .header-intro {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+  }
+
+  .intro-text {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    line-height: 1.5;
+  }
+
+  .table-container {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow-x: auto;
+  }
+
+  .orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+
+    th {
+      padding: 0.85rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #d1d5db;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .font-mono {
+    font-family: ui-monospace, monospace;
+  }
+
+  .text-bold {
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .font-bold {
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .text-xs {
+    font-size: 0.75rem;
+  }
+
+  .text-muted {
+    color: #9ca3af;
+  }
+
+  .buyer-name {
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .status-badge {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .status-paid {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+  }
+
+  .status-pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+
+  .status-failed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+
+  .tickets-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+
+    &.issued {
+      background: rgba(141, 198, 63, 0.15);
+      color: #a3e635;
+    }
+
+    &.unissued {
+      background: rgba(255, 255, 255, 0.05);
+      color: #6b7280;
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem !important;
+    color: #6b7280;
+  }
+</style>

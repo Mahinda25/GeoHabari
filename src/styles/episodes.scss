@@ -1,0 +1,1057 @@
+/**
+ * episodes.scss
+ * * This file contains the styles for the podcast episodes page, including the
+ * custom audio player, episode list, and season/tag filters.
+ *
+ * It utilizes variables and mixins from `_combined.scss` for consistent
+ * design tokens (colors, spacing, shadows, etc.).
+ */
+
+// Import shared design tokens and utilities
+@use "../styles/partials/combined.scss" as *;
+
+// ==============================
+// EPISODES HERO — Immersive dark experience
+// ==============================
+
+section.ep-hero-immersive {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 0;
+  max-width: none;
+
+  .ep-hero-cosmos {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    .ep-cosmos-gradient {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, #110a2e 0%, #060818 60%, #030510 100%);
+    }
+
+    .ep-cosmos-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 30%, transparent 80%);
+    }
+
+    .ep-glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+
+      &.ep-orb-purple {
+        width: 400px;
+        height: 400px;
+        background: rgba(108, 43, 217, 0.12);
+        top: -10%;
+        right: 15%;
+        animation: ep-orb-drift 12s ease-in-out infinite alternate;
+      }
+
+      &.ep-orb-green {
+        width: 250px;
+        height: 250px;
+        background: rgba(141, 198, 63, 0.06);
+        bottom: 10%;
+        left: 10%;
+        animation: ep-orb-drift 15s ease-in-out infinite alternate-reverse;
+      }
+    }
+
+    .ep-floating-ring {
+      position: absolute;
+      border: 2px solid rgba(108, 43, 217, 0.1);
+      border-radius: 50%;
+      transform: rotateX(60deg);
+
+      &.ep-ring-1 {
+        width: 250px;
+        height: 250px;
+        top: 10%;
+        right: 8%;
+        border-color: rgba(108, 43, 217, 0.08);
+      }
+
+      &.ep-ring-2 {
+        width: 180px;
+        height: 180px;
+        bottom: 15%;
+        left: 5%;
+        border-color: rgba(141, 198, 63, 0.06);
+      }
+    }
+  }
+
+  .ep-hero-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: $spacing-4;
+    max-width: 700px;
+    padding: calc(100px + $spacing-7) $spacing-5 $spacing-7;
+  }
+
+  .ep-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-2;
+    padding: 6px 16px;
+    border-radius: $radius-full;
+    background: rgba(141, 198, 63, 0.08);
+    border: 1px solid rgba(141, 198, 63, 0.15);
+
+    .badge-pulse {
+      width: 8px;
+      height: 8px;
+      background: $green;
+      border-radius: 50%;
+      animation: ep-pulse-glow 2s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(141, 198, 63, 0.6);
+    }
+
+    .badge-label {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: $green;
+    }
+  }
+
+  .ep-hero-title {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+
+    span {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: #F0F0F5;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .ep-line-1 { font-size: clamp(1.8rem, 3.5vw + 0.5rem, 2.8rem); }
+    .ep-line-2 { font-size: clamp(2.2rem, 4.5vw + 0.5rem, 3.8rem); }
+
+    .ep-accent {
+      background: linear-gradient(135deg, $green 0%, #A3E635 50%, #D9F99D 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  }
+
+  .ep-hero-description {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 520px;
+    margin: 0;
+  }
+
+  .ep-hero-stats {
+    display: flex;
+    align-items: center;
+    gap: $spacing-5;
+    margin-top: $spacing-3;
+  }
+
+  .ep-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .ep-stat-number {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+
+  .ep-stat-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 500;
+  }
+
+  .ep-stat-divider {
+    width: 1px;
+    height: 32px;
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  }
+
+  @media (max-width: $breakpoint-md) {
+    min-height: 45vh;
+
+    .ep-hero-content {
+      padding: calc(80px + $spacing-5) $spacing-4 $spacing-5;
+    }
+
+    .ep-hero-stats { gap: $spacing-4; }
+    .ep-stat-number { font-size: 1.5rem; }
+  }
+
+  @media (max-width: 480px) {
+    min-height: 40vh;
+
+    .ep-hero-stats { gap: $spacing-3; }
+    .ep-stat-number { font-size: 1.2rem; }
+  }
+}
+
+@keyframes ep-orb-drift {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(20px, -15px); }
+}
+
+@keyframes ep-pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(141, 198, 63, 0.6); }
+  50% { opacity: 0.4; box-shadow: 0 0 4px rgba(141, 198, 63, 0.3); }
+}
+
+
+// ==============================
+// SEGMENT FILTERS
+// ==============================
+
+.ep-segments {
+  background: $gray-lighter;
+  padding: $spacing-5 $spacing-5;
+  border-bottom: 1px solid $gray-light;
+
+  .segments-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .segments-header {
+    margin-bottom: $spacing-5;
+    max-width: 580px;
+
+    h2 {
+      font-size: clamp(1.4rem, 3vw, 1.8rem);
+      font-weight: 700;
+      color: $black;
+      margin: 0 0 $spacing-2;
+      letter-spacing: -0.02em;
+    }
+
+    .segments-subtitle {
+      font-size: 0.95rem;
+      color: $gray;
+      margin: 0;
+      line-height: 1.6;
+    }
+  }
+
+  .segment-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: $spacing-3;
+  }
+
+  .segment-card {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-3;
+    padding: $spacing-4 $spacing-4;
+    border: 1.5px solid $gray-light;
+    border-radius: $radius-lg;
+    background: $white-pure;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+
+    &:hover {
+      border-color: rgba($purple, 0.25);
+      box-shadow: 0 8px 24px rgba(108, 43, 217, 0.08);
+      transform: translateY(-3px);
+
+      .seg-arrow { opacity: 1; transform: translateX(0); }
+      .seg-icon { transform: scale(1.08); }
+    }
+
+    &.active {
+      border-color: $purple;
+      background: rgba($purple, 0.03);
+      box-shadow: 0 4px 20px rgba(108, 43, 217, 0.12);
+
+      .seg-icon { background: $purple; color: $white-pure; }
+      .seg-arrow { opacity: 1; transform: translateX(0); color: $purple; }
+    }
+
+    .seg-icon {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: $radius-md;
+      background: color-mix(in srgb, var(--seg-color, #{$purple}) 10%, transparent);
+      color: var(--seg-color, #{$purple});
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .seg-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .seg-name {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: $black;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .seg-desc {
+      display: block;
+      font-size: 0.75rem;
+      color: $gray;
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .seg-arrow {
+      flex-shrink: 0;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: all 0.3s ease;
+      color: $gray;
+      align-self: center;
+    }
+  }
+
+  @media (max-width: $breakpoint-md) {
+    .segment-cards {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .segment-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+// ==============================
+// EPISODE LIST HEADER
+// ==============================
+
+.ep-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: $spacing-3;
+  border-bottom: 1px solid $gray-light;
+  margin-bottom: $spacing-3;
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: $black;
+    margin: 0;
+  }
+
+  .ep-list-count {
+    font-size: 0.8rem;
+    color: $gray;
+    font-weight: 500;
+    margin: 0;
+  }
+}
+
+
+// ==============================
+// EPISODES MAIN — Two-column layout
+// ==============================
+
+.ep-main-content {
+  padding: $spacing-6 $spacing-5;
+  background: $white;
+
+  .ep-main-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: $spacing-5;
+    align-items: start;
+  }
+}
+
+// LEFT: Episode browser
+.ep-browser {
+  display: flex;
+  flex-direction: column;
+
+  .ep-browser-controls {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-3;
+    margin-bottom: $spacing-4;
+  }
+
+  .ep-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+// RIGHT: Now Playing sticky panel
+.ep-now-playing {
+  .ep-now-playing-sticky {
+    position: sticky;
+    top: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-3;
+    background: $gray-lighter;
+    border: 1px solid $gray-light;
+    border-radius: $radius-lg;
+    padding: $spacing-4;
+  }
+
+  .ep-now-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $purple;
+    margin-bottom: $spacing-1;
+
+    svg { flex-shrink: 0; }
+  }
+
+  .ep-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-3;
+  }
+
+  .ep-descr {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-top: $spacing-2;
+    border-top: 1px solid $gray-light;
+
+    p {
+      font-size: 0.82rem;
+      color: $gray;
+      line-height: 1.6;
+      margin: 0;
+    }
+  }
+
+  .ep-streaming {
+    padding-top: $spacing-3;
+    border-top: 1px solid $gray-light;
+
+    .streaming-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: $gray;
+      margin-bottom: $spacing-3;
+    }
+
+    .streaming-icons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: $spacing-2;
+    }
+
+    .streaming-platform {
+      display: flex;
+      align-items: center;
+      gap: $spacing-2;
+      padding: $spacing-2 $spacing-3;
+      border-radius: $radius-md;
+      background: $white-pure;
+      border: 1px solid $gray-light;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      cursor: pointer;
+
+      img {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        flex-shrink: 0;
+      }
+
+      span {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: $black;
+        line-height: 1.2;
+      }
+
+      &:hover {
+        border-color: $purple;
+        box-shadow: 0 4px 12px rgba(108, 43, 217, 0.1);
+        transform: translateY(-2px);
+      }
+    }
+  }
+}
+
+// Responsive: stack on smaller screens
+@media (max-width: $breakpoint-md) {
+  .ep-main-content .ep-main-inner {
+    grid-template-columns: 1fr;
+    gap: $spacing-4;
+  }
+
+  .ep-now-playing .ep-now-playing-sticky {
+    position: static;
+  }
+}
+
+/* --- Custom Audio Player Styles --- */
+.custom-audio-player {
+  background: $white;
+  border-radius: $radius-lg;
+  padding: $spacing-3 $spacing-5;
+  transition: $transition-base;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+
+  >div{
+    width: 100%;
+  }
+  // A single container for the audio player, with a clean, rounded card-like appearance.
+
+  .player-main-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-4;
+    // Centers the primary control buttons (play, skip back, skip forward).
+
+    .play-btn {
+      width: clamp(48px, 6vw, 56px);
+      height: clamp(48px, 6vw, 56px);
+      border-radius: $radius-full;
+      background: $purple;
+      border: none;
+      color: $white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: $transition-fast;
+      box-shadow: $shadow-sm;
+      // Main play/pause button with a dynamic size and hover effects for a premium feel.
+
+      &:hover:not(:disabled) {
+        background: $purple-light;
+        transform: scale(1.05);
+        box-shadow: $shadow-md;
+      }
+
+      &:disabled {
+        background: $gray;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+    }
+
+    .control-btn {
+      width: clamp(32px, 5vw, 40px);
+      height: clamp(32px, 5vw, 40px);
+      border-radius: $radius-full;
+      background: $gray-light;
+      border: none;
+      color: $black;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: $transition-fast;
+      // Styles for secondary control buttons (skip, etc.) with consistent sizing and hover.
+
+      &:hover {
+        background: $purple-light;
+        color: $purple-dark;
+        transform: scale(1.05);
+      }
+    }
+  }
+
+  .player-progress {
+    // Container for the progress bar and time display.
+
+    .time-info {
+      display: flex;
+      align-items: center;
+      gap: $spacing-3;
+      font-size: 14px;
+      color: $gray;
+      font-weight: 500;
+      // Displays current and total time, horizontally aligned with the progress bar.
+
+      .progress-container {
+        flex: 1;
+        position: relative;
+        // Allows the progress bar to fill the remaining space.
+
+        .progress-bar {
+          position: relative;
+          height: 6px;
+          background: $gray-light;
+          border-radius: $radius-sm;
+          overflow: hidden;
+          // The track for the progress bar.
+
+          .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, $purple, $purple-light);
+            border-radius: $radius-sm;
+            transition: width 0.1s ease;
+            width: 0%;
+            box-shadow: 0 0 8px rgba($purple, 0.3);
+            // The filled portion of the progress bar, with a smooth gradient and animation.
+          }
+
+          .progress-slider {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 6px;
+            background: transparent;
+            appearance: none;
+            cursor: pointer;
+            border-radius: $radius-sm;
+            // The invisible range input that overlays the progress bar for user interaction.
+
+            &::-webkit-slider-thumb {
+              appearance: none;
+              width: 16px;
+              height: 16px;
+              border-radius: $radius-full;
+              background: $purple;
+              border: 2px solid $white;
+              box-shadow: $shadow-sm;
+              transition: $transition-fast;
+              // Custom thumb style for WebKit browsers.
+
+              &:hover {
+                transform: scale(1.2);
+                box-shadow: $shadow-md;
+              }
+            }
+
+            &::-moz-range-thumb {
+              width: 16px;
+              height: 16px;
+              border-radius: $radius-full;
+              background: $purple;
+              border: 2px solid $white;
+              box-shadow: $shadow-sm;
+              // Custom thumb style for Firefox.
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .player-bottom-controls {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+  }
+  .player-volume {
+    display: flex;
+    align-items: center;
+    gap: $spacing-2;
+    // Container for the volume controls.
+
+    .control-btn {
+      width: clamp(28px, 5vw, 36px);
+      height: clamp(28px, 5vw, 36px);
+      border-radius: $radius-full;
+      background: $gray-light;
+      border: none;
+      color: $black;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: $transition-fast;
+      // Style for the mute button.
+
+      &:hover {
+        background: $purple-light;
+        color: $purple-dark;
+      }
+    }
+
+    .volume-slider {
+      width: clamp(50px, 12vw, 80px);
+      height: 4px;
+      background: $gray-light;
+      appearance: none;
+      border-radius: $radius-sm;
+      cursor: pointer;
+      // The volume slider's track, with a slightly smaller width than the progress bar.
+
+      &::-webkit-slider-thumb {
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: $radius-full;
+        background: $purple;
+        border: 1px solid $white;
+        box-shadow: $shadow-sm;
+        transition: $transition-fast;
+        // Custom thumb style for WebKit browsers.
+
+        &:hover {
+          transform: scale(1.1);
+        }
+      }
+
+      &::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: $radius-full;
+        background: $purple;
+        border: 1px solid $white;
+        box-shadow: $shadow-sm;
+        // Custom thumb style for Firefox.
+      }
+    }
+  }
+
+  .playback-speed {
+    display: flex;
+    justify-content: flex-end;
+    // Aligns the speed button to the right.
+
+    #speed-btn {
+      padding: $spacing-2 $spacing-3;
+      border-radius: $radius-lg;
+      background: $gray-light;
+      border: none;
+      color: $black;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: $transition-fast;
+      min-width: 36px;
+      // Button to toggle playback speed.
+
+      &:hover {
+        background: $purple-light;
+        color: $purple-dark;
+      }
+
+      &:active {
+        background: $purple;
+        color: $white;
+      }
+    }
+  }
+}
+
+/* --- Episode Cover --- */
+.ep-cover {
+  // width: clamp(200px, 40vw, 400px);
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1/1;
+  border-radius: $radius-md;
+  border: 2px solid $purple;
+
+  // Responsive image for the episode cover.
+}
+
+/* --- Episode List Styles --- */
+.ep-list-item {
+  transition: $transition-fast;
+  cursor: pointer;
+  padding: $spacing-3;
+  border-radius: $radius-md;
+  border: 1px solid transparent;
+  margin-bottom: $spacing-2;
+  // Styles for each episode item in the list, with clear hover and active states.
+
+  &:hover {
+    background: rgba($purple-light, 0.1);
+    border-color: $purple-light;
+    transform: translateY(-1px);
+    box-shadow: $shadow-sm;
+  }
+
+  &.active {
+    background: rgba($purple-light, 0.2);
+    border-color: $purple;
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+    // Active state highlighting the currently selected episode.
+
+    h5, h6 {
+      color: $purple-dark;
+      font-weight: 600;
+    }
+
+    p {
+      color: $black;
+    }
+  }
+
+  .ep-list-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-1;
+  }
+
+  .ep-list-dur {
+    font-size: 11px;
+    color: $gray;
+    font-weight: 500;
+  }
+
+  h6 {
+    color: $purple;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  h5 {
+    color: $black;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: $spacing-2;
+    line-height: 1.4;
+  }
+
+  p {
+    color: $gray;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+  }
+}
+
+.no-episodes {
+  text-align: center;
+  padding: $spacing-7 $spacing-4;
+  color: $gray;
+  font-style: italic;
+  background: rgba($gray-light, 0.1);
+  border-radius: $radius-md;
+  border: 2px dashed $gray-light;
+  // Styles for the "no episodes found" message.
+}
+
+/* --- Season Tabs --- */
+.seasons-tab {
+  display: flex;
+  flex-wrap: wrap;
+  // Container for the season tabs.
+
+  .season {
+    transition: $transition-fast;
+    cursor: pointer;
+    padding: $spacing-3 $spacing-4;
+    border-radius: $radius-md;
+    border: 1px solid $gray-light;
+    background: $white;
+    margin-right: $spacing-2;
+    margin-bottom: $spacing-2;
+    width: clamp(120px, 20vw, 200px);
+    // Styles for individual season tabs, with clear visual feedback for hover and active states.
+
+    &:hover {
+      background: rgba($purple-light, 0.1);
+      border-color: $purple-light;
+      transform: translateY(-1px);
+    }
+
+    &.active {
+      background: $purple;
+      border-color: $purple-dark;
+      color: $white;
+      box-shadow: $shadow-md;
+      // Active state styling to indicate the currently selected season.
+
+      h5 {
+        color: $white;
+      }
+    }
+
+    h5 {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: $purple-dark;
+    }
+  }
+}
+
+/* --- Tag Filter --- */
+.ep-filter {
+  p {
+    color: $gray;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: $spacing-2;
+  }
+}
+
+.tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag-pill {
+  padding: 0.35rem 0.9rem;
+  border: 1.5px solid $gray-light;
+  border-radius: 50px;
+  background: transparent;
+  color: $gray-dark;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: lowercase;
+
+  &:hover {
+    border-color: $purple;
+    color: $purple;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
+  }
+
+  &.active {
+    border-color: $purple;
+    background: $purple;
+    color: $white;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* --- Responsive Adjustments --- */
+// Media queries for different screen sizes.
+@media (max-width: $breakpoint-md) {
+  .custom-audio-player {
+    padding: $spacing-4;
+    // Smaller padding on medium screens.
+
+    .player-main-controls {
+      gap: $spacing-3;
+      margin-bottom: $spacing-4;
+      // Reduced spacing on medium screens.
+
+      .play-btn {
+        width: clamp(40px, 6vw, 48px);
+        height: clamp(40px, 6vw, 48px);
+      }
+
+      .control-btn {
+        width: clamp(28px, 5vw, 36px);
+        height: clamp(28px, 5vw, 36px);
+      }
+    }
+
+    .player-volume {
+      .volume-slider {
+        width: clamp(40px, 12vw, 60px);
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-sm) {
+  .custom-audio-player {
+    padding: $spacing-3;
+    // Even smaller padding on small screens.
+
+    .player-main-controls {
+      gap: $spacing-2;
+      // Reduced spacing for small screens.
+
+      .control-btn {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    .time-info {
+      font-size: 12px;
+      gap: $spacing-2;
+    }
+
+    .player-volume {
+      .volume-slider {
+        width: clamp(30px, 10vw, 50px);
+      }
+    }
+  }
+}

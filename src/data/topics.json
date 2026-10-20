@@ -1,0 +1,45 @@
+
+[
+  {
+    "title": "CAREER",
+    "description": "Navigate diverse career paths in the geospatial industry. Discussing pivotal moments, key learnings, and challenges, these episodes inspire you to explore new career horizons.",
+    "icon": "/themeIcons/icon_career.png",
+    "background": "https://images.unsplash.com/photo-1604145559206-e3bce0040e2d?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"ACADEMIA",
+    "description":"Discover African organizations leading in geo-enabling and   other cutting-edge technologies. We dive into the  systems' components, from programming languages to seamless integrations, showcasing impactful use cases across the continent.",
+    "icon":"/themeIcons/icon_academia.png",
+    "background":"https://images.unsplash.com/photo-1643297654395-d6375d07215c?q=80&w=2032&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"STUDY ABROAD",
+    "description":"Scholarship recipients share their application tips and tricks, covering everything from requirements to living abroad. The ultimate starter pack for geospatial students looking to study overseas.",
+    "icon":"/themeIcons/icon_study.png",
+    "background":"https://images.unsplash.com/photo-1524850011238-e3d235c7d4c9?q=80&w=864&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"BANTER",
+    "description":"Blend technical expertise with humor to humanize experiences in the tech world. Ideal for those looking for a light-hearted, tech-centric laugh.",
+    "icon":"/themeIcons/icon_banter.png",
+    "background":"https://images.unsplash.com/photo-1731475761027-0b6b33b74547?q=80&w=871&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"SPACE",
+    "description":"Dive into Earth Observation (EO) use cases across various sectors. From technical tools and datasets to real-world applications and impacts, each episode offers a comprehensive look at EO's potential.",
+    "icon":"/themeIcons/icon_earth.png",
+    "background":"https://images.unsplash.com/photo-1454789548928-9efd52dc4031?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"TECH",
+    "description":"Discover African organizations leading in geo-enabling and   other cutting-edge technologies. We dive into the  systems' components, from programming languages to seamless integrations, showcasing impactful use cases across the continent.",
+    "icon":"/themeIcons/icon_tech.png",
+    "background":"https://images.unsplash.com/photo-1586244346400-7ec57cda0c8b?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "title":"ACTION",
+    "description":"Explore how tech is used across Africa to drive change. Highlighting limitless possibilities, we showcase how GIS is leveraged for impactful solutions in different industries.",
+    "icon":"/themeIcons/icon_action.png",
+    "background":"https://images.unsplash.com/photo-1724085608136-579e66ac968d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  }
+]

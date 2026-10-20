@@ -1,0 +1,96 @@
+
+$base-font-size-px: 16;
+$scale: 1.309;
+
+// ==============================
+// COLORS — Updated palette
+// ==============================
+
+$white: #FAFAFA;
+$white-pure: #FFFFFF;
+$black: #1A1A2E;
+$black-deep: #0B0D17;
+$gray: #6B7280;
+$gray-light: #E5E7EB;
+$gray-lighter: #F3F4F6;
+$gray-dark: #374151;
+$purple: #6C2BD9;
+$purple-light: #C4B5FD;
+$purple-lighter: #EDE9FE;
+$purple-dark: #4C1D95;
+$green: #8DC63F;
+$green-light: #BDDE91;
+$green-dark: #5F8C1F;
+
+// Gradients
+$gradient-hero: linear-gradient(135deg, #0B0D17 0%, #1a1145 40%, #2d1b69 70%, #1a1145 100%);
+$gradient-purple: linear-gradient(135deg, $purple 0%, #8B5CF6 50%, $purple-dark 100%);
+$gradient-accent: linear-gradient(135deg, $purple 0%, #EC4899 100%);
+$gradient-text: linear-gradient(135deg, $white-pure, #C4B5FD, $green);
+$gradient-card: linear-gradient(135deg, rgba(108, 43, 217, 0.05), rgba(141, 198, 63, 0.05));
+
+// ==============================
+// Spacing (scale in rem)
+// ==============================
+
+$spacing-0: 0rem;
+$spacing-1: 0.25rem;   // 4px
+$spacing-2: 0.5rem;    // 8px
+$spacing-3: 0.75rem;   // 12px
+$spacing-4: 1rem;      // 16px
+$spacing-5: 1.5rem;    // 24px
+$spacing-6: 2rem;      // 32px
+$spacing-7: 3rem;      // 48px
+$spacing-8: 4rem;      // 64px
+$spacing-9: 5rem;      // 80px
+$spacing-10: 6rem;     // 96px
+
+// ==============================
+// Radius
+// ==============================
+
+$radius-sm: 6px;
+$radius-md: 12px;
+$radius-lg: 20px;
+$radius-xl: 28px;
+$radius-full: 9999px;
+
+// ==============================
+// Shadow
+// ==============================
+
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+$shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 50px -12px rgba(0, 0, 0, 0.15);
+$shadow-glow: 0 0 30px rgba(108, 43, 217, 0.15);
+$shadow-glow-green: 0 0 30px rgba(141, 198, 63, 0.15);
+
+// ==============================
+// Z-Index
+// ==============================
+
+$z-base: 1;
+$z-dropdown: 100;
+$z-overlay: 200;
+$z-modal: 500;
+$z-toast: 1000;
+
+// ==============================
+// Transitions
+// ==============================
+
+$transition-fast: 150ms ease-in-out;
+$transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// ==============================
+// Breakpoints (for container widths)
+// ==============================
+
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;

@@ -1,0 +1,125 @@
+---
+import Image from "astro/components/Image.astro"
+import Button from "./Button.astro";
+import sanitizeHtml from "sanitize-html";
+
+interface Props {
+  title?: string;
+  description?: string;
+  active?: boolean;
+  image?: string;
+  date?: string;
+  duration?: string;
+  episodeNumber?: number;
+  seasonNumber?: number;
+  episodeId?: number;
+}
+
+const { 
+  title = 'Title',
+  description = "Desc",
+  image = "https://placehold.co/400",
+  date = "2023-01-01",
+  duration = "1000",
+  episodeNumber = 1,
+  seasonNumber = 2,
+  episodeId = 23,
+  active = false
+} = Astro.props as Props;
+
+const charLimit = 300;
+const plainText = sanitizeHtml(description, { allowedTags: [], allowedAttributes: {} });
+const truncatedText = plainText.slice(0, charLimit) + (plainText.length > charLimit ? "..." : "");
+
+// Generate unique ID for this component instance
+const uniqueId = `episode-card-${episodeId}`;
+---
+
+<div class={`episode_card ${active ? 'active' : ''}`} data-episode-id={episodeId}>
+  <Image
+    src={image}
+    alt="Episode Thumbnail"
+    width={400}
+    height={400}
+    class="ep_thumbnail"
+  />
+  <div class="ep_details">
+    <h5 class="ep-number">Season {seasonNumber} Episode {episodeNumber}</h5>
+    <h3>{title}</h3>
+    <p class="truncate" set:html={truncatedText}></p>
+    <Button id={uniqueId} class="ep-card-btn" type="tertiary">Listen Now</Button>
+  </div>
+</div>
+
+<style lang="scss">
+  @use "../styles/partials/combined.scss" as *;
+
+  .episode_card {
+    display: flex;
+    padding: $spacing-4 $spacing-5;
+    align-items: center;
+    gap: $spacing-5;
+    filter: blur(4px);
+    margin: $spacing-1;
+  
+    &.active {
+      filter: blur(0);
+    }
+
+    border-radius: $radius-md;
+    border: 1px solid rgba(139, 139, 139,0.5);
+    background: $white;
+    box-shadow: 0 0 14px 4px rgba(139, 139, 139,0.2);
+
+    .ep_thumbnail {
+      border-radius: $radius-sm;
+      overflow: hidden;
+      border: 2px solid $green;
+      // width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+    }
+    .ep_details {
+      display: flex;
+      flex-direction: column;
+      width: clamp(300px, 30vw, 560px);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .episode_card{
+      flex-direction: column;
+      text-align: center;
+      .ep_thumbnail {
+        width: 100%;
+        max-width: 300px;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+      }
+      .ep_details {
+        align-items: center;
+        h3 {
+          font-size: 1.5rem;
+        }
+      }
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.episode_card .ep-card-btn');
+    
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        const episodeCard = button.closest('.episode_card');
+        const episodeId = episodeCard?.getAttribute('data-episode-id');
+        
+        if (episodeId) {
+          window.location.href = `/episodes#${episodeId}`;
+        }
+      });
+    });
+  });
+</script>

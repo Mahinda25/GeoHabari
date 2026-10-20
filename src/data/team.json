@@ -1,0 +1,38 @@
+[
+  {
+    "name":"Yariwo Kitiyo",
+    "bio": "Yariwo is a geospatial enthusiast and the founder of Geohabari. With a background in GIS and remote sensing, he is passionate about storytelling and using technology to solve real-world problems.",
+    "position": "Founder & Host",
+    "profile_photo": "/images/team/yariwo.jpg",
+    "socials": {
+      "x": "https://twitter.com/yariwo",
+      "linkedin": "https://linkedin.com/in/yariwo",
+      "github": "https://github.com/yariwo",
+      "website": "https://yariwo.dev"
+    }
+  },
+  {
+    "name":"Linus Anari",
+    "bio": "Linus is a GIS specialist with a knack for geospatial data analysis and environmental applications. He is dedicated to leveraging geospatial technologies to address environmental challenges and promote sustainable development.",
+    "position": "Host",
+    "profile_photo": "/images/team/lanari.jpg",
+    "socials": {
+      "x": "https://x.com/charlesmwangi",
+      "linkedin": "https://linkedin.com/in/charlesmwangi",
+      "github": "https://github.com/charlesmwangi",
+      "email": "mailto:charlesmwangi@geohabari.com"
+    }
+  },
+  {
+    "name":"Vincent Cheruiyot",
+    "bio": "Vincent is a visual creative making brands heard and seen.  Loves sports, music, and farm. Good in Geo. ",
+    "position": "Creative Director",
+    "profile_photo": "/images/team/vincent.jpeg",
+    "socials": {
+      "x": "https://x.com/vincent",
+      "linkedin": "https://linkedin.com/in/vincent",
+      "github": "https://github.com/vincent",
+      "email": "mailto:vincent@geohabari.com"
+    }
+  }
+]

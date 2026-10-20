@@ -1,0 +1,740 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { readStore, getTicketMetrics } from "../../lib/ticketing-store.js";
+
+const store = readStore();
+const metrics = getTicketMetrics();
+
+// 1. Confirmed figures strictly derived from paid transactions
+const paidOrders = store.orders.filter((o: { status: string }) => o.status === "paid");
+const pendingOrders = store.orders.filter((o: { status: string }) => o.status === "pending",);
+const failedOrders = store.orders.filter((o: { status: string }) => o.status === "failed" || o.status === "cancelled",);
+
+// Confirmed Revenue: ONLY paid orders count towards revenue!
+const confirmedRevenue = paidOrders.reduce(
+  (sum: number, o: { amount: string | number }) => sum + Number(o.amount || 0),
+  0,
+);
+
+// Unique confirmed ticket holders
+const uniqueConfirmedBuyers = new Set(
+  paidOrders.map((o: { email: string }) => o.email.toLowerCase().trim()),
+).size;
+
+// Category breakdowns
+const studentTickets = store.tickets.filter((t: { category?: string | null }) =>
+  t.category?.toLowerCase().includes("student"),
+);
+const proTickets = store.tickets.filter((t: { category?: string | null }) =>
+  t.category?.toLowerCase().includes("professional"),
+);
+
+const studentRevenue = paidOrders
+  .filter((o: { ticket_type_id: string | number; amount: string | number; quantity: number }) => {
+    const t = store.ticket_types.find(
+      (tt: { id: string | number; name?: string | null }) =>
+        tt.id === o.ticket_type_id,
+    );
+    return (
+      t?.name?.toLowerCase().includes("student") ||
+      Number(o.amount) / o.quantity === 600
+    );
+  })
+  .reduce((sum: number, o: { amount: string | number }) => sum + Number(o.amount || 0), 0);
+
+const proRevenue = paidOrders
+  .filter((o: { ticket_type_id: string | number; amount: string | number; quantity: number }) => {
+    const t = store.ticket_types.find(
+      (tt: { id: string | number; name?: string | null }) =>
+        tt.id === o.ticket_type_id,
+    );
+    return (
+      t?.name?.toLowerCase().includes("professional") ||
+      Number(o.amount) / o.quantity === 1000
+    );
+  })
+  .reduce((sum: number, o: { amount: string | number }) => sum + Number(o.amount || 0), 0);
+
+// Recent successful purchases (last 8)
+const recentPurchases = [...paidOrders]
+  .sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+  .slice(0, 8)
+  .map((order) => {
+    const event = store.events.find((e: { id: string | number }) => e.id === order.event_id);
+    const tickets = store.tickets.filter(
+      (t: { order_id: string | number; ticket_code: string }) =>
+        t.order_id === order.id,
+    );
+    const ticketType = store.ticket_types.find(
+      (tt: { id: string | number; name?: string | null }) =>
+        tt.id === order.ticket_type_id,
+    );
+    return {
+      ...order,
+      eventTitle: event?.title || "Summit 2026",
+      category: ticketType?.name || "Standard",
+      ticketCodes: tickets.map((t: { ticket_code: string }) => t.ticket_code),
+    };
+  });
+
+// Recent payment attempts (pending or failed, last 5)
+const recentPaymentAttempts = [...store.payments]
+  .sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+  .slice(0, 5)
+  .map((payment) => {
+    const order = store.orders.find(
+      (o: { id: string | number; reference?: string | null; buyer_name?: string | null }) =>
+        o.id === payment.order_id,
+    );
+    return {
+      ...payment,
+      orderRef: order?.reference || "N/A",
+      buyerName: order?.buyer_name || "N/A",
+    };
+  });
+---
+
+<AdminLayout title="Dashboard Overview" activeNav="overview">
+  <div class="dashboard-shell">
+    <!-- METRIC CARDS GRID -->
+    <section class="metrics-grid">
+      <!-- Card 1: Revenue -->
+      <div class="metric-card highlight-card">
+        <div class="metric-header">
+          <span class="metric-label">Confirmed Revenue</span>
+          <span class="metric-badge green-badge">Paid Only</span>
+        </div>
+        <div class="metric-value">KES {confirmedRevenue.toLocaleString()}</div>
+        <div class="metric-footer">
+          <span>KES {studentRevenue.toLocaleString()} Student</span>
+          <span class="dot-separator">•</span>
+          <span>KES {proRevenue.toLocaleString()} Pro</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Tickets Issued -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Total Tickets Issued</span>
+          <svg
+            class="metric-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"
+            ></path>
+            <path d="M13 5v2"></path><path d="M13 17v2"></path>
+          </svg>
+        </div>
+        <div class="metric-value">{store.tickets.length}</div>
+        <div class="metric-footer text-muted">
+          <span>{studentTickets.length} Student</span>
+          <span class="dot-separator">•</span>
+          <span>{proTickets.length} Professional</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Pending / Failed Pipeline -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Order Pipeline</span>
+          <span class="metric-badge amber-badge">Attention</span>
+        </div>
+        <div class="metric-value-split">
+          <div class="split-col">
+            <span class="split-num text-amber">{pendingOrders.length}</span>
+            <span class="split-desc">Pending</span>
+          </div>
+          <div class="split-divider"></div>
+          <div class="split-col">
+            <span class="split-num text-rose">{failedOrders.length}</span>
+            <span class="split-desc">Failed</span>
+          </div>
+        </div>
+        <div class="metric-footer text-muted">
+          <span>Zero revenue credited for unconfirmed</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTION CARDS / SHORTCUTS -->
+    <section class="quick-banner">
+      <div class="banner-content">
+        <h3>Restricted Ticket-List Export</h3>
+        <p>
+          Download the authoritative, sanitized CSV of all confirmed attendees
+          and ticket codes. Protected with formula-injection defenses.
+        </p>
+      </div>
+      <div class="banner-actions">
+        <a href="/api/admin/exports" class="primary-action-btn">
+          <svg
+            class="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" x2="12" y1="15" y2="3"></line>
+          </svg>
+          <span>Download Attendee CSV</span>
+        </a>
+        <a href="/admin/events" class="secondary-action-btn">Manage Events →</a>
+        <a href="/admin/tickets" class="secondary-action-btn"
+          >Ticket Holders →</a
+        >
+      </div>
+    </section>
+
+    <!-- TWO-COLUMN TABLES GRID -->
+    <div class="tables-grid">
+      <!-- RECENT CONFIRMED ORDERS -->
+      <div class="table-card">
+        <div class="card-title-bar">
+          <div>
+            <h2 class="card-heading">Recent Confirmed Purchases</h2>
+            <p class="card-subheading">
+              Verified payments with active ticket codes issued
+            </p>
+          </div>
+          <a href="/admin/tickets?status=paid" class="view-all-link"
+            >View All ({paidOrders.length})</a
+          >
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order Ref</th>
+                <th>Attendee</th>
+                <th>Tier</th>
+                <th>Amount</th>
+                <th>Ticket Codes</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                recentPurchases.length === 0 ? (
+                  <tr>
+                    <td colspan="6" class="empty-state">
+                      No confirmed ticket purchases recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  recentPurchases.map((order) => (
+                    <tr>
+                      <td class="font-mono text-bold">{order.reference}</td>
+                      <td>
+                        <div class="buyer-name">{order.buyer_name}</div>
+                        <div class="buyer-email">{order.email}</div>
+                      </td>
+                      <td>
+                        <span
+                          class={`tier-pill ${order.category.toLowerCase().includes("student") ? "student-pill" : "pro-pill"}`}
+                        >
+                          {order.category}
+                        </span>
+                      </td>
+                      <td class="font-mono">
+                        KES {order.amount.toLocaleString()}
+                      </td>
+                      <td>
+                        <div class="codes-list">
+                          {order.ticketCodes.map((code: string) => (
+                            <span class="code-badge">{code}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <span class="status-badge paid-badge">Paid</span>
+                      </td>
+                    </tr>
+                  ))
+                )
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RECENT PAYMENT ATTEMPTS -->
+      <div class="table-card">
+        <div class="card-title-bar">
+          <div>
+            <h2 class="card-heading">Payment Ledger & Callbacks</h2>
+            <p class="card-subheading">
+              Daraja M-Pesa, Card & Pesapal verification logs
+            </p>
+          </div>
+          <a href="/admin/orders" class="view-all-link">View Ledger</a>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ref / Order</th>
+                <th>Provider</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                recentPaymentAttempts.length === 0 ? (
+                  <tr>
+                    <td colspan="5" class="empty-state">
+                      No payment attempts logged.
+                    </td>
+                  </tr>
+                ) : (
+                  recentPaymentAttempts.map((payment) => (
+                    <tr>
+                      <td>
+                        <div class="font-mono text-bold">
+                          {payment.orderRef}
+                        </div>
+                        <div class="text-xs text-muted font-mono">
+                          {payment.provider_reference}
+                        </div>
+                      </td>
+                      <td>
+                        <span class="provider-tag">
+                          {payment.provider.toUpperCase()}
+                        </span>
+                      </td>
+                      <td class="font-mono">
+                        KES {payment.amount?.toLocaleString() || "0"}
+                      </td>
+                      <td>
+                        <span
+                          class={`status-badge ${payment.status === "paid" ? "paid-badge" : payment.status === "pending" ? "pending-badge" : "failed-badge"}`}
+                        >
+                          {payment.status}
+                        </span>
+                      </td>
+                      <td class="text-xs text-muted">
+                        {new Date(payment.created_at).toLocaleTimeString(
+                          "en-KE",
+                          { hour: "2-digit", minute: "2-digit" },
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .dashboard-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* METRICS GRID */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .metric-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+
+    &.highlight-card {
+      background: linear-gradient(
+        135deg,
+        rgba(108, 43, 217, 0.15),
+        rgba(141, 198, 63, 0.1)
+      );
+      border-color: rgba(141, 198, 63, 0.3);
+    }
+  }
+
+  .metric-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .metric-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #9ca3af;
+  }
+
+  .metric-icon {
+    width: 20px;
+    height: 20px;
+    color: #9ca3af;
+  }
+
+  .metric-value {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+  }
+
+  .metric-value-split {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .split-col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .split-num {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+  }
+
+  .split-desc {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  .split-divider {
+    width: 1px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .metric-footer {
+    font-size: 0.8rem;
+    color: #d1d5db;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .dot-separator {
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .green-badge {
+    background: rgba(141, 198, 63, 0.15);
+    color: #a3e635;
+    border: 1px solid rgba(141, 198, 63, 0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .amber-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .text-amber {
+    color: #fbbf24;
+  }
+  .text-rose {
+    color: #f87171;
+  }
+  .text-muted {
+    color: #9ca3af;
+  }
+
+  /* QUICK BANNER */
+  .quick-banner {
+    background: #121528;
+    border: 1px solid rgba(108, 43, 217, 0.3);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+
+    h3 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 0.35rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin: 0;
+      max-width: 650px;
+    }
+  }
+
+  .banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .primary-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, $purple, $green);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    text-decoration: none;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(108, 43, 217, 0.4);
+    }
+  }
+
+  .secondary-action-btn {
+    color: #d1d5db;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 0.65rem 1rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+  }
+
+  /* TABLES GRID */
+  .tables-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 1.5rem;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .table-card {
+    background: #121528;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .card-title-bar {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .card-heading {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0 0 0.2rem;
+    color: #ffffff;
+  }
+
+  .card-subheading {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin: 0;
+  }
+
+  .view-all-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $green;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+
+    th {
+      padding: 0.85rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #d1d5db;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .font-mono {
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+  }
+
+  .text-bold {
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .text-xs {
+    font-size: 0.75rem;
+  }
+
+  .buyer-name {
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .buyer-email {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  .tier-pill {
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .student-pill {
+    background: rgba(141, 198, 63, 0.15);
+    color: #a3e635;
+  }
+
+  .pro-pill {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+  }
+
+  .codes-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .code-badge {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    color: #f3f4f6;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .paid-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+  }
+
+  .pending-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+
+  .failed-badge {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+  }
+
+  .provider-tag {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #9ca3af;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem !important;
+    color: #6b7280;
+  }
+</style>

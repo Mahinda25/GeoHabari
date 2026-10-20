@@ -1,0 +1,861 @@
+---
+import Layout from "../../layout/Layout.astro";
+import TicketPurchase from "../../components/TicketPurchase";
+import { getEventDetail } from "../../lib/ticketing.js";
+
+const { slug } = Astro.params;
+const event = getEventDetail(slug);
+
+if (!event) {
+  throw new Error("Event not found");
+}
+
+const startDate = new Date(event.starts_at);
+const endDate = new Date(event.ends_at);
+
+const formattedDateLong = startDate.toLocaleDateString("en-KE", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+const formattedDateShort = startDate.toLocaleDateString("en-KE", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const formattedStartTime = startDate.toLocaleTimeString("en-KE", {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const formattedEndTime = endDate.toLocaleTimeString("en-KE", {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+// Check for lineup/speakers and partners in event data safely
+const speakers = (event as any).speakers || (event as any).lineup || [];
+const partners = (event as any).partners || (event as any).sponsors || [];
+---
+
+<Layout title={`${event.title} — Ticketing`} description={event.description}>
+  <div class="event-detail-shell">
+    <!-- Breadcrumb / Back to Events -->
+    <nav class="breadcrumb-nav mb-6" aria-label="Breadcrumb">
+      <a href="/events" class="back-link">
+        <svg
+          class="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6"></path>
+        </svg>
+        <span>Back to all events</span>
+      </a>
+    </nav>
+
+    <!-- Main Two-Column Layout -->
+    <div class="event-detail-grid">
+      <!-- ================= LEFT COLUMN: EVENT EXPERIENCE ================= -->
+      <div class="event-left-column">
+        <!-- 1. POSTER -->
+        <div class="poster-container">
+          <div class="poster-frame">
+            <img
+              src={event.poster}
+              alt={event.title}
+              loading="eager"
+              class="poster-image"
+            />
+            <div class="poster-badge">
+              <span class="status-dot"></span>
+              <span>Registration Open</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. EVENT TITLE & IDENTITY -->
+        <header class="event-header-card">
+          <div class="event-eyebrow">
+            <span>GEOHABARI PRESENTS</span>
+            <span class="eyebrow-divider">•</span>
+            <span>IN-PERSON SUMMIT</span>
+          </div>
+          <h1 class="event-title">{event.title}</h1>
+          <p class="event-meta-summary">
+            <span>{event.venue.split(",")[0]}</span>
+            <span class="dot-separator">•</span>
+            <span>{formattedDateShort}</span>
+          </p>
+        </header>
+
+        <!-- 3. TIME & PLACE SECTION (Scannable in ~2 seconds) -->
+        <section
+          class="section-card time-place-card"
+          aria-labelledby="heading-time-place"
+        >
+          <div class="section-header">
+            <span class="section-tag">Logistics</span>
+            <h2 id="heading-time-place" class="section-title">Time & Place</h2>
+          </div>
+
+          <div class="time-place-grid">
+            <!-- Venue -->
+            <div class="logistics-item">
+              <div class="logistics-icon purple-icon">
+                <svg
+                  class="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"
+                  ></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <div class="logistics-content">
+                <span class="logistics-label">VENUE</span>
+                <p class="logistics-main">{event.venue}</p>
+                <span class="logistics-sub">Nairobi, Kenya</span>
+              </div>
+            </div>
+
+            <!-- Date -->
+            <div class="logistics-item">
+              <div class="logistics-icon green-icon">
+                <svg
+                  class="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+              </div>
+              <div class="logistics-content">
+                <span class="logistics-label">DATE</span>
+                <p class="logistics-main">{formattedDateLong}</p>
+                <span class="logistics-sub">Mark your calendar</span>
+              </div>
+            </div>
+
+            <!-- Time -->
+            <div class="logistics-item">
+              <div class="logistics-icon slate-icon">
+                <svg
+                  class="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="logistics-content">
+                <span class="logistics-label">TIME</span>
+                <p class="logistics-main">
+                  {formattedStartTime} – {formattedEndTime}
+                </p>
+                <span class="logistics-sub">East Africa Time (EAT)</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. EVENT OVERVIEW SECTION -->
+        <section
+          class="section-card overview-card"
+          aria-labelledby="heading-overview"
+        >
+          <div class="section-header">
+            <span class="section-tag">About</span>
+            <h2 id="heading-overview" class="section-title">Overview</h2>
+          </div>
+
+          <div class="overview-body">
+            <p>{event.description}</p>
+            <p>
+              Experience an engaging day of keynote sessions, technical
+              demonstrations, and networking with fellow geospatial innovators,
+              developers, students, and founders shaping Africa's technological
+              landscape.
+            </p>
+          </div>
+
+          <div class="highlights-container">
+            <h3 class="highlights-heading">What to Expect</h3>
+            <ul class="highlights-list">
+              <li>
+                <svg
+                  class="w-4 h-4 check-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span
+                  >Industry keynotes from leading African geospatial and tech
+                  pioneers</span
+                >
+              </li>
+              <li>
+                <svg
+                  class="w-4 h-4 check-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span
+                  >Interactive panels covering satellite tech, AI spatial
+                  models, and open data</span
+                >
+              </li>
+              <li>
+                <svg
+                  class="w-4 h-4 check-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span
+                  >Dedicated networking sessions with founders, students, and
+                  employers</span
+                >
+              </li>
+              <li>
+                <svg
+                  class="w-4 h-4 check-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span
+                  >Digital certificate of attendance and post-event resource
+                  pack</span
+                >
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 5. LINEUP / SPEAKERS & PRESENTERS -->
+        <section
+          class="section-card lineup-card"
+          aria-labelledby="heading-lineup"
+        >
+          <div class="section-header">
+            <span class="section-tag">People</span>
+            <h2 id="heading-lineup" class="section-title">
+              Speakers & Presenters
+            </h2>
+          </div>
+
+          {
+            speakers.length > 0 ? (
+              <div class="speakers-grid">
+                {speakers.map((speaker: any) => (
+                  <div class="speaker-card">
+                    <div class="speaker-avatar">
+                      <img
+                        src={
+                          speaker.photo ||
+                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
+                        }
+                        alt={speaker.name}
+                      />
+                    </div>
+                    <div class="speaker-details">
+                      <h3 class="speaker-name">{speaker.name}</h3>
+                      <p class="speaker-role">{speaker.role}</p>
+                      {speaker.company && (
+                        <p class="speaker-company">{speaker.company}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div class="lineup-announcement-box">
+                <div class="announcement-icon-bubble">
+                  <svg
+                    class="w-6 h-6 text-[#6C2BD9]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <div class="announcement-content">
+                  <div class="announcement-pill">
+                    Lineup Announcements Coming Soon
+                  </div>
+                  <h3 class="announcement-title">
+                    Featured Speakers & Panelists
+                  </h3>
+                  <p class="announcement-text">
+                    Keynote speakers, guest founders, and workshop leaders are
+                    being finalized. Registered ticket holders will receive
+                    first notification as speaker sessions and keynote topics
+                    are published.
+                  </p>
+                </div>
+              </div>
+            )
+          }
+        </section>
+
+        <!-- 6. PARTNERS / SPONSORS (Only rendered if partner data exists) -->
+        {
+          partners.length > 0 && (
+            <section
+              class="section-card partners-card"
+              aria-labelledby="heading-partners"
+            >
+              <div class="section-header">
+                <span class="section-tag">Collaboration</span>
+                <h2 id="heading-partners" class="section-title">
+                  Our Partners
+                </h2>
+              </div>
+              <div class="partners-grid">
+                {partners.map((partner: any) => (
+                  <div class="partner-card">
+                    {partner.logo ? (
+                      <img
+                        src={partner.logo}
+                        alt={partner.name}
+                        class="partner-logo"
+                      />
+                    ) : (
+                      <span class="partner-name">{partner.name}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )
+        }
+      </div>
+
+      <!-- ================= RIGHT COLUMN: TICKETING & CHECKOUT ================= -->
+      <aside class="checkout-panel" aria-label="Ticket Checkout">
+        <div class="checkout-sticky-container">
+          <TicketPurchase client:load event={event} />
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layout>
+
+<style lang="scss">
+  @use "../../styles/partials/combined.scss" as *;
+
+  .event-detail-shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 6.5rem 1.25rem 5rem;
+
+    @media (max-width: 768px) {
+      padding: 5rem 1rem 4rem;
+    }
+  }
+
+  .breadcrumb-nav {
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: rgba(26, 26, 46, 0.6);
+      text-decoration: none;
+      transition:
+        color 0.2s ease,
+        transform 0.2s ease;
+
+      &:hover {
+        color: $purple;
+        transform: translateX(-3px);
+      }
+    }
+  }
+
+  .event-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.05fr;
+    gap: 3rem;
+    align-items: start;
+
+    @media (max-width: 1080px) {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+  }
+
+  .event-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* ===== 1. POSTER ===== */
+  .poster-container {
+    width: 100%;
+  }
+
+  .poster-frame {
+    position: relative;
+    border-radius: 28px;
+    overflow: hidden;
+    background: #0b0d17;
+    box-shadow:
+      0 24px 60px rgba(15, 23, 42, 0.12),
+      0 4px 12px rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+
+    .poster-image {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+
+      @media (max-width: 768px) {
+        aspect-ratio: 16 / 10;
+      }
+    }
+
+    &:hover .poster-image {
+      transform: scale(1.02);
+    }
+  }
+
+  .poster-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 9999px;
+    background: rgba(11, 13, 23, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: $green;
+      box-shadow: 0 0 10px $green;
+    }
+  }
+
+  /* ===== 2. HEADER CARD ===== */
+  .event-header-card {
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
+    padding: 1.75rem 2rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+
+    @media (max-width: 640px) {
+      padding: 1.5rem 1.25rem;
+    }
+  }
+
+  .event-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: $green-dark;
+    margin-bottom: 0.6rem;
+
+    .eyebrow-divider {
+      color: rgba(15, 23, 42, 0.3);
+    }
+  }
+
+  .event-title {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: clamp(1.85rem, 3.2vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: $black;
+    margin: 0 0 0.85rem;
+    letter-spacing: -0.02em;
+  }
+
+  .event-meta-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(26, 26, 46, 0.7);
+    margin: 0;
+
+    .dot-separator {
+      color: $green;
+    }
+  }
+
+  /* ===== 3. SECTION CARDS ===== */
+  .section-card {
+    background: white;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
+    padding: 1.75rem 2rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+
+    @media (max-width: 640px) {
+      padding: 1.5rem 1.25rem;
+    }
+  }
+
+  .section-header {
+    margin-bottom: 1.25rem;
+
+    .section-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: $purple;
+      margin-bottom: 0.25rem;
+    }
+
+    .section-title {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: $black;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+  }
+
+  /* ===== TIME & PLACE GRID ===== */
+  .time-place-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .logistics-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: #f1f5f9;
+    }
+  }
+
+  .logistics-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &.purple-icon {
+      background: rgba(108, 43, 217, 0.1);
+      color: $purple;
+    }
+
+    &.green-icon {
+      background: rgba(141, 198, 63, 0.18);
+      color: $green-dark;
+    }
+
+    &.slate-icon {
+      background: rgba(15, 23, 42, 0.08);
+      color: #334155;
+    }
+  }
+
+  .logistics-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+
+    .logistics-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .logistics-main {
+      font-size: 1rem;
+      font-weight: 700;
+      color: $black;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .logistics-sub {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+  }
+
+  /* ===== OVERVIEW ===== */
+  .overview-body {
+    p {
+      font-size: 0.98rem;
+      line-height: 1.8;
+      color: rgba(26, 26, 46, 0.78);
+      margin-bottom: 1rem;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .highlights-container {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed rgba(15, 23, 42, 0.12);
+  }
+
+  .highlights-heading {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: $black;
+    margin: 0 0 0.85rem;
+  }
+
+  .highlights-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+
+    li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+      color: rgba(26, 26, 46, 0.75);
+      line-height: 1.5;
+
+      .check-icon {
+        color: $green-dark;
+        flex-shrink: 0;
+        margin-top: 0.2rem;
+      }
+    }
+  }
+
+  /* ===== LINEUP ===== */
+  .lineup-announcement-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-radius: 20px;
+    background: linear-gradient(
+      135deg,
+      #f8fafc 0%,
+      rgba(108, 43, 217, 0.04) 100%
+    );
+    border: 1px solid rgba(108, 43, 217, 0.12);
+
+    @media (max-width: 640px) {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+
+  .announcement-icon-bubble {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: rgba(108, 43, 217, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .announcement-content {
+    .announcement-pill {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(108, 43, 217, 0.1);
+      color: $purple;
+      margin-bottom: 0.5rem;
+    }
+
+    .announcement-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: $black;
+      margin: 0 0 0.35rem;
+    }
+
+    .announcement-text {
+      font-size: 0.88rem;
+      color: #64748b;
+      line-height: 1.6;
+      margin: 0;
+    }
+  }
+
+  .speakers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .speaker-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+
+    .speaker-avatar img {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .speaker-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0;
+      color: $black;
+    }
+
+    .speaker-role {
+      font-size: 0.8rem;
+      color: $purple;
+      margin: 0;
+    }
+
+    .speaker-company {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin: 0;
+    }
+  }
+
+  /* ===== PARTNERS ===== */
+  .partners-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .partner-card {
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+
+    .partner-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #475569;
+    }
+  }
+
+  /* ===== RIGHT CHECKOUT PANEL ===== */
+  .checkout-panel {
+    position: relative;
+
+    .checkout-sticky-container {
+      position: sticky;
+      top: 100px;
+    }
+
+    @media (max-width: 1080px) {
+      .checkout-sticky-container {
+        position: static;
+      }
+    }
+  }
+</style>

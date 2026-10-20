@@ -1,0 +1,700 @@
+{
+  "events": [
+    {
+      "id": "evt-summit-2026",
+      "title": "GeoHabari Summit 2026",
+      "slug": "geohabari-summit-2026",
+      "poster": "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+      "description": "A flagship event bringing together founders, practitioners, marketers and geospatial experts across Africa.",
+      "venue": "Kenyatta International Convention Centre, Nairobi",
+      "starts_at": "2026-12-12T09:00:00+03:00",
+      "ends_at": "2026-12-12T17:00:00+03:00",
+      "status": "published",
+      "archived_at": null,
+      "created_at": "2026-10-14T19:02:49.470Z",
+      "updated_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "evt-ai-2026",
+      "title": "AI & Spatial Innovation Forum",
+      "slug": "ai-spatial-innovation-forum",
+      "poster": "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
+      "description": "A practical conversation on how AI and geospatial intelligence are reshaping public systems and business models.",
+      "venue": "iHub, Nairobi",
+      "starts_at": "2026-11-04T15:00:00+03:00",
+      "ends_at": "2026-11-04T19:00:00+03:00",
+      "status": "published",
+      "archived_at": null,
+      "created_at": "2026-10-14T19:02:49.472Z",
+      "updated_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "title": "Geohabari end of year party",
+      "slug": "geohabari-end-of-year-party",
+      "poster": "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+      "description": "Geohabari end of year party",
+      "venue": "KICC",
+      "starts_at": "2026-11-18T06:00:00.000Z",
+      "ends_at": "2026-11-18T14:00:00.000Z",
+      "status": "published",
+      "speakers": [],
+      "partners": [],
+      "archived_at": null,
+      "created_at": "2026-10-19T18:32:56.999Z",
+      "updated_at": "2026-10-19T18:39:17.381Z"
+    }
+  ],
+  "ticket_types": [
+    {
+      "id": "ticket-student-evt-summit-2026",
+      "event_id": "evt-summit-2026",
+      "name": "Student",
+      "price": 600,
+      "allocation": 30,
+      "sold_count": 0,
+      "created_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "ticket-professional-evt-summit-2026",
+      "event_id": "evt-summit-2026",
+      "name": "Professional",
+      "price": 1000,
+      "allocation": 70,
+      "sold_count": 6,
+      "created_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "ticket-student-evt-ai-2026",
+      "event_id": "evt-ai-2026",
+      "name": "Student",
+      "price": 600,
+      "allocation": 30,
+      "sold_count": 0,
+      "created_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "ticket-professional-evt-ai-2026",
+      "event_id": "evt-ai-2026",
+      "name": "Professional",
+      "price": 1000,
+      "allocation": 70,
+      "sold_count": 0,
+      "created_at": "2026-10-14T19:02:49.472Z"
+    },
+    {
+      "id": "ticket-evt-geohabari-end-of-year-party-mvfldxgn-a3f1df1a",
+      "event_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "name": "Professional",
+      "price": 1000,
+      "allocation": 100,
+      "sold_count": 0,
+      "description": "Full summit access • Keynotes, panels & networking",
+      "created_at": "2026-10-19T18:32:57.009Z",
+      "updated_at": "2026-10-19T18:39:17.394Z"
+    },
+    {
+      "id": "ticket-evt-geohabari-end-of-year-party-mvfldxgn-69ecd120",
+      "event_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "name": "VIP",
+      "price": 5000,
+      "allocation": 10,
+      "sold_count": 0,
+      "description": "FULL SUMMIT ACCESS PLUS BACKSTAGE",
+      "created_at": "2026-10-19T18:32:57.014Z",
+      "updated_at": "2026-10-19T18:39:17.401Z"
+    },
+    {
+      "id": "ticket-evt-geohabari-end-of-year-party-mvfldxgn-33c515d2",
+      "event_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "name": "STUDENT",
+      "price": 700,
+      "allocation": 25,
+      "sold_count": 0,
+      "description": "",
+      "created_at": "2026-10-19T18:39:17.408Z",
+      "updated_at": "2026-10-19T18:39:17.408Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "c391d056-17e8-4163-8b8d-8b38fab4a74d",
+      "reference": "GH-2026-00001",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "buyer_name": "Payment Test Buyer",
+      "phone": "0712345678",
+      "email": "pay@example.com",
+      "quantity": 2,
+      "amount": 2000,
+      "status": "paid",
+      "payment_method": "card",
+      "accepted_terms": true,
+      "whatsapp_opt_in": true,
+      "whatsapp_opt_in_at": "2026-10-14T19:02:50.012Z",
+      "student_verification_id": null,
+      "created_at": "2026-10-14T19:02:50.012Z",
+      "updated_at": "2026-10-14T19:02:50.027Z"
+    },
+    {
+      "id": "c2bf2cee-666f-4966-9b19-f5f594979f1f",
+      "reference": "GH-2026-00002",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "buyer_name": "Wanjiru Mwangi",
+      "phone": "0712345678",
+      "email": "wanjiru.test@example.com",
+      "quantity": 2,
+      "amount": 2000,
+      "status": "paid",
+      "payment_method": "card",
+      "accepted_terms": true,
+      "whatsapp_opt_in": false,
+      "whatsapp_opt_in_at": null,
+      "student_verification_id": null,
+      "created_at": "2026-10-14T19:02:52.759Z",
+      "updated_at": "2026-10-14T19:02:52.788Z"
+    },
+    {
+      "id": "589987d9-afd4-452b-8bcd-15ffe220b2b0",
+      "reference": "GH-2026-00003",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "buyer_name": "Pending Buyer",
+      "phone": "0700000001",
+      "email": "pending.buyer@example.com",
+      "quantity": 1,
+      "amount": 1000,
+      "status": "failed",
+      "payment_method": "mpesa",
+      "accepted_terms": true,
+      "whatsapp_opt_in": false,
+      "whatsapp_opt_in_at": null,
+      "student_verification_id": null,
+      "created_at": "2026-10-14T19:02:52.918Z",
+      "updated_at": "2026-10-14T19:02:52.977Z"
+    },
+    {
+      "id": "fb3f1553-450b-4134-aa41-5abe2be0a8a9",
+      "reference": "GH-2026-00004",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "buyer_name": "Confirmed Buyer",
+      "phone": "0700000002",
+      "email": "confirmed.buyer@example.com",
+      "quantity": 2,
+      "amount": 2000,
+      "status": "paid",
+      "payment_method": "card",
+      "accepted_terms": true,
+      "whatsapp_opt_in": false,
+      "whatsapp_opt_in_at": null,
+      "student_verification_id": null,
+      "created_at": "2026-10-14T19:02:53.021Z",
+      "updated_at": "2026-10-14T19:02:53.033Z"
+    },
+    {
+      "id": "b1f70084-7fa3-4ae6-bd11-e45d7bccf817",
+      "reference": "GH-2026-00005",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "buyer_name": "Stephen Mahinda",
+      "phone": "0742014521",
+      "email": "Stephenmahinda25@gmail.com",
+      "quantity": 4,
+      "amount": 4000,
+      "status": "pending",
+      "payment_method": "mpesa",
+      "accepted_terms": true,
+      "student_verification_id": null,
+      "created_at": "2026-10-19T18:12:20.700Z",
+      "updated_at": "2026-10-19T18:12:20.700Z"
+    }
+  ],
+  "payments": [
+    {
+      "id": "15064366-659a-4075-aef6-c846b4ad00ca",
+      "order_id": "c391d056-17e8-4163-8b8d-8b38fab4a74d",
+      "provider": "card",
+      "provider_reference": "CARD-REF-999",
+      "amount": 2000,
+      "status": "paid",
+      "created_at": "2026-10-14T19:02:50.012Z",
+      "updated_at": "2026-10-14T19:02:50.027Z"
+    },
+    {
+      "id": "3cf007e5-2bd3-47b4-87b7-ab156c12c600",
+      "order_id": "c2bf2cee-666f-4966-9b19-f5f594979f1f",
+      "provider": "card",
+      "provider_reference": "card-test-1792004572782",
+      "amount": 2000,
+      "status": "paid",
+      "created_at": "2026-10-14T19:02:52.759Z",
+      "updated_at": "2026-10-14T19:02:52.788Z"
+    },
+    {
+      "id": "7837671f-ef74-4a82-ab8d-7133d16d3fac",
+      "order_id": "589987d9-afd4-452b-8bcd-15ffe220b2b0",
+      "provider": "mpesa",
+      "provider_reference": "FAILED-TXN-123",
+      "amount": 1000,
+      "status": "failed",
+      "created_at": "2026-10-14T19:02:52.918Z",
+      "updated_at": "2026-10-14T19:02:52.977Z"
+    },
+    {
+      "id": "05362aea-3351-4428-ad7b-cd15f76499c0",
+      "order_id": "fb3f1553-450b-4134-aa41-5abe2be0a8a9",
+      "provider": "card",
+      "provider_reference": "card-confirm-1792004573028",
+      "amount": 2000,
+      "status": "paid",
+      "created_at": "2026-10-14T19:02:53.021Z",
+      "updated_at": "2026-10-14T19:02:53.033Z"
+    },
+    {
+      "id": "e26db7f4-b4c0-4c65-8ee2-dfaa0c008a86",
+      "order_id": "b1f70084-7fa3-4ae6-bd11-e45d7bccf817",
+      "provider": "mpesa",
+      "provider_reference": "MPESA-1792433540701",
+      "amount": 4000,
+      "status": "pending",
+      "created_at": "2026-10-19T18:12:20.701Z",
+      "updated_at": "2026-10-19T18:12:20.701Z"
+    }
+  ],
+  "tickets": [
+    {
+      "id": "efd5ded0-331a-4939-9ab5-2d74a1a52445",
+      "order_id": "c391d056-17e8-4163-8b8d-8b38fab4a74d",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-Y7P9J",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:50.030Z"
+    },
+    {
+      "id": "1aa41c62-0a72-4d84-818c-cf96d8b95832",
+      "order_id": "c391d056-17e8-4163-8b8d-8b38fab4a74d",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-D4H5V",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:50.030Z"
+    },
+    {
+      "id": "0c04275e-a19b-457b-ba31-7d20f7e19209",
+      "order_id": "c2bf2cee-666f-4966-9b19-f5f594979f1f",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-W3T6U",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:52.795Z"
+    },
+    {
+      "id": "87bae504-3eed-4b25-876a-703c7f335cbf",
+      "order_id": "c2bf2cee-666f-4966-9b19-f5f594979f1f",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-X9S3V",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:52.796Z",
+      "check_in_status": "checked_in",
+      "check_in_at": "2026-10-14T19:02:52.890Z",
+      "checked_in_by": "admin@geohabari.com"
+    },
+    {
+      "id": "a7d3ce45-6283-484c-aa5e-4401f5da7f6a",
+      "order_id": "fb3f1553-450b-4134-aa41-5abe2be0a8a9",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-S2P6P",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:53.037Z"
+    },
+    {
+      "id": "49bb1678-a886-42dc-8b50-4a82727dc79c",
+      "order_id": "fb3f1553-450b-4134-aa41-5abe2be0a8a9",
+      "event_id": "evt-summit-2026",
+      "ticket_type_id": "ticket-professional-evt-summit-2026",
+      "ticket_code": "GH26-GH-P5E4V",
+      "category": "Professional",
+      "status": "active",
+      "created_at": "2026-10-14T19:02:53.037Z"
+    }
+  ],
+  "exports": [],
+  "audit_logs": [
+    {
+      "id": "0ed08053-1a26-41f5-947e-f7dd4a7c3d80",
+      "created_at": "2026-10-19T18:39:17.412Z",
+      "action": "admin_event_updated",
+      "entity": "event",
+      "entity_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "details": {
+        "admin_email": "admin@geohabari.com",
+        "title": "Geohabari end of year party",
+        "slug": "geohabari-end-of-year-party",
+        "ticketCount": 3
+      }
+    },
+    {
+      "id": "9264c921-6a5b-42bd-a79a-7a2b0536ef84",
+      "created_at": "2026-10-19T18:39:17.388Z",
+      "action": "event_updated",
+      "entity": "event",
+      "entity_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "details": {
+        "title": "Geohabari end of year party",
+        "slug": "geohabari-end-of-year-party",
+        "status": "published"
+      }
+    },
+    {
+      "id": "563369b9-120a-45b9-9674-74fdf1ea4359",
+      "created_at": "2026-10-19T18:32:57.020Z",
+      "action": "admin_event_created",
+      "entity": "event",
+      "entity_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "details": {
+        "admin_email": "admin@geohabari.com",
+        "title": "Geohabari end of year party",
+        "slug": "geohabari-end-of-year-party",
+        "ticketCount": 2
+      }
+    },
+    {
+      "id": "8177eb59-79ca-4763-8e48-f1d7f62a1f2a",
+      "created_at": "2026-10-19T18:32:57.005Z",
+      "action": "event_created",
+      "entity": "event",
+      "entity_id": "evt-geohabari-end-of-year-party-mvfldxgn",
+      "details": {
+        "title": "Geohabari end of year party",
+        "slug": "geohabari-end-of-year-party",
+        "status": "published"
+      }
+    },
+    {
+      "id": "3317191f-3ab9-4b8a-948f-7dcffaf1f6f4",
+      "created_at": "2026-10-14T21:09:25.777Z",
+      "action": "ticket_holders_exported",
+      "entity": "export",
+      "entity_id": null,
+      "details": {
+        "admin_email": "admin@geohabari.com",
+        "record_count": 7,
+        "filters": {
+          "search": "",
+          "category": "all",
+          "status": "all",
+          "dateFrom": "",
+          "dateTo": ""
+        }
+      }
+    },
+    {
+      "id": "8c2f7c75-a4ca-43f8-ad78-5de1628475f9",
+      "created_at": "2026-10-14T21:05:33.334Z",
+      "action": "admin_login_success",
+      "entity": "admin_user",
+      "entity_id": "2c6b54ad-8188-4839-afc3-88fbe3b9cd32",
+      "details": {
+        "email": "admin@geohabari.com",
+        "ipAddress": "127.0.0.1",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+      }
+    },
+    {
+      "id": "b6de1353-8f1b-44ee-ac13-e2417d20b483",
+      "created_at": "2026-10-14T19:43:01.783Z",
+      "action": "admin_provisioned",
+      "entity": "admin_user",
+      "entity_id": "2c6b54ad-8188-4839-afc3-88fbe3b9cd32",
+      "details": {
+        "email": "admin@geohabari.com",
+        "role": "superadmin"
+      }
+    },
+    {
+      "id": "01583b6f-0704-44fb-b5e9-46546e335e80",
+      "created_at": "2026-10-14T19:02:52.894Z",
+      "action": "ticket_check_in",
+      "entity": "ticket",
+      "entity_id": "87bae504-3eed-4b25-876a-703c7f335cbf",
+      "details": {
+        "ticket_code": "GH26-GH-X9S3V",
+        "checked_in_by": "admin@geohabari.com"
+      }
+    },
+    {
+      "id": "831cb581-5d8c-445a-991d-582d95eda18f",
+      "created_at": "2026-10-14T19:02:52.741Z",
+      "action": "admin_login_locked",
+      "entity": "admin_user",
+      "entity_id": null,
+      "details": {
+        "email": "target@geohabari.com",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "cfa10074-71f3-4c43-968f-f9ef38618d49",
+      "created_at": "2026-10-14T19:02:52.710Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "e6ae3ae9-5b04-4bc2-a944-692fc605098c",
+      "created_at": "2026-10-14T19:02:52.524Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "e4faa582-550d-479b-aa86-753b29adc8f9",
+      "created_at": "2026-10-14T19:02:52.387Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "3fa9976f-ed8b-46b3-81db-c88f31854451",
+      "created_at": "2026-10-14T19:02:52.253Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "952cfc4d-16dd-4029-8bd4-a37151fbfe2c",
+      "created_at": "2026-10-14T19:02:52.101Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": ""
+      }
+    },
+    {
+      "id": "cea33efe-e1ba-46f0-a05f-ed42713673ac",
+      "created_at": "2026-10-14T19:02:51.966Z",
+      "action": "admin_provisioned",
+      "entity": "admin_user",
+      "entity_id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "details": {
+        "email": "target@geohabari.com",
+        "role": "admin"
+      }
+    },
+    {
+      "id": "d818d9d5-b0ed-4c7d-8749-f48f51a00400",
+      "created_at": "2026-10-14T19:02:51.667Z",
+      "action": "admin_login_success",
+      "entity": "admin_user",
+      "entity_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "details": {
+        "email": "audit_admin@geohabari.com",
+        "ipAddress": "127.0.0.1",
+        "userAgent": ""
+      }
+    },
+    {
+      "id": "763ac3f2-2677-4078-a49f-8bdc2cd5ddf2",
+      "created_at": "2026-10-14T19:02:51.308Z",
+      "action": "admin_login_success",
+      "entity": "admin_user",
+      "entity_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "details": {
+        "email": "audit_admin@geohabari.com",
+        "ipAddress": "127.0.0.1",
+        "userAgent": ""
+      }
+    },
+    {
+      "id": "13eea00f-3612-41a7-95a4-16be75113018",
+      "created_at": "2026-10-14T19:02:50.973Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": null,
+      "details": {
+        "email": "nonexistent@geohabari.com",
+        "reason": "user_not_found_or_inactive",
+        "ipAddress": "127.0.0.1"
+      }
+    },
+    {
+      "id": "610c615f-1a07-4d8a-9692-106ab2fdc493",
+      "created_at": "2026-10-14T19:02:50.960Z",
+      "action": "admin_login_failed",
+      "entity": "admin_user",
+      "entity_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "details": {
+        "email": "audit_admin@geohabari.com",
+        "reason": "invalid_password",
+        "ipAddress": "127.0.0.1"
+      }
+    },
+    {
+      "id": "284165ad-4567-4bb4-9481-6c506aceb47b",
+      "created_at": "2026-10-14T19:02:50.634Z",
+      "action": "admin_login_success",
+      "entity": "admin_user",
+      "entity_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "details": {
+        "email": "audit_admin@geohabari.com",
+        "ipAddress": "127.0.0.1",
+        "userAgent": ""
+      }
+    },
+    {
+      "id": "aceef1f8-e2cc-438d-8a41-d893e7f8ddf1",
+      "created_at": "2026-10-14T19:02:50.335Z",
+      "action": "admin_provisioned",
+      "entity": "admin_user",
+      "entity_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "details": {
+        "email": "audit_admin@geohabari.com",
+        "role": "superadmin"
+      }
+    }
+  ],
+  "student_verifications": [
+    {
+      "id": "b43dbe56-aee9-4a20-99a6-b932f92a5c3e",
+      "method": "student_id_name_match",
+      "buyer_name": "Stephen shaphan",
+      "document_storage_key": "42c00e87-90ee-493c-a9e4-09f982d9429d.png",
+      "document_hash": "b67b66915d676ed08cda00376843df965ba4f328a55dd84cd7387f4d05569f5c",
+      "document_mime": "image/png",
+      "document_size": 22367,
+      "status": "retry_required",
+      "is_duplicate_flagged": false,
+      "retention_expires_at": "2026-11-18T18:10:33.153Z",
+      "created_at": "2026-10-19T18:10:33.153Z",
+      "failure_reason": "ocr_provider_unconfigured",
+      "updated_at": "2026-10-19T18:10:33.156Z"
+    },
+    {
+      "id": "94b1da34-030c-4b24-b578-778a02c601f8",
+      "method": "student_id_name_match",
+      "buyer_name": "Stephen shaphan",
+      "document_storage_key": "539c23a0-dda7-4bbb-9c77-17e107d6267e.png",
+      "document_hash": "b67b66915d676ed08cda00376843df965ba4f328a55dd84cd7387f4d05569f5c",
+      "document_mime": "image/png",
+      "document_size": 22367,
+      "status": "retry_required",
+      "is_duplicate_flagged": false,
+      "retention_expires_at": "2026-11-18T18:11:08.478Z",
+      "created_at": "2026-10-19T18:11:08.478Z",
+      "failure_reason": "ocr_provider_unconfigured",
+      "updated_at": "2026-10-19T18:11:08.481Z"
+    }
+  ],
+  "whatsapp_notifications": [
+    {
+      "id": "ec993331-d60f-435f-9a45-7d27f5336a6c",
+      "status": "skipped_unconfigured",
+      "sent_at": null,
+      "last_error": null,
+      "created_at": "2026-10-14T19:02:50.066Z",
+      "updated_at": "2026-10-14T19:02:50.066Z"
+    }
+  ],
+  "admin_users": [
+    {
+      "id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "email": "audit_admin@geohabari.com",
+      "password_hash": "scrypt:4a1ede8766cbe6829897ef3b5be5a750:95c3cef776c937b9345b843ff60ac56a5c195d465fe32037d3df1d23ed15d08df47020a6e79084247ab0035848f125408198284a536f26465576c1ac59fb0875",
+      "full_name": "Audit Administrator",
+      "role": "superadmin",
+      "is_active": true,
+      "created_at": "2026-10-14T19:02:50.328Z",
+      "updated_at": "2026-10-14T19:02:50.328Z"
+    },
+    {
+      "id": "7c1ebd09-ec9b-44f0-a921-bc70e467ac3f",
+      "email": "target@geohabari.com",
+      "password_hash": "scrypt:b5d1e42a92c955115d24f517606d418d:773731b82ccded399e0cfbf436552b9de9dfff3b2ed31a941cf610489423d23cf19f36294b562f8779de224db87e7bf68e749231773da6ddd809b215aa6ad281",
+      "full_name": "Target Admin",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2026-10-14T19:02:51.961Z",
+      "updated_at": "2026-10-14T19:02:51.961Z"
+    },
+    {
+      "id": "2c6b54ad-8188-4839-afc3-88fbe3b9cd32",
+      "email": "admin@geohabari.com",
+      "password_hash": "scrypt:a89836a01924a1429ba7db16108cb42c:71e0987e00d9412051a2913d46c982abd70d19676cb610f45d274c8a816086975a44f442b6fa746bceb2755d6e01d2466a8800ff6bc02eb8f402d7407d780245",
+      "full_name": "GeoHabari System Administrator",
+      "role": "superadmin",
+      "is_active": true,
+      "created_at": "2026-10-14T19:43:01.770Z",
+      "updated_at": "2026-10-14T19:43:01.770Z"
+    }
+  ],
+  "admin_sessions": [
+    {
+      "id": "aada2d68-db59-4912-b2a1-48e066051b8c",
+      "user_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "session_token": "c709e769fcdee77345c96cb906148ff067c2d873d4b41e9596b9aa6f038631ad",
+      "user_agent": "",
+      "ip_address": "127.0.0.1",
+      "expires_at": "2026-10-21T19:02:50.548Z",
+      "created_at": "2026-10-14T19:02:50.552Z"
+    },
+    {
+      "id": "b1b5d379-af7b-4dfc-b533-4ba6c512e19c",
+      "user_id": "a04a8164-3414-4ce8-a54b-7e6439cd6895",
+      "session_token": "a298927adccaa1984982b28ea949394d3a9d78aae284453f41992cf388a1d1a7",
+      "user_agent": "",
+      "ip_address": "127.0.0.1",
+      "expires_at": "2026-10-21T19:02:51.627Z",
+      "created_at": "2026-10-14T19:02:51.658Z"
+    },
+    {
+      "id": "e96f365c-8fb7-4f65-bd00-df50249ae296",
+      "user_id": "2c6b54ad-8188-4839-afc3-88fbe3b9cd32",
+      "session_token": "5292e58d66c20d9a20215c4da0edeaab5c9a1eb45eb814139a52d65693ed5235",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+      "ip_address": "127.0.0.1",
+      "expires_at": "2026-10-21T21:05:33.325Z",
+      "created_at": "2026-10-14T21:05:33.328Z"
+    }
+  ],
+  "login_attempts": [
+    {
+      "id": "e8a348c8-abdb-4882-b07a-35d84c115eff",
+      "identifier": "admin@geohabari.com",
+      "success": true,
+      "created_at": "2026-10-14T21:05:33.322Z"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+---
+
+interface Props {
+  href?: string;
+}
+
+const { href = '#' } = Astro.props as Props;
+---
+
+<div class="link-container">
+  <a href={href} class="link">
+    <slot />
+  </a>
+</div>
+
+<style lang="scss">
+  @use '../styles/partials/combined.scss' as *;
+
+  .link-container {
+    
+
+    .link {
+      text-decoration: none;
+      color: $black;
+      font-weight: 700;
+      transition: color $transition-fast;
+      padding: $spacing-1;
+      height: max-content;
+
+      &:hover {
+        color: $green;
+        border-bottom: 2px solid $green;
+      }
+    }
+  }
+
+  
+</style>
