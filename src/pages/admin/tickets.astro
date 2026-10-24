@@ -1,8 +1,13 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { queryTicketHolders, checkInTicket } from '../../lib/ticketing-store.js';
+import { queryTicketHolders, checkInTicket, listEvents } from '../../lib/ticketing-store.js';
+
+const allEvents = listEvents();
+const activeEvents = allEvents.filter((e) => e.status !== 'archived' && !e.archived_at);
+const archivedEvents = allEvents.filter((e) => e.status === 'archived' || Boolean(e.archived_at));
 
 // Parse query parameters
+const eventId = Astro.url.searchParams.get('eventId') || 'all';
 const search = Astro.url.searchParams.get('search') || '';
 const category = Astro.url.searchParams.get('category') || 'all';
 const status = Astro.url.searchParams.get('status') || 'all';
@@ -10,6 +15,9 @@ const dateFrom = Astro.url.searchParams.get('from') || '';
 const dateTo = Astro.url.searchParams.get('to') || '';
 const page = parseInt(Astro.url.searchParams.get('page') || '1', 10);
 const limit = 15;
+
+// Selected event details if filtered
+const selectedEvent = eventId !== 'all' ? allEvents.find((e) => e.id === eventId) : null;
 
 // Handle check-in POST action if triggered
 let checkInFeedback = null;
@@ -27,8 +35,9 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-// Query authoritative ticket holders
+// Query authoritative ticket holders scoped by selected event
 const { rows, total, totalPages, hasNextPage, hasPrevPage } = queryTicketHolders({
+  eventId,
   search,
   category,
   status,
@@ -82,6 +91,23 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
         </div>
 
         <div class="filter-group">
+          <!-- Event Selector (Scope by Event) -->
+          <select name="eventId" class="filter-select event-scope-select">
+            <option value="all" selected={eventId === 'all'}>All Active Events</option>
+            <optgroup label="Active Events">
+              {activeEvents.map((ev) => (
+                <option value={ev.id} selected={eventId === ev.id}>{ev.title}</option>
+              ))}
+            </optgroup>
+            {archivedEvents.length > 0 && (
+              <optgroup label="Archived / Past Events">
+                {archivedEvents.map((ev) => (
+                  <option value={ev.id} selected={eventId === ev.id}>{ev.title} (Archived)</option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+
           <select name="category" class="filter-select">
             <option value="all" selected={category === 'all'}>All Categories</option>
             <option value="student" selected={category === 'student'}>Student (KES 600)</option>
@@ -91,8 +117,7 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
           <select name="status" class="filter-select">
             <option value="all" selected={status === 'all'}>All Payment Statuses</option>
             <option value="paid" selected={status === 'paid'}>Paid & Confirmed</option>
-            <option value="pending" selected={status === 'pending'}>Pending Payment</option>
-            <option value="failed" selected={status === 'failed'}>Failed / Cancelled</option>
+            <option value="failed" selected={status === 'failed'}>Failed</option>
           </select>
 
           <input
@@ -113,7 +138,7 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
 
           <button type="submit" class="filter-apply-btn">Apply Filters</button>
 
-          {(search || category !== 'all' || status !== 'all' || dateFrom || dateTo) && (
+          {(search || eventId !== 'all' || category !== 'all' || status !== 'all' || dateFrom || dateTo) && (
             <a href="/admin/tickets" class="filter-reset-btn" title="Reset all filters">Reset</a>
           )}
         </div>
@@ -123,7 +148,10 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
     <!-- TABLE HEADER BAR -->
     <div class="table-action-bar">
       <div class="records-counter">
-        Showing <strong>{rows.length}</strong> of <strong>{total}</strong> records
+        Showing <strong>{rows.length}</strong> of <strong>{total}</strong> attendee records
+        {selectedEvent ? (
+          <span class="selected-event-tag">for <strong>{selectedEvent.title}</strong></span>
+        ) : null}
       </div>
 
       <a href={exportUrl} class="export-btn">
@@ -132,7 +160,7 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" x2="12" y1="15" y2="3"/>
         </svg>
-        <span>Export Current View (CSV)</span>
+        <span>Export {selectedEvent ? `${selectedEvent.title} Attendees` : 'Current View'} (CSV)</span>
       </a>
     </div>
 
@@ -143,23 +171,25 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
           <tr>
             <th>Ticket Code</th>
             <th>Attendee Details</th>
+            <th>Organization & Role</th>
+            <th>Event</th>
             <th>Category</th>
             <th>Order Ref</th>
-            <th>Payment</th>
-            <th>Status</th>
-            <th>Check-in</th>
-            <th>Actions</th>
+            <th>Amount Paid</th>
+            <th>Payment Status</th>
+            <th>Ticket Status</th>
+            <th>Purchase Date</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colspan="8" class="empty-table-state">
+              <td colspan="10" class="empty-table-state">
                 <svg class="w-12 h-12 mx-auto mb-2 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="m21 21-4.3-4.3"/>
                   <circle cx="11" cy="11" r="8"/>
                 </svg>
-                <p>No ticket holder records match your filter criteria.</p>
+                <p>No attendee records match your filter criteria.</p>
               </td>
             </tr>
           ) : (
@@ -173,6 +203,19 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
                 <td>
                   <div class="buyer-name">{row.buyer_name}</div>
                   <div class="buyer-sub">{row.email} • {row.phone}</div>
+                </td>
+                <td>
+                  {row.organization || row.role ? (
+                    <div class="pro-info-cell">
+                      <div class="pro-org-text">{row.organization || '—'}</div>
+                      <div class="pro-role-text">{row.role || '—'}</div>
+                    </div>
+                  ) : (
+                    <span class="text-muted text-xs">—</span>
+                  )}
+                </td>
+                <td>
+                  <span class="event-name-cell">{row.event_title}</span>
                 </td>
                 <td>
                   <span class={`tier-badge ${row.category.toLowerCase().includes('student') ? 'student-badge' : 'pro-badge'}`}>
@@ -190,41 +233,17 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
                   </div>
                 </td>
                 <td>
-                  <span class={`status-pill ${row.payment_status === 'paid' ? 'status-paid' : row.payment_status === 'pending' ? 'status-pending' : 'status-failed'}`}>
+                  <span class={`status-pill ${row.payment_status === 'paid' ? 'status-paid' : row.payment_status === 'failed' ? 'status-failed' : 'status-pending'}`}>
                     {row.payment_status}
                   </span>
                 </td>
                 <td>
-                  {row.check_in_status === 'checked_in' ? (
-                    <span class="check-in-badge checked-in">
-                      Checked in
-                    </span>
-                  ) : (
-                    <span class="check-in-badge not-checked">
-                      Pending arrival
-                    </span>
-                  )}
+                  <span class={`status-pill ${row.ticket_status === 'active' ? 'status-paid' : 'status-failed'}`}>
+                    {row.ticket_status}
+                  </span>
                 </td>
-                <td>
-                  <div class="action-buttons">
-                    {row.payment_status === 'paid' && row.check_in_status !== 'checked_in' && (
-                      <form method="POST" style="display:inline;">
-                        <input type="hidden" name="action" value="check_in" />
-                        <input type="hidden" name="ticket_code" value={row.ticket_code} />
-                        <button type="submit" class="checkin-btn" title="Mark attendee as checked in">
-                          Check in
-                        </button>
-                      </form>
-                    )}
-                    <button
-                      type="button"
-                      class="inspect-btn"
-                      data-row={JSON.stringify(row)}
-                      onclick="openInspectModal(this)"
-                    >
-                      Details
-                    </button>
-                  </div>
+                <td class="text-xs text-muted">
+                  {new Date(row.created_at).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </td>
               </tr>
             ))
@@ -308,6 +327,14 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
           <div class="inspect-item">
             <span class="inspect-label">Payment Provider</span>
             <span class="inspect-value">${String(data.payment_method).toUpperCase()}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Payment Status</span>
+            <span class="inspect-value">${data.payment_status}</span>
+          </div>
+          <div class="inspect-item">
+            <span class="inspect-label">Ticket Status</span>
+            <span class="inspect-value">${data.ticket_status}</span>
           </div>
           <div class="inspect-item">
             <span class="inspect-label">Transaction Reference</span>

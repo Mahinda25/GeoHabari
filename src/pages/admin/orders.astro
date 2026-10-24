@@ -30,6 +30,7 @@ const allOrders = [...store.orders]
       confirmedAt: payment?.status === 'paid' ? payment.updated_at : null,
       ticketsIssued: tickets.length,
       ticketCodes: tickets.map((t) => t.ticket_code),
+      canResendTicketEmail: order.status === 'paid' && tickets.length > 0,
     };
   });
 ---
@@ -38,8 +39,7 @@ const allOrders = [...store.orders]
   <div class="orders-shell">
     <div class="header-intro">
       <p class="intro-text">
-        Read-only transaction ledger. Records reflect verified financial events from Safaricom Daraja, Card processors, and Pesapal.
-        Tickets are issued only upon confirmed, server-verified payment.
+        Transaction ledger for Paystack payments. Tickets are issued only after server-side payment verification.
       </p>
     </div>
 
@@ -58,12 +58,13 @@ const allOrders = [...store.orders]
             <th>Created</th>
             <th>Confirmed</th>
             <th>Tickets</th>
+            <th>Email</th>
           </tr>
         </thead>
         <tbody>
           {allOrders.length === 0 ? (
             <tr>
-              <td colspan="10" class="empty-state">No orders recorded in the ledger.</td>
+              <td colspan="11" class="empty-state">No orders recorded in the ledger.</td>
             </tr>
           ) : (
             allOrders.map((order) => (
@@ -109,6 +110,19 @@ const allOrders = [...store.orders]
                     </div>
                   )}
                 </td>
+                <td>
+                  {order.canResendTicketEmail ? (
+                    <button
+                      type="button"
+                      class="resend-ticket-email"
+                      data-reference={order.reference}
+                    >
+                      Resend tickets
+                    </button>
+                  ) : (
+                    <span class="text-muted">—</span>
+                  )}
+                </td>
               </tr>
             ))
           )}
@@ -118,6 +132,36 @@ const allOrders = [...store.orders]
   </div>
 </AdminLayout>
 
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.resend-ticket-email').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Sending...';
+      try {
+        const response = await fetch('/api/admin/orders/resend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference: button.dataset.reference }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Ticket email could not be sent.');
+        button.textContent = 'Sent';
+      } catch (error) {
+        button.textContent = error instanceof Error ? error.message : 'Retry failed';
+        button.disabled = false;
+      } finally {
+        if (button.textContent === 'Sent') {
+          window.setTimeout(() => {
+            button.textContent = originalText || 'Resend tickets';
+            button.disabled = false;
+          }, 2500);
+        }
+      }
+    });
+  });
+</script>
+
 <style lang="scss">
   @use "../../styles/partials/combined.scss" as *;
 
@@ -125,6 +169,7 @@ const allOrders = [...store.orders]
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    min-width: 0;
   }
 
   .header-intro {
@@ -146,6 +191,24 @@ const allOrders = [...store.orders]
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     overflow-x: auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .resend-ticket-email {
+    max-width: 11rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid rgba(141, 198, 63, 0.4);
+    border-radius: 0.5rem;
+    background: rgba(141, 198, 63, 0.12);
+    color: #bef264;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
   }
 
   .orders-table {

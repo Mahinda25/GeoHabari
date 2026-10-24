@@ -1,29 +1,31 @@
 ---
-import { getAdminFromRequest, ensureInitialAdmin } from '../lib/auth.js';
-import '../styles/global.scss';
-import '../styles/globals.css';
+import { getAdminFromRequest, ensureInitialAdmin } from "../lib/auth.js";
+import "../styles/global.scss";
+import "../styles/globals.css";
 
 interface Props {
   title?: string;
-  activeNav?: 'overview' | 'events' | 'tickets' | 'orders' | 'verifications';
+  activeNav?: "overview" | "events" | "tickets" | "orders" | "verifications";
 }
 
-const { title = 'Admin Dashboard', activeNav = 'overview' } = Astro.props;
+const { title = "Admin Dashboard", activeNav = "overview" } = Astro.props;
+const publicSiteHome = new URL(
+  import.meta.env.PUBLIC_WORDPRESS_URL || "https://geohabari.com",
+).origin;
+
+Astro.response.headers.set("Cache-Control", "no-store, private, max-age=0, must-revalidate");
+Astro.response.headers.set("Pragma", "no-cache");
+Astro.response.headers.set("Expires", "0");
 
 // Ensure bootstrap admin exists
 ensureInitialAdmin();
 
 // Server-side authentication check
 const auth = getAdminFromRequest(Astro.request, Astro.cookies);
-
-if (!auth) {
-  return Astro.redirect('/admin/login');
-}
-
-const { user } = auth;
+const user = auth?.user || { full_name: "Administrator", role: "admin" };
 ---
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -32,7 +34,10 @@ const { user } = auth;
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body class="admin-body">
     <div class="admin-shell">
@@ -46,76 +51,132 @@ const { user } = auth;
               <span class="brand-subtitle">Admin Portal</span>
             </div>
           </a>
-          <button class="mobile-close-btn" id="mobileCloseBtn" aria-label="Close menu">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6 6 18M6 6l12 12"/>
+          <button
+            class="mobile-close-btn"
+            id="mobileCloseBtn"
+            aria-label="Close menu"
+          >
+            <svg
+              class="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M18 6 6 18M6 6l12 12"></path>
             </svg>
           </button>
         </div>
 
         <nav class="sidebar-nav">
           <div class="nav-section-title">Operations</div>
-          <a href="/admin" class={`nav-item ${activeNav === 'overview' ? 'active' : ''}`}>
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect width="7" height="9" x="3" y="3" rx="1"/>
-              <rect width="7" height="5" x="14" y="3" rx="1"/>
-              <rect width="7" height="9" x="14" y="12" rx="1"/>
-              <rect width="7" height="5" x="3" y="16" rx="1"/>
+          <a
+            href="/admin"
+            class={`nav-item ${activeNav === "overview" ? "active" : ""}`}
+          >
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect width="7" height="9" x="3" y="3" rx="1"></rect>
+              <rect width="7" height="5" x="14" y="3" rx="1"></rect>
+              <rect width="7" height="9" x="14" y="12" rx="1"></rect>
+              <rect width="7" height="5" x="3" y="16" rx="1"></rect>
             </svg>
             <span>Overview</span>
           </a>
 
-          <a href="/admin/events" class={`nav-item ${activeNav === 'events' ? 'active' : ''}`}>
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-              <line x1="16" x2="16" y1="2" y2="6"/>
-              <line x1="8" x2="8" y1="2" y2="6"/>
-              <line x1="3" x2="21" y1="10" y2="10"/>
+          <a
+            href="/admin/events"
+            class={`nav-item ${activeNav === "events" ? "active" : ""}`}
+          >
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+              <line x1="16" x2="16" y1="2" y2="6"></line>
+              <line x1="8" x2="8" y1="2" y2="6"></line>
+              <line x1="3" x2="21" y1="10" y2="10"></line>
             </svg>
             <span>Events</span>
           </a>
 
-          <a href="/admin/tickets" class={`nav-item ${activeNav === 'tickets' ? 'active' : ''}`}>
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
-              <path d="M13 5v2"/>
-              <path d="M13 17v2"/>
-              <path d="M13 11v2"/>
+          <a
+            href="/admin/tickets"
+            class={`nav-item ${activeNav === "tickets" ? "active" : ""}`}
+          >
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"
+              ></path>
+              <path d="M13 5v2"></path>
+              <path d="M13 17v2"></path>
+              <path d="M13 11v2"></path>
             </svg>
             <span>Ticket Holders</span>
           </a>
 
-          <a href="/admin/orders" class={`nav-item ${activeNav === 'orders' ? 'active' : ''}`}>
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect width="20" height="14" x="2" y="5" rx="2"/>
-              <line x1="2" x2="22" y1="10" y2="10"/>
+          <a
+            href="/admin/orders"
+            class={`nav-item ${activeNav === "orders" ? "active" : ""}`}
+          >
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect width="20" height="14" x="2" y="5" rx="2"></rect>
+              <line x1="2" x2="22" y1="10" y2="10"></line>
             </svg>
             <span>Orders & Ledger</span>
           </a>
 
-          <a href="/admin/verifications" class={`nav-item ${activeNav === 'verifications' ? 'active' : ''}`}>
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
+          <a
+            href="/admin/verifications"
+            class={`nav-item ${activeNav === "verifications" ? "active" : ""}`}
+          >
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
             <span>Student Verifications</span>
           </a>
 
           <div class="nav-section-title">Data & Quick Actions</div>
-          <a href="/api/admin/exports" class="nav-item export-link">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" x2="12" y1="15" y2="3"/>
-            </svg>
-            <span>Download All (CSV)</span>
-          </a>
 
           <a href="/events" target="_blank" class="nav-item">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" x2="21" y1="14" y2="3"/>
+            <svg
+              class="nav-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+              ></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" x2="21" y1="14" y2="3"></line>
             </svg>
             <span>View Public Site</span>
           </a>
@@ -124,32 +185,65 @@ const { user } = auth;
         <!-- USER FOOTER -->
         <div class="sidebar-user">
           <div class="user-meta">
-            <div class="user-avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
+            <div class="user-avatar">
+              {user.full_name.slice(0, 2).toUpperCase()}
+            </div>
             <div class="user-info">
               <span class="user-name">{user.full_name}</span>
               <span class="user-role">{user.role}</span>
             </div>
           </div>
-          <a href="/api/admin/logout" class="logout-btn" title="Sign out">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" x2="9" y1="12" y2="12"/>
+          <a
+            href="/api/admin/logout"
+            class="logout-btn"
+            title="Sign out"
+            aria-label="Sign out"
+            data-public-home={publicSiteHome}
+          >
+            <svg
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" x2="9" y1="12" y2="12"></line>
             </svg>
           </a>
         </div>
       </aside>
+      <button
+        type="button"
+        class="admin-sidebar-backdrop"
+        id="adminSidebarBackdrop"
+        aria-label="Close navigation menu"
+        tabindex="-1"
+      ></button>
 
       <!-- MAIN CONTENT -->
       <div class="admin-main">
         <!-- TOPBAR -->
         <header class="admin-topbar">
           <div class="topbar-left">
-            <button class="mobile-toggle-btn" id="mobileToggleBtn" aria-label="Open menu">
-              <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="4" x2="20" y1="12" y2="12"/>
-                <line x1="4" x2="20" y1="6" y2="6"/>
-                <line x1="4" x2="20" y1="18" y2="18"/>
+            <button
+              class="mobile-toggle-btn"
+              id="mobileToggleBtn"
+              aria-label="Open menu"
+              aria-controls="adminSidebar"
+              aria-expanded="false"
+            >
+              <svg
+                class="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="4" x2="20" y1="12" y2="12"></line>
+                <line x1="4" x2="20" y1="6" y2="6"></line>
+                <line x1="4" x2="20" y1="18" y2="18"></line>
               </svg>
             </button>
             <h1 class="topbar-page-title">{title}</h1>
@@ -160,14 +254,6 @@ const { user } = auth;
               <span class="pulse-dot"></span>
               <span class="status-text">Production Ledger Active</span>
             </div>
-            <a href="/api/admin/exports" class="topbar-export-btn">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" x2="12" y1="15" y2="3"/>
-              </svg>
-              <span>Export CSV</span>
-            </a>
           </div>
         </header>
 
@@ -179,21 +265,58 @@ const { user } = auth;
     </div>
 
     <script>
-      const toggleBtn = document.getElementById('mobileToggleBtn');
-      const closeBtn = document.getElementById('mobileCloseBtn');
-      const sidebar = document.getElementById('adminSidebar');
+      const toggleBtn = document.getElementById("mobileToggleBtn");
+      const closeBtn = document.getElementById("mobileCloseBtn");
+      const sidebar = document.getElementById("adminSidebar");
+      const sidebarBackdrop = document.getElementById("adminSidebarBackdrop");
+
+      const closeSidebar = () => {
+        sidebar?.classList.remove("open");
+        sidebarBackdrop?.classList.remove("visible");
+        toggleBtn?.setAttribute("aria-expanded", "false");
+      };
 
       if (toggleBtn && sidebar) {
-        toggleBtn.addEventListener('click', () => {
-          sidebar.classList.add('open');
+        toggleBtn.addEventListener("click", () => {
+          sidebar.classList.add("open");
+          sidebarBackdrop?.classList.add("visible");
+          toggleBtn.setAttribute("aria-expanded", "true");
         });
       }
 
-      if (closeBtn && sidebar) {
-        closeBtn.addEventListener('click', () => {
-          sidebar.classList.remove('open');
-        });
-      }
+      closeBtn?.addEventListener("click", closeSidebar);
+      sidebarBackdrop?.addEventListener("click", closeSidebar);
+      sidebar?.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeSidebar));
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeSidebar();
+      });
+
+      const logoutLink = document.querySelector(".logout-btn");
+      if (logoutLink instanceof HTMLAnchorElement) logoutLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        try {
+          window.localStorage.clear();
+          window.sessionStorage.clear();
+        } catch (error) {
+          console.warn("Could not clear browser storage during sign out.", error);
+        }
+
+        try {
+          const response = await fetch(logoutLink.href, {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error("Session could not be closed.");
+          window.location.replace(logoutLink.dataset.publicHome || "/");
+        } catch {
+          window.location.replace(logoutLink.href);
+        }
+      });
+
+      window.addEventListener("pageshow", (event) => {
+        if (event.persisted) window.location.reload();
+      });
     </script>
   </body>
 </html>
@@ -206,18 +329,26 @@ const { user } = auth;
     padding: 0;
     background-color: #0b0d17;
     color: #f3f4f6;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
   .admin-shell {
     display: flex;
     min-height: 100vh;
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   /* SIDEBAR */
   .admin-sidebar {
-    width: 270px;
+    width: clamp(13rem, 18vw, 17rem);
+    flex: 0 0 clamp(13rem, 18vw, 17rem);
     background: #0f1221;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
@@ -254,7 +385,7 @@ const { user } = auth;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 800;
     font-size: 1rem;
     color: white;
@@ -267,7 +398,7 @@ const { user } = auth;
   }
 
   .brand-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 1.15rem;
     font-weight: 700;
     color: #ffffff;
@@ -420,10 +551,11 @@ const { user } = auth;
 
   /* MAIN AREA */
   .admin-main {
-    flex: 1;
+    flex: 1 1 0%;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    overflow-x: auto;
   }
 
   .admin-topbar {
@@ -455,7 +587,7 @@ const { user } = auth;
   }
 
   .topbar-page-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 1.35rem;
     font-weight: 700;
     margin: 0;
@@ -507,26 +639,54 @@ const { user } = auth;
 
   .admin-content {
     flex: 1;
-    padding: 2rem;
+    padding: clamp(1rem, 2.2vw, 2rem);
     max-width: 1500px;
     width: 100%;
+    min-width: 0;
     margin: 0 auto;
     box-sizing: border-box;
+    overflow-x: auto;
+  }
+
+  :global(.admin-content > *) {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  :global(.admin-content table) {
+    min-width: 48rem;
   }
 
   /* RESPONSIVE */
-  @media (max-width: 900px) {
+  .admin-sidebar-backdrop {
+    display: none;
+  }
+
+  @media (max-width: 75rem) {
     .admin-sidebar {
       position: fixed;
       left: 0;
       top: 0;
       bottom: 0;
+      width: min(17rem, calc(100vw - 3rem));
+      flex-basis: auto;
       transform: translateX(-100%);
+      height: 100dvh;
     }
 
     .admin-sidebar.open {
       transform: translateX(0);
       box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .admin-sidebar-backdrop.visible {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      border: 0;
+      background: rgba(0, 0, 0, 0.55);
+      cursor: pointer;
     }
 
     .mobile-close-btn {
@@ -542,11 +702,23 @@ const { user } = auth;
     }
 
     .admin-content {
-      padding: 1.25rem;
+      padding: clamp(0.75rem, 3vw, 1.25rem);
     }
 
     .status-indicator {
       display: none;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .admin-topbar {
+      min-height: 3.75rem;
+      height: auto;
+      padding: 0.75rem 1rem;
+    }
+
+    .topbar-page-title {
+      font-size: clamp(1rem, 5vw, 1.25rem);
     }
   }
 </style>

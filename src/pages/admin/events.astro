@@ -9,12 +9,26 @@ const events = rawEvents.map((event) => {
   const tickets = getTicketTypesByEvent(event.id);
   const totalAllocation = tickets.reduce((sum, t) => sum + Number(t.allocation || 0), 0);
   const totalSold = tickets.reduce((sum, t) => sum + Number(t.sold_count || 0), 0);
+  const ticketHolderCount = store.tickets.filter((ticket) => ticket.event_id === event.id).length;
   return {
     ...event,
     ticket_types: tickets,
     totalAllocation,
     totalSold,
+    ticketHolderCount,
   };
+}).sort((a, b) => {
+  const now = Date.now();
+  const getGroup = (event) => {
+    if (event.status === 'archived' || event.archived_at) return 3;
+    if (new Date(event.starts_at).getTime() > now) return 0;
+    if (new Date(event.ends_at).getTime() >= now) return 1;
+    return 2;
+  };
+  const groupDifference = getGroup(a) - getGroup(b);
+  if (groupDifference !== 0) return groupDifference;
+  const dateDifference = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+  return getGroup(a) === 2 ? -dateDifference : dateDifference;
 });
 
 const totalPublished = events.filter((e) => e.status === 'published' && !e.archived_at).length;
@@ -107,13 +121,14 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
               <th>Status</th>
               <th>Ticket Categories & Pricing</th>
               <th>Capacity</th>
+              <th>Ticket Holders</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr>
-                <td colspan="7" class="empty-state">No events found. Click "Create New Event" to add your first event.</td>
+                <td colspan="8" class="empty-state">No events found. Click "Create New Event" to add your first event.</td>
               </tr>
             ) : (
               events.map((event) => {
@@ -170,6 +185,11 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
                         <span class="font-bold">{event.totalSold}</span>
                         <span class="text-muted"> / {event.totalAllocation}</span>
                       </div>
+                    </td>
+                    <td>
+                      <a class="view-btn" href={`/admin/tickets?eventId=${encodeURIComponent(event.id)}`}>
+                        {event.ticketHolderCount} records
+                      </a>
                     </td>
                     <td>
                       <div class="action-buttons">
@@ -286,6 +306,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
               <select id="eventStatus" name="status" class="form-select">
                 <option value="published">Published (Live & Visible)</option>
                 <option value="draft">Draft (Hidden from Public)</option>
+                <option value="archived">Archived (Event Concluded)</option>
               </select>
             </div>
           </div>
@@ -403,6 +424,27 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           </div>
         </div>
 
+        <!-- EVENT INCENTIVES / SPECIAL OFFERS SECTION -->
+        <div class="form-section">
+          <div class="section-title-with-btn">
+            <div>
+              <h4 class="form-section-heading">Event Incentives / Special Offers</h4>
+              <p class="form-section-sub">Define customer offers (Early Bird discount, Group booking, Returning attendee offer, etc.).</p>
+            </div>
+            <button type="button" id="addIncentiveBtn" class="add-sub-btn">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" x2="12" y1="5" y2="19"/>
+                <line x1="5" x2="19" y1="12" y2="12"/>
+              </svg>
+              <span>Add Incentive</span>
+            </button>
+          </div>
+
+          <div id="incentivesList" class="incentives-list">
+            <!-- Dynamically populated rows -->
+          </div>
+        </div>
+
         <!-- SPEAKERS / LINEUP SECTION (OPTIONAL) -->
         <details class="form-details">
           <summary class="details-summary">
@@ -466,6 +508,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 <script>
   let editingEventId = null;
   let isUploadingPoster = false;
+  let posterPreviewObjectUrl: string | null = null;
+  const eventDraftKey = 'geohabari-admin-event-draft';
 
   const modal = document.getElementById('eventModal');
   const modalTitle = document.getElementById('modalTitle');
@@ -477,6 +521,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   const submitBtn = document.getElementById('submitEventBtn');
   const categoriesContainer = document.getElementById('ticketCategoriesList');
   const addCategoryBtn = document.getElementById('addTicketCategoryBtn');
+  const incentivesContainer = document.getElementById('incentivesList');
+  const addIncentiveBtn = document.getElementById('addIncentiveBtn');
   const speakersContainer = document.getElementById('speakersList');
   const addSpeakerBtn = document.getElementById('addSpeakerBtn');
   const partnersContainer = document.getElementById('partnersList');
@@ -527,6 +573,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
   function resetPosterUpload() {
     clearPosterError();
+    if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
+    posterPreviewObjectUrl = null;
     if (posterInput) posterInput.value = '';
     if (posterFileInput) posterFileInput.value = '';
     if (posterPreviewImg) posterPreviewImg.src = '';
@@ -558,8 +606,10 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
 
     // Instant local preview
-    const objectUrl = URL.createObjectURL(file);
-    displayPoster(objectUrl, file.name, `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`);
+    if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
+    posterPreviewObjectUrl = URL.createObjectURL(file);
+    displayPoster(posterPreviewObjectUrl, file.name, `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`);
+    if (posterInput) posterInput.value = '';
 
     if (posterUploadBadge) {
       posterUploadBadge.textContent = 'Uploading...';
@@ -570,6 +620,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
 
     isUploadingPoster = true;
+    persistEventDraft();
 
     try {
       const formData = new FormData();
@@ -586,8 +637,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         throw new Error(data.error || 'Failed to upload poster image.');
       }
 
-      // Store persistent URL
-      if (posterInput) posterInput.value = data.url;
+      if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
+      posterPreviewObjectUrl = null;
+      displayPoster(data.url, file.name, `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`);
       if (posterDetails) {
         posterDetails.textContent = `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`;
       }
@@ -595,7 +647,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         posterUploadBadge.textContent = 'Saved';
         posterUploadBadge.className = 'upload-badge success-badge';
       }
+      persistEventDraft();
     } catch (err: any) {
+      if (posterInput) posterInput.value = '';
       showPosterError(err.message || 'Error uploading image. Please try again.');
       if (posterUploadBadge) {
         posterUploadBadge.textContent = 'Failed';
@@ -649,15 +703,22 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
   function showModal() {
     modal?.classList.remove('hidden');
+    modal?.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
   }
 
   function hideModal() {
     modal?.classList.add('hidden');
+    modal?.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     form?.reset();
     resetPosterUpload();
     editingEventId = null;
+    try {
+      sessionStorage.removeItem(eventDraftKey);
+    } catch (error) {
+      console.warn('Could not clear the saved event draft.', error);
+    }
     if (errorBanner) {
       errorBanner.classList.add('hidden');
       errorBanner.textContent = '';
@@ -665,6 +726,11 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   openCreateBtn?.addEventListener('click', () => {
+    try {
+      sessionStorage.removeItem(eventDraftKey);
+    } catch (error) {
+      console.warn('Could not clear the previous event draft.', error);
+    }
     editingEventId = null;
     if (modalTitle) modalTitle.textContent = 'Create New Event';
     (document.getElementById('eventId') as HTMLInputElement).value = '';
@@ -681,14 +747,16 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
     // Populate default ticket categories
     renderTicketCategories([
-      { name: 'Student', price: 600, allocation: 50, description: 'Student admission • Automated .ac.ke email check' },
-      { name: 'Professional', price: 1000, allocation: 100, description: 'Full summit access • Keynotes, panels & networking' },
+      { name: 'Student', category_type: 'student', price: 600, allocation: 50, description: 'Student admission • Automated .ac.ke email check' },
+      { name: 'Professional', category_type: 'professional', price: 1000, allocation: 100, description: 'Full summit access • Keynotes, panels & networking' },
     ]);
 
+    renderIncentives([]);
     renderSpeakers([]);
     renderPartners([]);
 
     showModal();
+    persistEventDraft();
   });
 
   closeBtn?.addEventListener('click', hideModal);
@@ -700,7 +768,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   });
 
   // Ticket Categories UI generator
-  function renderTicketCategories(categories: Array<{ id?: string; name: string; price: number; allocation: number; description?: string }>) {
+  function renderTicketCategories(categories: Array<{ id?: string; name: string; category_type?: string; price: number; allocation: number; description?: string }>) {
     if (!categoriesContainer) return;
     categoriesContainer.innerHTML = '';
 
@@ -709,20 +777,30 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     });
 
     if (categories.length === 0) {
-      addCategoryRow({ name: 'Standard', price: 1000, allocation: 100, description: '' });
+      addCategoryRow({ name: 'Standard', category_type: 'standard', price: 1000, allocation: 100, description: '' });
     }
   }
 
-  function addCategoryRow(cat: { id?: string; name: string; price: number; allocation: number; description?: string }) {
+  function addCategoryRow(cat: { id?: string; name: string; category_type?: string; price: number; allocation: number; description?: string }) {
     if (!categoriesContainer) return;
 
     const row = document.createElement('div');
     row.className = 'ticket-category-row';
+    const catType = cat.category_type || (cat.name?.toLowerCase().includes('professional') ? 'professional' : cat.name?.toLowerCase().includes('student') ? 'student' : 'standard');
+
     row.innerHTML = `
       <input type="hidden" class="cat-id" value="${cat.id || ''}" />
       <div class="cat-col-name">
         <label class="form-sublabel">Category Name</label>
         <input type="text" class="form-input cat-name" placeholder="e.g. Student, VIP" value="${cat.name || ''}" required />
+      </div>
+      <div class="cat-col-type">
+        <label class="form-sublabel">Category Type</label>
+        <select class="form-select cat-type">
+          <option value="standard" ${catType === 'standard' ? 'selected' : ''}>Standard / General</option>
+          <option value="professional" ${catType === 'professional' ? 'selected' : ''}>Professional (Auto Org/Role)</option>
+          <option value="student" ${catType === 'student' ? 'selected' : ''}>Student (Verification)</option>
+        </select>
       </div>
       <div class="cat-col-price">
         <label class="form-sublabel">Price (KES)</label>
@@ -757,7 +835,107 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   addCategoryBtn?.addEventListener('click', () => {
-    addCategoryRow({ name: '', price: 1000, allocation: 50, description: '' });
+    addCategoryRow({ name: '', category_type: 'standard', price: 1000, allocation: 50, description: '' });
+  });
+
+  // Event Incentives UI generator
+  function renderIncentives(incentives: Array<{
+    id?: string;
+    title: string;
+    description: string;
+    discount_type?: string;
+    discount_value?: number;
+    eligibility?: string;
+    start_date?: string;
+    end_date?: string;
+    is_active?: boolean;
+  }>) {
+    if (!incentivesContainer) return;
+    incentivesContainer.innerHTML = '';
+    incentives.forEach((inc) => addIncentiveRow(inc));
+  }
+
+  function addIncentiveRow(inc: {
+    id?: string;
+    title: string;
+    description: string;
+    discount_type?: string;
+    discount_value?: number;
+    eligibility?: string;
+    start_date?: string;
+    end_date?: string;
+    is_active?: boolean;
+  }) {
+    if (!incentivesContainer) return;
+
+    const row = document.createElement('div');
+    row.className = 'incentive-row';
+    const startDateVal = inc.start_date ? new Date(inc.start_date).toISOString().slice(0, 10) : '';
+    const endDateVal = inc.end_date ? new Date(inc.end_date).toISOString().slice(0, 10) : '';
+    const isActive = inc.is_active !== false;
+
+    row.innerHTML = `
+      <input type="hidden" class="inc-id" value="${inc.id || ''}" />
+      <div class="form-row grid-2">
+        <div>
+          <label class="form-sublabel">Incentive Title <span class="required">*</span></label>
+          <input type="text" class="form-input inc-title" placeholder="e.g. Early Bird Offer, Group Discount" value="${inc.title || ''}" required />
+        </div>
+        <div>
+          <label class="form-sublabel">Eligibility Condition</label>
+          <input type="text" class="form-input inc-eligibility" placeholder="e.g. Book 2+ tickets, First 50 buyers" value="${inc.eligibility || ''}" />
+        </div>
+      </div>
+      <div class="form-row mt-2">
+        <div>
+          <label class="form-sublabel">Description</label>
+          <input type="text" class="form-input inc-desc" placeholder="e.g. Book early to save 20% on summit admission." value="${inc.description || ''}" />
+        </div>
+      </div>
+      <div class="form-row grid-4 mt-2">
+        <div>
+          <label class="form-sublabel">Discount Type</label>
+          <select class="form-select inc-discount-type">
+            <option value="none" ${inc.discount_type === 'none' || !inc.discount_type ? 'selected' : ''}>Informational / Value Offer</option>
+            <option value="percentage" ${inc.discount_type === 'percentage' ? 'selected' : ''}>Percentage (%)</option>
+            <option value="fixed" ${inc.discount_type === 'fixed' ? 'selected' : ''}>Fixed Amount (KES)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-sublabel">Discount Value</label>
+          <input type="number" class="form-input inc-discount-value" min="0" step="1" placeholder="0" value="${inc.discount_value ?? 0}" />
+        </div>
+        <div>
+          <label class="form-sublabel">Valid From</label>
+          <input type="date" class="form-input inc-start-date" value="${startDateVal}" />
+        </div>
+        <div class="flex-with-remove">
+          <div class="flex-1">
+            <label class="form-sublabel">Valid Until</label>
+            <input type="date" class="form-input inc-end-date" value="${endDateVal}" />
+          </div>
+          <button type="button" class="remove-inc-btn" title="Remove Incentive">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" x2="6" y1="6" y2="18"/>
+              <line x1="6" x2="18" y1="6" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="mt-2 flex items-center gap-2">
+        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
+          <input type="checkbox" class="inc-active form-checkbox" ${isActive ? 'checked' : ''} />
+          <span>Enable this incentive on public checkout</span>
+        </label>
+      </div>
+    `;
+
+    row.querySelector('.remove-inc-btn')?.addEventListener('click', () => row.remove());
+    incentivesContainer.appendChild(row);
+  }
+
+  addIncentiveBtn?.addEventListener('click', () => {
+    addIncentiveRow({ title: '', description: '', discount_type: 'none', discount_value: 0, eligibility: '', is_active: true });
   });
 
   // Speakers UI generator
@@ -846,6 +1024,123 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     addPartnerRow({ name: '', logo: '' });
   });
 
+  function persistEventDraft() {
+    if (!form || modal?.classList.contains('hidden')) return;
+
+    const fields: Record<string, { value: string; checked?: boolean }> = {};
+    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input[id], textarea[id], select[id]',
+    ).forEach((control) => {
+      if (control instanceof HTMLInputElement && control.type === 'file') return;
+      fields[control.id] = {
+        value: control.value,
+        ...(control instanceof HTMLInputElement && control.type === 'checkbox' ? { checked: control.checked } : {}),
+      };
+    });
+
+    const rows = (container: HTMLElement | null, rowSelector: string, selectors: Record<string, string>) =>
+      Array.from(container?.querySelectorAll<HTMLElement>(rowSelector) || []).map((row) => {
+        const values: Record<string, string | boolean> = {};
+        for (const [key, selector] of Object.entries(selectors)) {
+          const control = row.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+          if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+            values[key] = control.checked;
+          } else {
+            values[key] = control?.value || '';
+          }
+        }
+        return values;
+      });
+
+    const draft = {
+      editingEventId,
+      fields,
+      ticketCategories: rows(categoriesContainer, '.ticket-category-row', {
+        id: '.cat-id',
+        name: '.cat-name',
+        category_type: '.cat-type',
+        price: '.cat-price',
+        allocation: '.cat-allocation',
+        description: '.cat-desc',
+      }),
+      incentives: rows(incentivesContainer, '.incentive-row', {
+        id: '.inc-id',
+        title: '.inc-title',
+        eligibility: '.inc-eligibility',
+        description: '.inc-desc',
+        discount_type: '.inc-discount-type',
+        discount_value: '.inc-discount-value',
+        start_date: '.inc-start-date',
+        end_date: '.inc-end-date',
+        is_active: '.inc-active',
+      }),
+      speakers: rows(speakersContainer, '.speaker-row', {
+        name: '.spk-name',
+        role: '.spk-role',
+        company: '.spk-company',
+        photo: '.spk-photo',
+      }),
+      partners: rows(partnersContainer, '.partner-row', {
+        name: '.ptn-name',
+        logo: '.ptn-logo',
+      }),
+      detailsOpen: Array.from(form.querySelectorAll<HTMLDetailsElement>('details')).map((details) => details.open),
+    };
+
+    try {
+      sessionStorage.setItem(eventDraftKey, JSON.stringify(draft));
+    } catch (error) {
+      console.warn('Could not save the event draft in this browser session.', error);
+    }
+  }
+
+  function restoreEventDraft() {
+    if (!form || !modal) return;
+
+    let draft: ReturnType<typeof JSON.parse>;
+    try {
+      const savedDraft = sessionStorage.getItem(eventDraftKey);
+      if (!savedDraft) return;
+      draft = JSON.parse(savedDraft);
+    } catch (error) {
+      console.warn('Could not restore the saved event draft.', error);
+      return;
+    }
+
+    editingEventId = draft.editingEventId || null;
+    for (const [id, state] of Object.entries(draft.fields || {})) {
+      const control = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+      if (!control || typeof state !== 'object' || state === null) continue;
+      control.value = String((state as { value?: string }).value || '');
+      if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+        control.checked = Boolean((state as { checked?: boolean }).checked);
+      }
+    }
+
+    if (Array.isArray(draft.ticketCategories)) renderTicketCategories(draft.ticketCategories);
+    if (Array.isArray(draft.incentives)) renderIncentives(draft.incentives);
+    if (Array.isArray(draft.speakers)) renderSpeakers(draft.speakers);
+    if (Array.isArray(draft.partners)) renderPartners(draft.partners);
+
+    form.querySelectorAll<HTMLDetailsElement>('details').forEach((details, index) => {
+      details.open = Boolean(draft.detailsOpen?.[index]);
+    });
+
+    const posterUrl = (document.getElementById('eventPoster') as HTMLInputElement | null)?.value;
+    if (posterUrl && !posterUrl.startsWith('blob:')) displayPoster(posterUrl);
+    if (modalTitle) {
+      modalTitle.textContent = editingEventId ? 'Edit Event' : 'Create New Event';
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  form?.addEventListener('input', persistEventDraft);
+  form?.addEventListener('change', persistEventDraft);
+  form?.addEventListener('click', () => window.setTimeout(persistEventDraft, 0));
+  restoreEventDraft();
+
   // Edit Event Button Click Handler
   document.querySelectorAll('.edit-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -853,6 +1148,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       if (!raw) return;
 
       try {
+        sessionStorage.removeItem(eventDraftKey);
         const event = JSON.parse(raw);
         editingEventId = event.id;
         if (modalTitle) modalTitle.textContent = `Edit Event: ${event.title}`;
@@ -886,10 +1182,12 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         }
 
         renderTicketCategories(event.ticket_types || []);
+        renderIncentives(event.incentives || []);
         renderSpeakers(event.speakers || event.lineup || []);
         renderPartners(event.partners || event.sponsors || []);
 
         showModal();
+        persistEventDraft();
       } catch (err) {
         console.error('Error loading event for editing:', err);
       }
@@ -950,6 +1248,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     ticketRows.forEach((row) => {
       const id = (row.querySelector('.cat-id') as HTMLInputElement)?.value;
       const name = (row.querySelector('.cat-name') as HTMLInputElement)?.value.trim();
+      const category_type = (row.querySelector('.cat-type') as HTMLSelectElement)?.value || (name.toLowerCase().includes('professional') ? 'professional' : name.toLowerCase().includes('student') ? 'student' : 'standard');
       const price = Number((row.querySelector('.cat-price') as HTMLInputElement)?.value ?? 0);
       const allocation = Number((row.querySelector('.cat-allocation') as HTMLInputElement)?.value ?? 50);
       const desc = (row.querySelector('.cat-desc') as HTMLInputElement)?.value.trim();
@@ -958,6 +1257,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         ticket_types.push({
           id: id || undefined,
           name,
+          category_type,
           price,
           allocation,
           description: desc,
@@ -972,6 +1272,35 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       }
       return;
     }
+
+    // Collect incentives
+    const incentiveRows = incentivesContainer?.querySelectorAll('.incentive-row') || [];
+    const incentives: any[] = [];
+    incentiveRows.forEach((row) => {
+      const id = (row.querySelector('.inc-id') as HTMLInputElement)?.value;
+      const title = (row.querySelector('.inc-title') as HTMLInputElement)?.value.trim();
+      const eligibility = (row.querySelector('.inc-eligibility') as HTMLInputElement)?.value.trim();
+      const description = (row.querySelector('.inc-desc') as HTMLInputElement)?.value.trim();
+      const discount_type = (row.querySelector('.inc-discount-type') as HTMLSelectElement)?.value || 'none';
+      const discount_value = Number((row.querySelector('.inc-discount-value') as HTMLInputElement)?.value || 0);
+      const start_date = (row.querySelector('.inc-start-date') as HTMLInputElement)?.value || null;
+      const end_date = (row.querySelector('.inc-end-date') as HTMLInputElement)?.value || null;
+      const is_active = (row.querySelector('.inc-active') as HTMLInputElement)?.checked ?? true;
+
+      if (title) {
+        incentives.push({
+          id: id || undefined,
+          title,
+          description,
+          eligibility,
+          discount_type,
+          discount_value,
+          start_date,
+          end_date,
+          is_active,
+        });
+      }
+    });
 
     // Collect speakers
     const speakerRows = speakersContainer?.querySelectorAll('.speaker-row') || [];
@@ -1019,6 +1348,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           starts_at: startsAt,
           ends_at: endsAt,
           ticket_types,
+          incentives,
           speakers,
           partners,
         }),
@@ -1030,6 +1360,11 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       }
 
       // Reload page to reflect changes
+      try {
+        sessionStorage.removeItem(eventDraftKey);
+      } catch (storageError) {
+        console.warn('Could not clear the saved event draft after saving.', storageError);
+      }
       window.location.reload();
     } catch (err: any) {
       if (errorBanner) {
@@ -1176,9 +1511,13 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     overflow: hidden;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .table-responsive {
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
   }
 
@@ -1380,7 +1719,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: 1.5rem;
+    padding: clamp(0.5rem, 3vw, 1.5rem);
     overflow-y: auto;
 
     &.hidden {
@@ -1394,7 +1733,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border-radius: 20px;
     width: 100%;
     max-width: 780px;
-    max-height: 90vh;
+    max-height: min(90vh, 56rem);
+    max-height: min(90dvh, 56rem);
+    min-width: 0;
     overflow-y: auto;
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
     display: flex;
@@ -1442,7 +1783,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   .modal-form {
-    padding: 2rem;
+    padding: clamp(1rem, 4vw, 2rem);
     display: flex;
     flex-direction: column;
     gap: 1.75rem;
@@ -1568,16 +1909,44 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border-radius: 10px;
     padding: 0.85rem;
     display: grid;
-    grid-template-columns: 1.2fr 1fr 0.8fr 1.6fr auto;
+    grid-template-columns: 1.2fr 1.1fr 0.8fr 0.8fr 1.3fr auto;
     gap: 0.75rem;
     align-items: flex-end;
 
     @media (max-width: 768px) {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* INCENTIVES */
+  .incentives-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .incentive-row {
+    background: rgba(141, 198, 63, 0.04);
+    border: 1px solid rgba(141, 198, 63, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
     }
   }
 
   .remove-cat-btn,
+  .remove-inc-btn,
   .remove-spk-btn,
   .remove-ptn-btn {
     background: rgba(239, 68, 68, 0.1);

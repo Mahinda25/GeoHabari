@@ -182,7 +182,7 @@ export async function processDocumentOcr(buffer, mimeType) {
   const provider = (process.env.OCR_PROVIDER || '').toLowerCase();
 
   // 1. Google Cloud Vision API
-  if (provider === 'google' && (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_VISION_API_KEY)) {
+  if (provider === 'google' && process.env.GOOGLE_VISION_API_KEY) {
     try {
       const apiKey = process.env.GOOGLE_VISION_API_KEY;
       const url = `https://vision.googleapis.com/v1/images:annotate${apiKey ? `?key=${apiKey}` : ''}`;
@@ -202,16 +202,17 @@ export async function processDocumentOcr(buffer, mimeType) {
         body: JSON.stringify(requestBody),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const extractedText = data.responses?.[0]?.fullTextAnnotation?.text || '';
-        return {
-          success: true,
-          provider: 'google',
-          text: extractedText,
-          metadata: extractDocumentMetadata(extractedText),
-        };
+      const data = await res.json();
+      if (!res.ok || data.responses?.[0]?.error) {
+        throw new Error(data.responses?.[0]?.error?.message || `Google Vision returned ${res.status}.`);
       }
+      const extractedText = data.responses?.[0]?.fullTextAnnotation?.text || '';
+      return {
+        success: true,
+        provider: 'google',
+        text: extractedText,
+        metadata: extractDocumentMetadata(extractedText),
+      };
     } catch (err) {
       console.error('[OCR] Google Vision request error:', err.message);
     }

@@ -3,11 +3,13 @@ import Layout from "../../layout/Layout.astro";
 import { getPublishedEvents } from "../../lib/ticketing.js";
 
 const events = getPublishedEvents();
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 ---
 
 <Layout
   title="Events"
   description="Upcoming GeoHabari events and ticketing information."
+  url={canonicalUrl}
 >
   <div class="events-page-shell">
     <section class="events-hero">

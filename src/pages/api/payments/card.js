@@ -1,3 +1,4 @@
+/* Disabled - may be used in future. Paystack is the only active payment gateway.
 import { verifyPaymentAndIssueTickets } from '../../../lib/ticketing.js';
 
 export async function POST({ request }) {
@@ -30,3 +31,4 @@ export async function POST({ request }) {
     });
   }
 }
+*/

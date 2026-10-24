@@ -15,6 +15,15 @@ import {
 import { sendUniversityVerificationEmail } from '../../../../lib/ticketing.js';
 
 export async function POST({ request }) {
+  if (!process.env.VERIFICATION_TOKEN_SECRET) {
+    return new Response(JSON.stringify({
+      error: 'Student verification is unavailable because token signing is not configured.',
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await request.json();
     const email = String(body.email || '').trim().toLowerCase();
@@ -75,11 +84,25 @@ export async function POST({ request }) {
     saveStudentVerification(verificationRecord);
 
     // Send code to student's email (non-blocking failure logging)
-    await sendUniversityVerificationEmail({
-      email,
-      buyerName,
-      code: plainCode,
-    });
+    try {
+      await sendUniversityVerificationEmail({ email, buyerName, code: plainCode });
+    } catch (error) {
+      verificationRecord.status = 'expired';
+      verificationRecord.code_hash = null;
+      saveStudentVerification(verificationRecord);
+      appendAuditLog({
+        action: 'student_email_delivery_failed',
+        entity: 'student_verification',
+        entity_id: verificationRecord.id,
+        details: { message: error.message },
+      });
+      return new Response(JSON.stringify({
+        error: 'The verification email could not be sent. Please try again later or use another ticket category.',
+      }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     appendAuditLog({
       action: 'student_email_code_dispatched',

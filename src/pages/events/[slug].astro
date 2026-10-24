@@ -5,6 +5,7 @@ import { getEventDetail } from "../../lib/ticketing.js";
 
 const { slug } = Astro.params;
 const event = getEventDetail(slug);
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 
 if (!event) {
   throw new Error("Event not found");
@@ -41,7 +42,7 @@ const speakers = (event as any).speakers || (event as any).lineup || [];
 const partners = (event as any).partners || (event as any).sponsors || [];
 ---
 
-<Layout title={`${event.title} — Ticketing`} description={event.description}>
+<Layout title={`${event.title} — Ticketing`} description={event.description} url={canonicalUrl}>
   <div class="event-detail-shell">
     <!-- Breadcrumb / Back to Events -->
     <nav class="breadcrumb-nav mb-6" aria-label="Breadcrumb">

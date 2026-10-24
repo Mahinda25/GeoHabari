@@ -15,19 +15,41 @@ import {
   Sparkles,
   GraduationCap,
   UploadCloud,
-  FileText,
-  RefreshCw,
-  X,
   FileCheck2,
+  Tag,
 } from 'lucide-react';
+import {
+  isSafaricomKenyaPhone,
+  normalizeEastAfricanPhone,
+  validateEastAfricanPhone,
+} from '../lib/phone.js';
+
+declare global {
+  interface Window {
+    PaystackPop?: new () => { resumeTransaction: (accessCode: string) => void };
+  }
+}
 
 interface EventTicketType {
   id: string;
   name: string;
+  category_type?: string;
   price: number;
   allocation: number;
   sold_count: number;
   description?: string;
+}
+
+interface EventIncentive {
+  id?: string;
+  title: string;
+  description?: string;
+  discount_type?: string;
+  discount_value?: number;
+  eligibility?: string;
+  start_date?: string;
+  end_date?: string;
+  is_active?: boolean;
 }
 
 interface EventData {
@@ -40,6 +62,7 @@ interface EventData {
   starts_at: string;
   ends_at: string;
   status: string;
+  incentives?: EventIncentive[];
   ticket_types: EventTicketType[];
 }
 
@@ -48,6 +71,36 @@ interface TicketPurchaseProps {
 }
 
 const formatCurrency = (value: number) => `KES ${value.toLocaleString()}`;
+const phoneCountries = [
+  { name: 'Kenya', code: '254' },
+  { name: 'Uganda', code: '256' },
+  { name: 'Tanzania', code: '255' },
+  { name: 'Rwanda', code: '250' },
+  { name: 'Burundi', code: '257' },
+  { name: 'South Sudan', code: '211' },
+  { name: 'Ethiopia', code: '251' },
+  { name: 'Somalia', code: '252' },
+];
+
+let paystackScriptPromise: Promise<void> | null = null;
+
+function loadPaystackPopup() {
+  if (window.PaystackPop) return Promise.resolve();
+  if (paystackScriptPromise) return paystackScriptPromise;
+
+  paystackScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v2/inline.js';
+    script.async = true;
+    script.onload = () => window.PaystackPop
+      ? resolve()
+      : reject(new Error('Paystack checkout could not be loaded. Please try again.'));
+    script.onerror = () => reject(new Error('Paystack checkout could not be loaded. Check your connection and try again.'));
+    document.head.appendChild(script);
+  });
+
+  return paystackScriptPromise;
+}
 
 export default function TicketPurchase({ event }: TicketPurchaseProps) {
   // Find first available ticket type as initial default
@@ -60,7 +113,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   const [buyerName, setBuyerName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card'>('mpesa');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('254');
+  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Student verification states
@@ -88,22 +142,26 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
   const isStudentSelected = useMemo(() => {
     if (!selectedType) return false;
-    return selectedType.name.toLowerCase().includes('student') || selectedType.price < 1000;
+    return selectedType.category_type === 'student' || selectedType.name.toLowerCase().includes('student');
   }, [selectedType]);
+
+  const activeIncentives = useMemo(() => {
+    if (!event.incentives || !Array.isArray(event.incentives)) return [];
+    const now = Date.now();
+    return event.incentives.filter((inc) => {
+      if (inc.is_active === false) return false;
+      if (inc.start_date && new Date(inc.start_date).getTime() > now) return false;
+      if (inc.end_date && new Date(inc.end_date).getTime() < now) return false;
+      return true;
+    });
+  }, [event.incentives]);
 
   const remaining = selectedType ? Math.max(0, selectedType.allocation - (selectedType.sold_count ?? 0)) : 0;
   const maxAllowed = Math.min(5, remaining);
   const total = selectedType ? selectedType.price * quantity : 0;
 
-  // Format phone number to national/international format
-  const getFullPhoneNumber = (raw: string) => {
-    const trimmed = raw.trim().replace(/\s+/g, '');
-    if (!trimmed) return '';
-    if (trimmed.startsWith('+254')) return trimmed;
-    if (trimmed.startsWith('254')) return `+${trimmed}`;
-    if (trimmed.startsWith('0')) return `+254${trimmed.slice(1)}`;
-    return `+254${trimmed}`;
-  };
+  const fullPhone = normalizeEastAfricanPhone(phone, phoneCountryCode);
+  const isSafaricomPhone = isSafaricomKenyaPhone(fullPhone);
 
   const getTicketDescription = (ticket: EventTicketType) => {
     if (ticket.description) return ticket.description;
@@ -139,10 +197,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   }, [email]);
 
   const isPhoneValid = useMemo(() => {
-    const full = getFullPhoneNumber(phone);
-    const cleaned = full.replace(/\D/g, '');
-    return cleaned.length >= 12; // 254 + 9 digits = 12 digits
-  }, [phone]);
+    return validateEastAfricanPhone(phone, phoneCountryCode);
+  }, [phone, phoneCountryCode]);
 
   const isStudentVerificationApproved = verificationStatus === 'approved';
 
@@ -153,7 +209,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     isEmailValid &&
     isPhoneValid &&
     termsAccepted &&
-    (!isStudentSelected || isStudentVerificationApproved)
+    (!isStudentSelected || isStudentVerificationApproved) &&
+    (paymentMethod !== 'mobile_money' || isSafaricomPhone)
   );
 
   // ==========================================
@@ -327,9 +384,12 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
       return;
     }
 
-    const fullPhone = getFullPhoneNumber(phone);
     if (!isPhoneValid) {
-      setErrorMessage('Please enter a valid Kenyan phone number (e.g. 712 345 678).');
+      setErrorMessage('Enter a valid phone number for the selected East African country.');
+      return;
+    }
+    if (paymentMethod === 'mobile_money' && !isSafaricomPhone) {
+      setErrorMessage('Paystack M-Pesa is available only for Safaricom Kenya numbers. Choose card to continue.');
       return;
     }
 
@@ -351,7 +411,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
           buyer_name: buyerName.trim(),
           email: email.trim(),
           phone: fullPhone,
-          payment_method: paymentMethod,
+          payment_channel: paymentMethod,
           accept_terms: termsAccepted,
           student_verification_id: isStudentSelected ? verificationId : null,
           student_verification_token: isStudentSelected ? verificationToken : null,
@@ -364,16 +424,63 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         throw new Error(payload.error || 'Checkout failed. Please verify your details.');
       }
 
-      setSuccessMessage(`Order created! Reference: ${payload.reference}. ${payload.message}`);
-
-      if (payload.redirect) {
-        window.location.href = payload.redirect;
+      if (!payload.access_code || !payload.reference) {
+        throw new Error('Paystack did not return a valid checkout session. Please try again.');
       }
+
+      setSuccessMessage(`Opening secure checkout for ${formatCurrency(total)}. Reference: ${payload.reference}.`);
+      try {
+        await loadPaystackPopup();
+      } catch (popupError) {
+        if (payload.authorization_url) {
+          window.location.assign(payload.authorization_url);
+          return;
+        }
+        throw popupError;
+      }
+
+      if (!window.PaystackPop) {
+        throw new Error('Paystack checkout is unavailable. Please refresh and try again.');
+      }
+
+      new window.PaystackPop().resumeTransaction(payload.access_code);
+      void monitorPayment(payload.reference);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Something went wrong during checkout.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const monitorPayment = async (reference: string) => {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2500));
+      try {
+        const response = await fetch('/api/payments/paystack/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ reference }),
+        });
+        const result = await response.json();
+        if (!response.ok) continue;
+        if (result.status === 'paid') {
+          window.location.assign(`/events/${encodeURIComponent(event.slug)}/success?reference=${encodeURIComponent(reference)}`);
+          return;
+        }
+        if (result.status === 'failed' || result.status === 'cancelled') {
+          setSuccessMessage('');
+          setErrorMessage(result.status === 'cancelled'
+            ? 'Payment was cancelled. Your card was not charged; you can try again.'
+            : 'Payment was not successful. Please try another payment method.');
+          return;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    setSuccessMessage(`Payment is still processing. Reference: ${reference}. Tickets will be issued once Paystack confirms payment.`);
   };
 
   return (
@@ -539,6 +646,49 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               );
             })}
           </div>
+
+        {/* ================= SPECIAL OFFERS & TICKET INCENTIVES ================= */}
+
+            <div className="space-y-2.5">
+              {activeIncentives.map((offer) => (
+                <div
+                  key={offer.id || offer.title}
+                  className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-emerald-50/50 border border-purple-200/80 shadow-sm flex flex-col gap-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-bold text-xs text-[#1A1A2E] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#6C2BD9]" />
+                      {offer.title}
+                    </span>
+                    {offer.discount_type === 'percentage' && Boolean(offer.discount_value) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#8DC63F]/20 text-[#4d7c0f] border border-[#8DC63F]/40">
+                        <Tag className="w-3 h-3" /> {offer.discount_value}% OFF
+                      </span>
+                    ) : offer.discount_type === 'fixed' && Boolean(offer.discount_value) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#8DC63F]/20 text-[#4d7c0f] border border-[#8DC63F]/40">
+                        <Tag className="w-3 h-3" /> KES {offer.discount_value?.toLocaleString()} OFF
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#6C2BD9] border border-purple-200">
+                        Active Offer
+                      </span>
+                    )}
+                  </div>
+                  {offer.description && (
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {offer.description}
+                    </p>
+                  )}
+                  {offer.eligibility && (
+                    <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#8DC63F]"></span>
+                      <span>Eligibility: {offer.eligibility}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
         </section>
 
         {/* ================= STEP 1.5: AUTOMATED STUDENT VERIFICATION (Only when Student Ticket is selected) ================= */}
@@ -575,7 +725,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
             {/* Explanation Copy */}
             <p className="text-xs text-slate-600 leading-relaxed">
-              Use your Kenyan university email ending in <strong>.ac.ke</strong> to receive a single-use verification code. If you cannot access an institutional email, you can upload your Student ID.
+              Enter your buyer name in the details section below before verifying. Use your Kenyan university email ending in <strong>.ac.ke</strong> for a single-use code, or upload your Student ID.
               
             </p>
 
@@ -858,7 +1008,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
             {/* Phone Number */}
             <div>
               <label htmlFor="buyer-phone" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Phone Number (M-Pesa STK Push) <span className="text-red-500">*</span>
+                Phone Number <span className="text-red-500">*</span>
               </label>
               <div
                 className={`flex items-stretch rounded-xl border overflow-hidden bg-slate-50/50 transition ${
@@ -867,10 +1017,22 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                     : 'border-slate-200 focus-within:border-[#8DC63F] focus-within:ring-3 focus-within:ring-[#8DC63F]/20'
                 }`}
               >
-                <div className="flex items-center gap-1 px-3 sm:px-4 bg-slate-100 border-r border-slate-200 text-slate-700 font-semibold text-xs sm:text-sm select-none shrink-0">
-                  <span>+254</span>
-                  <span className="text-[10px] text-slate-400">🇰🇪</span>
-                </div>
+                <select
+                  aria-label="Phone country code"
+                  value={phoneCountryCode}
+                  onChange={(e) => {
+                    setPhoneCountryCode(e.target.value);
+                    if (e.target.value !== '254') setPaymentMethod('card');
+                    setErrorMessage('');
+                  }}
+                  className="max-w-[155px] h-12 px-2 sm:px-3 bg-slate-100 border-r border-slate-200 text-slate-700 text-xs sm:text-sm font-semibold outline-none"
+                >
+                  {phoneCountries.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.name} +{country.code}
+                    </option>
+                  ))}
+                </select>
                 <input
                   id="buyer-phone"
                   type="tel"
@@ -880,14 +1042,22 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                     setErrorMessage('');
                   }}
                   onBlur={() => setTouched((p) => ({ ...p, phone: true }))}
-                  placeholder="712 345 678"
+                  placeholder={phoneCountryCode === '257' ? '79 123 456' : '712 345 678'}
                   autoComplete="tel-national"
+                  inputMode="tel"
                   className="flex-1 h-12 px-4 bg-transparent text-[#1A1A2E] placeholder:text-slate-400 text-sm sm:text-base focus:bg-white outline-none"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Enter your Kenyan mobile number (e.g. 712 345 678 or 0712 345 678).
-              </p>
+              {touched.phone && phone && !isPhoneValid && (
+                <p className="text-[11px] text-red-600 mt-1" role="alert">
+                  Check the number length for the selected country.
+                </p>
+              )}
+              {phoneCountryCode !== '254' && (
+                <p className="text-[11px] text-amber-700 mt-1">
+                  M-Pesa STK is only available for Safaricom Kenya numbers. You can still use this number for contact and pay by card.
+                </p>
+              )}
             </div>
 
             {/* Delivery Reassurance Note */}
@@ -895,7 +1065,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               <Mail className="w-4 h-4 text-[#6C2BD9] shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold block text-[#6C2BD9]">Digital Ticket Delivery:</span>
-                You’ll receive your tickets and confirmation details by email upon payment confirmation.
+                Your order confirmation and ticket codes will be sent to your email and, when configured, WhatsApp after verified payment.
               </div>
             </div>
           </div>
@@ -914,48 +1084,48 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Payment method">
-            {/* M-Pesa Option */}
-            <div
-              onClick={() => setPaymentMethod('mpesa')}
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('mobile_money')}
               role="radio"
-              aria-checked={paymentMethod === 'mpesa'}
-              tabIndex={0}
-              onKeyDown={(e) => (e.key === ' ' || e.key === 'Enter') && setPaymentMethod('mpesa')}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer select-none outline-none ${
-                paymentMethod === 'mpesa'
-                  ? 'border-[#8DC63F] bg-gradient-to-br from-[#8DC63F]/10 to-white shadow-sm'
-                  : 'border-slate-200 bg-slate-50/50 hover:bg-white'
+              aria-checked={paymentMethod === 'mobile_money'}
+              aria-disabled={!isSafaricomPhone}
+              disabled={!isSafaricomPhone}
+              className={`p-4 rounded-2xl border-2 text-left transition-all select-none outline-none ${
+                !isSafaricomPhone
+                  ? 'border-slate-200 bg-slate-100 opacity-55 cursor-not-allowed'
+                  : paymentMethod === 'mobile_money'
+                    ? 'border-[#8DC63F] bg-gradient-to-br from-[#8DC63F]/10 to-white shadow-sm cursor-pointer'
+                    : 'border-slate-200 bg-slate-50/50 hover:bg-white cursor-pointer'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      paymentMethod === 'mpesa' ? 'border-[#8DC63F] bg-[#8DC63F]' : 'border-slate-300'
+                      paymentMethod === 'mobile_money' ? 'border-[#8DC63F] bg-[#8DC63F]' : 'border-slate-300'
                     }`}
                   >
-                    {paymentMethod === 'mpesa' && <Check className="w-3 h-3 text-white" />}
+                    {paymentMethod === 'mobile_money' && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <Smartphone className="w-5 h-5 text-emerald-600" />
                   <span className="font-display font-bold text-base text-[#1A1A2E]">M-Pesa</span>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
-                  STK Push
+                  Mobile money
                 </span>
               </div>
               <p className="text-xs text-slate-500 pl-6">
-                Instant prompt to your Safaricom line. Enter PIN on phone.
+                Pay through Paystack with your Safaricom Kenya number.
               </p>
-            </div>
+            </button>
 
-            {/* Card Option */}
-            <div
+            <button
+              type="button"
               onClick={() => setPaymentMethod('card')}
               role="radio"
               aria-checked={paymentMethod === 'card'}
-              tabIndex={0}
-              onKeyDown={(e) => (e.key === ' ' || e.key === 'Enter') && setPaymentMethod('card')}
-              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer select-none outline-none ${
+              className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer select-none outline-none ${
                 paymentMethod === 'card'
                   ? 'border-[#6C2BD9] bg-gradient-to-br from-[#6C2BD9]/10 to-white shadow-sm'
                   : 'border-slate-200 bg-slate-50/50 hover:bg-white'
@@ -978,24 +1148,19 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                 </span>
               </div>
               <p className="text-xs text-slate-500 pl-6">
-                Secure debit or credit card checkout verification.
+                Visa, Mastercard and other supported Paystack card payments.
               </p>
-            </div>
+            </button>
           </div>
 
-          {/* Contextual instruction card */}
-          {paymentMethod === 'mpesa' ? (
+          {paymentMethod === 'mobile_money' && isSafaricomPhone ? (
             <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 space-y-1">
               <div className="flex items-center gap-2 font-semibold text-emerald-900">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>M-Pesa STK Push Instructions</span>
+                <span>Pay with M-Pesa</span>
               </div>
               <p className="text-slate-600">
-                When you click <strong>Pay {formatCurrency(total)}</strong>, Safaricom will send an STK prompt to{' '}
-                <strong className="text-slate-900">{getFullPhoneNumber(phone) || '+254 7XX XXX XXX'}</strong>.
-              </p>
-              <p className="text-[11px] text-emerald-800 font-medium pt-1">
-                ⚠️ Enter your M-Pesa PIN only on the official phone popup. Never share your PIN.
+                Paystack will start the M-Pesa payment for <strong>{formatCurrency(total)}</strong>. Confirm it on your Safaricom phone.
               </p>
             </div>
           ) : (
@@ -1005,7 +1170,9 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                 <span>Card Checkout Instructions</span>
               </div>
               <p className="text-slate-600">
-                You will proceed through our verified payment processing gateway for 3D-Secure card verification.
+                {isSafaricomPhone
+                  ? 'Pay securely by card through Paystack.'
+                  : 'Your number is accepted for contact, but mobile money is limited to Safaricom Kenya. Pay securely by card through Paystack.'}
               </p>
             </div>
           )}
@@ -1123,7 +1290,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span>
-                  {paymentMethod === 'mpesa' ? 'Initiating M-Pesa STK Push...' : 'Processing payment...'}
+                  {paymentMethod === 'mobile_money' ? 'Opening M-Pesa checkout...' : 'Opening secure checkout...'}
                 </span>
               </>
             ) : (
@@ -1144,7 +1311,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
           <div className="flex items-center justify-center gap-4 pt-2 text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-slate-500" /> Authorized Daraja / M-Pesa
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-500" /> Payments verified by Paystack
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">

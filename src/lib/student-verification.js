@@ -153,7 +153,10 @@ export function validateUploadedDocument(buffer, declaredMime, filename) {
  * Generates an HMAC-signed student verification token
  */
 export function generateVerificationToken(verificationId, buyerName, method) {
-  const secret = process.env.VERIFICATION_TOKEN_SECRET || process.env.ADMIN_API_KEY || 'geohabari-token-secret-fallback';
+  const secret = process.env.VERIFICATION_TOKEN_SECRET;
+  if (!secret) {
+    throw new Error('Student verification token signing is not configured. Set VERIFICATION_TOKEN_SECRET.');
+  }
   const expiresAt = Date.now() + VERIFICATION_TOKEN_EXPIRY_MS;
   const payload = `${verificationId}:${buyerName.trim().toLowerCase()}:${method}:${expiresAt}`;
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
@@ -184,7 +187,10 @@ export function verifyVerificationToken(tokenStr, buyerName) {
     return { isValid: false, error: 'Verification token has expired.' };
   }
 
-  const secret = process.env.VERIFICATION_TOKEN_SECRET || process.env.ADMIN_API_KEY || 'geohabari-token-secret-fallback';
+  const secret = process.env.VERIFICATION_TOKEN_SECRET;
+  if (!secret) {
+    return { isValid: false, error: 'Student verification token signing is not configured.' };
+  }
   
   // Try both methods if unknown
   const methods = ['university_email', 'student_id_name_match'];
