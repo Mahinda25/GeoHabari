@@ -10,6 +10,15 @@ import {
 } from '../../../../lib/ticketing-store.js';
 
 export async function POST({ request }) {
+  if (!process.env.VERIFICATION_TOKEN_SECRET) {
+    return new Response(JSON.stringify({
+      error: 'Student verification is unavailable because token signing is not configured.',
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await request.json();
     const verificationId = String(body.verification_id || '').trim();

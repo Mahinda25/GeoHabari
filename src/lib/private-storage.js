@@ -85,7 +85,10 @@ export function deletePrivateFile(storageKey) {
  * Generates an HMAC-signed short-lived token for authorized document viewing
  */
 export function generateSignedDocumentToken(storageKey, expiresInSeconds = 300) {
-  const secret = process.env.DOCUMENT_SIGNING_SECRET || process.env.ADMIN_API_KEY || 'geohabari-internal-doc-secret';
+  const secret = process.env.DOCUMENT_SIGNING_SECRET;
+  if (!secret) {
+    throw new Error('Private document signing is not configured. Set DOCUMENT_SIGNING_SECRET.');
+  }
   const expiresAt = Date.now() + expiresInSeconds * 1000;
   const signature = crypto
     .createHmac('sha256', secret)
@@ -110,7 +113,8 @@ export function verifySignedDocumentToken(storageKey, tokenStr) {
     return false; // Expired
   }
 
-  const secret = process.env.DOCUMENT_SIGNING_SECRET || process.env.ADMIN_API_KEY || 'geohabari-internal-doc-secret';
+  const secret = process.env.DOCUMENT_SIGNING_SECRET;
+  if (!secret) return false;
   const expected = crypto
     .createHmac('sha256', secret)
     .update(`${storageKey}:${expiresAt}`)

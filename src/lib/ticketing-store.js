@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dataDir = path.resolve(__dirname, '../data');
-const storePath = path.join(dataDir, 'ticketing-store.json');
+const storePath = process.env.TICKETING_STORE_PATH
+  ? path.resolve(process.env.TICKETING_STORE_PATH)
+  : path.join(dataDir, 'ticketing-store.json');
 
 const defaultStore = {
   events: [
@@ -20,6 +22,19 @@ const defaultStore = {
       ends_at: '2026-12-12T17:00:00+03:00',
       status: 'published',
       archived_at: null,
+      incentives: [
+        {
+          id: 'inc-summit-earlybird',
+          title: 'Early Bird Offer',
+          description: 'Book early and save 20% on summit admission.',
+          discount_type: 'percentage',
+          discount_value: 20,
+          eligibility: 'First 50 registrations',
+          start_date: '2026-10-01T00:00:00.000Z',
+          end_date: '2026-11-30T23:59:59.000Z',
+          is_active: true,
+        },
+      ],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -34,6 +49,7 @@ const defaultStore = {
       ends_at: '2026-11-04T19:00:00+03:00',
       status: 'published',
       archived_at: null,
+      incentives: [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -43,6 +59,7 @@ const defaultStore = {
       id: 'ticket-student-evt-summit-2026',
       event_id: 'evt-summit-2026',
       name: 'Student',
+      category_type: 'student',
       price: 600,
       allocation: 30,
       sold_count: 0,
@@ -52,6 +69,7 @@ const defaultStore = {
       id: 'ticket-professional-evt-summit-2026',
       event_id: 'evt-summit-2026',
       name: 'Professional',
+      category_type: 'professional',
       price: 1000,
       allocation: 70,
       sold_count: 0,
@@ -61,6 +79,7 @@ const defaultStore = {
       id: 'ticket-student-evt-ai-2026',
       event_id: 'evt-ai-2026',
       name: 'Student',
+      category_type: 'student',
       price: 600,
       allocation: 30,
       sold_count: 0,
@@ -70,6 +89,7 @@ const defaultStore = {
       id: 'ticket-professional-evt-ai-2026',
       event_id: 'evt-ai-2026',
       name: 'Professional',
+      category_type: 'professional',
       price: 1000,
       allocation: 70,
       sold_count: 0,
@@ -82,15 +102,15 @@ const defaultStore = {
   exports: [],
   audit_logs: [],
   student_verifications: [],
-  whatsapp_notifications: [],
   admin_users: [],
   admin_sessions: [],
   login_attempts: [],
 };
 
 function ensureStoreFile() {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  const storeDirectory = path.dirname(storePath);
+  if (!fs.existsSync(storeDirectory)) {
+    fs.mkdirSync(storeDirectory, { recursive: true });
   }
 
   if (!fs.existsSync(storePath)) {
@@ -117,10 +137,13 @@ export function readStore() {
   data.exports = data.exports || [];
   data.audit_logs = data.audit_logs || [];
   data.student_verifications = data.student_verifications || [];
-  data.whatsapp_notifications = data.whatsapp_notifications || [];
   data.admin_users = data.admin_users || [];
   data.admin_sessions = data.admin_sessions || [];
   data.login_attempts = data.login_attempts || [];
+
+  for (const event of data.events) {
+    event.incentives = Array.isArray(event.incentives) ? event.incentives : [];
+  }
 
   return data;
 }
@@ -191,6 +214,7 @@ export function saveEvent(eventData) {
     status: eventData.status || (existingIndex >= 0 ? store.events[existingIndex].status : 'published'),
     speakers: Array.isArray(eventData.speakers) ? eventData.speakers : (existingIndex >= 0 ? store.events[existingIndex].speakers || [] : []),
     partners: Array.isArray(eventData.partners) ? eventData.partners : (existingIndex >= 0 ? store.events[existingIndex].partners || [] : []),
+    incentives: Array.isArray(eventData.incentives) ? eventData.incentives : (existingIndex >= 0 ? store.events[existingIndex].incentives || [] : []),
     archived_at: eventData.archived_at !== undefined ? eventData.archived_at : (existingIndex >= 0 ? store.events[existingIndex].archived_at : null),
     created_at: existingIndex >= 0 ? store.events[existingIndex].created_at : now,
     updated_at: now,
@@ -229,6 +253,7 @@ export function saveTicketType(ticketData) {
     id: ticketId,
     event_id: ticketData.event_id,
     name: ticketData.name || (existingIndex >= 0 ? store.ticket_types[existingIndex].name : 'Standard'),
+    category_type: ticketData.category_type || (existingIndex >= 0 ? store.ticket_types[existingIndex].category_type : ((ticketData.name || '').toLowerCase().includes('professional') ? 'professional' : (ticketData.name || '').toLowerCase().includes('student') ? 'student' : 'standard')),
     price: Number(ticketData.price ?? (existingIndex >= 0 ? store.ticket_types[existingIndex].price : 1000)),
     allocation: Number(ticketData.allocation ?? (existingIndex >= 0 ? store.ticket_types[existingIndex].allocation : 50)),
     sold_count: existingIndex >= 0 ? Number(store.ticket_types[existingIndex].sold_count || 0) : 0,
@@ -286,6 +311,26 @@ export function getOrderByReference(reference) {
 export function getPaymentByReference(providerReference) {
   const store = readStore();
   return store.payments.find((payment) => payment.provider_reference === providerReference) || null;
+}
+
+export function setPaymentProviderReference(orderId, providerReference) {
+  const store = readStore();
+  const payment = store.payments.find((entry) => entry.order_id === orderId);
+  if (!payment || !providerReference) {
+    throw new Error('Payment record or provider reference was not found.');
+  }
+  if (store.payments.some((entry) => (
+    entry.id !== payment.id &&
+    entry.provider === payment.provider &&
+    entry.provider_reference === providerReference
+  ))) {
+    throw new Error('The provider payment reference is already associated with another order.');
+  }
+
+  payment.provider_reference = providerReference;
+  payment.updated_at = new Date().toISOString();
+  writeStore(store);
+  return payment;
 }
 
 export function getTicketsByOrder(orderId) {
@@ -388,45 +433,6 @@ export function purgeExpiredStudentDocuments(nowIso = new Date().toISOString()) 
   }
 
   return { purgedCount };
-}
-
-// ==========================================
-// WHATSAPP NOTIFICATIONS
-// ==========================================
-
-export function getWhatsAppNotificationByOrderId(orderId) {
-  if (!orderId) return null;
-  const store = readStore();
-  return store.whatsapp_notifications.find((w) => w.order_id === orderId) || null;
-}
-
-export function saveWhatsAppNotification(record) {
-  const store = readStore();
-  const index = store.whatsapp_notifications.findIndex((w) => w.id === record.id || (w.order_id && w.order_id === record.order_id));
-  const now = new Date().toISOString();
-
-  if (index >= 0) {
-    store.whatsapp_notifications[index] = {
-      ...store.whatsapp_notifications[index],
-      ...record,
-      updated_at: now,
-    };
-  } else {
-    store.whatsapp_notifications.push({
-      id: record.id || crypto.randomUUID(),
-      ...record,
-      created_at: record.created_at || now,
-      updated_at: now,
-    });
-  }
-
-  writeStore(store);
-  return record;
-}
-
-export function getPendingWhatsAppNotifications() {
-  const store = readStore();
-  return store.whatsapp_notifications.filter((w) => w.status === 'pending' || (w.status === 'processing' && w.attempts < (w.max_attempts || 3)));
 }
 
 // ==========================================
@@ -578,6 +584,7 @@ export function queryTicketHolders({
   search = '',
   category = 'all',
   status = 'all',
+  eventId = 'all',
   dateFrom = '',
   dateTo = '',
   page = 1,
@@ -603,20 +610,23 @@ export function queryTicketHolders({
       ticket_code: ticket.ticket_code,
       ticket_status: ticket.status || 'active',
       category: ticket.category || 'Standard',
+      category_type: ticket.category_type || 'standard',
       event_id: ticket.event_id,
       event_title: event?.title || 'GeoHabari Event',
       order_id: ticket.order_id,
       order_reference: order?.reference || 'N/A',
-      buyer_name: order?.buyer_name || 'N/A',
-      email: order?.email || 'N/A',
-      phone: order?.phone || 'N/A',
+      buyer_name: ticket.attendee_name || order?.buyer_name || 'N/A',
+      attendee_name: ticket.attendee_name || order?.buyer_name || 'N/A',
+      email: ticket.attendee_email || order?.email || 'N/A',
+      phone: ticket.attendee_phone || order?.phone || 'N/A',
+      organization: ticket.organization || order?.organization || '',
+      role: ticket.role || order?.role || '',
       order_quantity: order?.quantity || 1,
       order_amount: order?.amount || 0,
       payment_method: order?.payment_method || payment?.provider || 'N/A',
-      payment_status: order?.status || 'pending',
+      payment_status: order?.status || 'paid',
       payment_reference: payment?.provider_reference || 'N/A',
       created_at: ticket.created_at || order?.created_at || new Date().toISOString(),
-      whatsapp_opt_in: Boolean(order?.whatsapp_opt_in),
       is_student_verified: Boolean(verification && verification.status === 'approved'),
       verification_method: verification?.method || null,
       check_in_status: ticket.check_in_status || 'not_checked_in',
@@ -624,38 +634,47 @@ export function queryTicketHolders({
     });
   }
 
-  // 2. Also include unissued / pending orders for visibility
+  // 2. Only include confirmed failed orders when explicitly queried or all
+  // Notice: Pending transactions are internal payment states and NOT ticket holders
   for (const order of store.orders) {
-    if (order.status !== 'paid') {
+    if (order.status === 'failed' || order.status === 'cancelled') {
       const event = store.events.find((e) => e.id === order.event_id);
       const ticketType = store.ticket_types.find((t) => t.id === order.ticket_type_id);
       const payment = store.payments.find((p) => p.order_id === order.id);
 
       rows.push({
-        ticket_id: `pending-${order.id}`,
-        ticket_code: order.status === 'pending' ? 'PENDING_PAYMENT' : 'PAYMENT_FAILED',
+        ticket_id: `failed-${order.id}`,
+        ticket_code: 'PAYMENT_FAILED',
         ticket_status: 'unissued',
         category: ticketType?.name || 'Standard',
+        category_type: ticketType?.category_type || 'standard',
         event_id: order.event_id,
         event_title: event?.title || 'GeoHabari Event',
         order_id: order.id,
         order_reference: order.reference,
         buyer_name: order.buyer_name,
+        attendee_name: order.buyer_name,
         email: order.email,
         phone: order.phone,
+        organization: order.organization || '',
+        role: order.role || '',
         order_quantity: order.quantity,
         order_amount: order.amount,
         payment_method: order.payment_method || payment?.provider || 'N/A',
         payment_status: order.status,
         payment_reference: payment?.provider_reference || 'N/A',
         created_at: order.created_at,
-        whatsapp_opt_in: Boolean(order.whatsapp_opt_in),
         is_student_verified: Boolean(order.student_verification_id),
         verification_method: null,
         check_in_status: 'not_checked_in',
         check_in_at: null,
       });
     }
+  }
+
+  // Event filtering (Scoping by event)
+  if (eventId && eventId !== 'all') {
+    rows = rows.filter((r) => r.event_id === eventId);
   }
 
   // Search filtering
@@ -667,7 +686,9 @@ export function queryTicketHolders({
         r.order_reference.toLowerCase().includes(s) ||
         r.buyer_name.toLowerCase().includes(s) ||
         r.email.toLowerCase().includes(s) ||
-        r.phone.toLowerCase().includes(s)
+        r.phone.toLowerCase().includes(s) ||
+        (r.organization && r.organization.toLowerCase().includes(s)) ||
+        (r.role && r.role.toLowerCase().includes(s))
     );
   }
 
@@ -764,4 +785,3 @@ export function checkInTicket(ticketCode, adminEmail = 'admin') {
 
   return { success: true, ticket };
 }
-

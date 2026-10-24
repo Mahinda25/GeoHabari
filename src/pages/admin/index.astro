@@ -6,9 +6,15 @@ const store = readStore();
 const metrics = getTicketMetrics();
 
 // 1. Confirmed figures strictly derived from paid transactions
-const paidOrders = store.orders.filter((o: { status: string }) => o.status === "paid");
-const pendingOrders = store.orders.filter((o: { status: string }) => o.status === "pending",);
-const failedOrders = store.orders.filter((o: { status: string }) => o.status === "failed" || o.status === "cancelled",);
+const paidOrders = store.orders.filter(
+  (o: { status: string }) => o.status === "paid",
+);
+const pendingOrders = store.orders.filter(
+  (o: { status: string }) => o.status === "pending",
+);
+const failedOrders = store.orders.filter(
+  (o: { status: string }) => o.status === "failed" || o.status === "cancelled",
+);
 
 // Confirmed Revenue: ONLY paid orders count towards revenue!
 const confirmedRevenue = paidOrders.reduce(
@@ -30,30 +36,50 @@ const proTickets = store.tickets.filter((t: { category?: string | null }) =>
 );
 
 const studentRevenue = paidOrders
-  .filter((o: { ticket_type_id: string | number; amount: string | number; quantity: number }) => {
-    const t = store.ticket_types.find(
-      (tt: { id: string | number; name?: string | null }) =>
-        tt.id === o.ticket_type_id,
-    );
-    return (
-      t?.name?.toLowerCase().includes("student") ||
-      Number(o.amount) / o.quantity === 600
-    );
-  })
-  .reduce((sum: number, o: { amount: string | number }) => sum + Number(o.amount || 0), 0);
+  .filter(
+    (o: {
+      ticket_type_id: string | number;
+      amount: string | number;
+      quantity: number;
+    }) => {
+      const t = store.ticket_types.find(
+        (tt: { id: string | number; name?: string | null }) =>
+          tt.id === o.ticket_type_id,
+      );
+      return (
+        t?.name?.toLowerCase().includes("student") ||
+        Number(o.amount) / o.quantity === 600
+      );
+    },
+  )
+  .reduce(
+    (sum: number, o: { amount: string | number }) =>
+      sum + Number(o.amount || 0),
+    0,
+  );
 
 const proRevenue = paidOrders
-  .filter((o: { ticket_type_id: string | number; amount: string | number; quantity: number }) => {
-    const t = store.ticket_types.find(
-      (tt: { id: string | number; name?: string | null }) =>
-        tt.id === o.ticket_type_id,
-    );
-    return (
-      t?.name?.toLowerCase().includes("professional") ||
-      Number(o.amount) / o.quantity === 1000
-    );
-  })
-  .reduce((sum: number, o: { amount: string | number }) => sum + Number(o.amount || 0), 0);
+  .filter(
+    (o: {
+      ticket_type_id: string | number;
+      amount: string | number;
+      quantity: number;
+    }) => {
+      const t = store.ticket_types.find(
+        (tt: { id: string | number; name?: string | null }) =>
+          tt.id === o.ticket_type_id,
+      );
+      return (
+        t?.name?.toLowerCase().includes("professional") ||
+        Number(o.amount) / o.quantity === 1000
+      );
+    },
+  )
+  .reduce(
+    (sum: number, o: { amount: string | number }) =>
+      sum + Number(o.amount || 0),
+    0,
+  );
 
 // Recent successful purchases (last 8)
 const recentPurchases = [...paidOrders]
@@ -63,7 +89,9 @@ const recentPurchases = [...paidOrders]
   )
   .slice(0, 8)
   .map((order) => {
-    const event = store.events.find((e: { id: string | number }) => e.id === order.event_id);
+    const event = store.events.find(
+      (e: { id: string | number }) => e.id === order.event_id,
+    );
     const tickets = store.tickets.filter(
       (t: { order_id: string | number; ticket_code: string }) =>
         t.order_id === order.id,
@@ -89,8 +117,11 @@ const recentPaymentAttempts = [...store.payments]
   .slice(0, 5)
   .map((payment) => {
     const order = store.orders.find(
-      (o: { id: string | number; reference?: string | null; buyer_name?: string | null }) =>
-        o.id === payment.order_id,
+      (o: {
+        id: string | number;
+        reference?: string | null;
+        buyer_name?: string | null;
+      }) => o.id === payment.order_id,
     );
     return {
       ...payment,
@@ -163,37 +194,6 @@ const recentPaymentAttempts = [...store.payments]
         <div class="metric-footer text-muted">
           <span>Zero revenue credited for unconfirmed</span>
         </div>
-      </div>
-    </section>
-
-    <!-- ACTION CARDS / SHORTCUTS -->
-    <section class="quick-banner">
-      <div class="banner-content">
-        <h3>Restricted Ticket-List Export</h3>
-        <p>
-          Download the authoritative, sanitized CSV of all confirmed attendees
-          and ticket codes. Protected with formula-injection defenses.
-        </p>
-      </div>
-      <div class="banner-actions">
-        <a href="/api/admin/exports" class="primary-action-btn">
-          <svg
-            class="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" x2="12" y1="15" y2="3"></line>
-          </svg>
-          <span>Download Attendee CSV</span>
-        </a>
-        <a href="/admin/events" class="secondary-action-btn">Manage Events →</a>
-        <a href="/admin/tickets" class="secondary-action-btn"
-          >Ticket Holders →</a
-        >
       </div>
     </section>
 

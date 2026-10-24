@@ -5,7 +5,7 @@ function sanitizeCsvCell(value) {
   if (value === null || value === undefined) return '""';
   let str = String(value);
   // Prevent CSV Formula Injection
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (/^[=+\-@\t\r]/.test(str) || /^[\u0000-\u0020]+[=+\-@]/.test(str)) {
     str = `'${str}`;
   }
   return `"${str.replace(/"/g, '""')}"`;
@@ -29,14 +29,16 @@ export async function GET({ request }) {
 
   try {
     const url = new URL(request.url);
+    const eventId = url.searchParams.get('eventId') || 'all';
     const search = url.searchParams.get('search') || '';
     const category = url.searchParams.get('category') || 'all';
     const status = url.searchParams.get('status') || 'all';
     const dateFrom = url.searchParams.get('from') || '';
     const dateTo = url.searchParams.get('to') || '';
 
-    // Fetch up to 10,000 records matching active filters
+    // Fetch up to 10,000 records matching active filters (scoped by eventId if provided)
     const { rows } = queryTicketHolders({
+      eventId,
       search,
       category,
       status,
@@ -50,9 +52,11 @@ export async function GET({ request }) {
 
     const headers = [
       'Ticket Code',
-      'Buyer Name',
+      'Attendee Name',
       'Email',
       'Phone',
+      'Organization',
+      'Role',
       'Event',
       'Ticket Category',
       'Order Reference',
@@ -74,6 +78,8 @@ export async function GET({ request }) {
         sanitizeCsvCell(r.buyer_name),
         sanitizeCsvCell(r.email),
         sanitizeCsvCell(r.phone),
+        sanitizeCsvCell(r.organization || ''),
+        sanitizeCsvCell(r.role || ''),
         sanitizeCsvCell(r.event_title),
         sanitizeCsvCell(r.category),
         sanitizeCsvCell(r.order_reference),
@@ -90,7 +96,10 @@ export async function GET({ request }) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const filename = `geohabari-ticket-holders-${today}.csv`;
+    const firstRowEventSlug = rows[0]?.event_title ? rows[0].event_title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null;
+    const filename = eventId !== 'all' && firstRowEventSlug
+      ? `geohabari-${firstRowEventSlug}-attendees-${today}.csv`
+      : `geohabari-ticket-holders-${today}.csv`;
 
     // Audit log the export event
     appendAuditLog({

@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
+process.env.VERIFICATION_TOKEN_SECRET = process.env.VERIFICATION_TOKEN_SECRET || 'test-only-verification-secret';
+
 import {
   isValidUniversityEmail,
   validateUploadedDocument,
@@ -18,12 +20,6 @@ import {
 } from '../src/lib/ocr-service.js';
 
 import {
-  normalizeToE164,
-  maskEmail,
-  validateProviderConfiguration,
-} from '../src/lib/whatsapp.js';
-
-import {
   calculateFileHash,
 } from '../src/lib/private-storage.js';
 
@@ -37,9 +33,8 @@ import {
   resetStore,
   saveStudentVerification,
   getStudentVerificationById,
-  saveWhatsAppNotification,
-  getWhatsAppNotificationByOrderId,
   readStore,
+  writeStore,
 } from '../src/lib/ticketing-store.js';
 
 describe('University Email Domain Validation (.ac.ke)', () => {
@@ -179,20 +174,6 @@ describe('OTP & Verification Tokens', () => {
   });
 });
 
-describe('WhatsApp Formatting & Phone Normalization', () => {
-  test('Normalizes Kenyan numbers to E.164 format', () => {
-    assert.equal(normalizeToE164('0712345678'), '+254712345678');
-    assert.equal(normalizeToE164('+254712345678'), '+254712345678');
-    assert.equal(normalizeToE164('254712345678'), '+254712345678');
-    assert.equal(normalizeToE164('712345678'), '+254712345678');
-  });
-
-  test('Masks email addresses appropriately for privacy', () => {
-    assert.equal(maskEmail('jane.wanjiru@example.com'), 'j***u@example.com');
-    assert.equal(maskEmail('me@test.ac.ke'), 'm*@test.ac.ke');
-  });
-});
-
 describe('Server-Side Pricing & Checkout Security Enforcement', () => {
   test('Professional ticket checkout succeeds without student verification at KES 1,000', () => {
     resetStore();
@@ -205,14 +186,16 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
       phone: '0712345678',
       ticket_type_id: profTicket.id,
       quantity: 2,
-      payment_method: 'mpesa',
+      payment_channel: 'mobile_money',
       accept_terms: true,
-      whatsapp_opt_in: true,
     });
 
     assert.equal(result.order.status, 'pending');
     assert.equal(result.order.amount, 2000); // 2 * 1000
-    assert.equal(result.order.whatsapp_opt_in, true);
+    assert.equal(result.order.phone, '+254712345678');
+    assert.equal(result.order.payment_method, 'mobile_money');
+    assert.equal(result.order.payment_provider, 'paystack');
+    assert.deepEqual(result.order.attendees, []);
   });
 
   test('Student ticket checkout FAILS when student verification is missing', () => {
@@ -258,11 +241,11 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
       phone: '0712345678',
       ticket_type_id: studentTicket.id,
       quantity: 1,
-      payment_method: 'mpesa',
+      payment_channel: 'mobile_money',
       accept_terms: true,
+      attendees: [{ name: 'First Buyer' }],
       student_verification_id: verificationRecord.id,
       student_verification_token: token,
-      whatsapp_opt_in: false,
     });
 
     assert.equal(result.order.status, 'pending');
@@ -283,7 +266,7 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
           phone: '0712345678',
           ticket_type_id: profTicket.id,
           quantity: 6, // Exceeds 5
-          payment_method: 'mpesa',
+          payment_channel: 'mobile_money',
           accept_terms: true,
         });
       },
@@ -291,7 +274,36 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
     );
   });
 
-  test('Payment confirmation issues unique tickets and records idempotent WhatsApp notification', () => {
+  test('Reserves available capacity for pending orders', () => {
+    resetStore();
+    const store = readStore();
+    const event = store.events[0];
+    const profTicket = store.ticket_types.find((t) => t.event_id === event.id && t.name === 'Professional');
+    profTicket.allocation = 1;
+    writeStore(store);
+    const firstOrder = createOrderCheckout(event.id, {
+      buyer_name: 'First Buyer',
+      email: 'first@example.com',
+      phone: '0712345678',
+      ticket_type_id: profTicket.id,
+      quantity: 1,
+      payment_channel: 'mobile_money',
+      accept_terms: true,
+      attendees: [{ name: 'First Buyer' }],
+    });
+    assert.equal(firstOrder.order.status, 'pending');
+    assert.throws(() => createOrderCheckout(event.id, {
+      buyer_name: 'Second Buyer',
+      email: 'second@example.com',
+      phone: '0712345678',
+      ticket_type_id: profTicket.id,
+      quantity: 1,
+      payment_channel: 'mobile_money',
+      accept_terms: true,
+    }), /remaining capacity/);
+  });
+
+  test('Payment confirmation issues unique tickets idempotently', () => {
     resetStore();
     const event = readStore().events[0];
     const profTicket = readStore().ticket_types.find((t) => t.event_id === event.id && t.name === 'Professional');
@@ -304,13 +316,17 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
       quantity: 2,
       payment_method: 'card',
       accept_terms: true,
-      whatsapp_opt_in: true,
+      attendees: [
+        { name: 'Payment Test Buyer' },
+        { name: 'Second Attendee' },
+      ],
     });
 
     const verification = verifyPaymentAndIssueTickets({
       orderReference: checkout.order.reference,
-      provider: 'card',
+      provider: 'paystack',
       providerReference: 'CARD-REF-999',
+      amount: checkout.order.amount,
       status: 'paid',
     });
 
@@ -320,11 +336,36 @@ describe('Server-Side Pricing & Checkout Security Enforcement', () => {
     // Re-verifying same payment is idempotent
     const secondCall = verifyPaymentAndIssueTickets({
       orderReference: checkout.order.reference,
-      provider: 'card',
+      provider: 'paystack',
       providerReference: 'CARD-REF-999',
+      amount: checkout.order.amount,
       status: 'paid',
     });
 
     assert.equal(secondCall.alreadyProcessed, true);
+  });
+
+  test('Rejects verified payments with a mismatched amount', () => {
+    resetStore();
+    const event = readStore().events[0];
+    const profTicket = readStore().ticket_types.find((t) => t.event_id === event.id && t.name === 'Professional');
+    const checkout = createOrderCheckout(event.id, {
+      buyer_name: 'Amount Test Buyer',
+      email: 'amount@example.com',
+      phone: '0712345678',
+      ticket_type_id: profTicket.id,
+      quantity: 1,
+      payment_method: 'card',
+      accept_terms: true,
+      attendees: [{ name: 'Amount Test Buyer' }],
+    });
+
+    assert.throws(() => verifyPaymentAndIssueTickets({
+      orderReference: checkout.order.reference,
+      provider: 'paystack',
+      providerReference: 'CARD-REF-WRONG-AMOUNT',
+      amount: checkout.order.amount + 1,
+      status: 'paid',
+    }), /does not match the order total/);
   });
 });

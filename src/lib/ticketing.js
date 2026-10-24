@@ -17,31 +17,37 @@ import {
   saveStudentVerification,
 } from './ticketing-store.js';
 import { verifyVerificationToken } from './student-verification.js';
+import {
+  isSafaricomKenyaPhone,
+  normalizeEastAfricanPhone,
+  validateEastAfricanPhone,
+} from './phone.js';
+import crypto from 'node:crypto';
 
 const MAX_QUANTITY = 5;
 const MIN_QUANTITY = 1;
+const PENDING_ORDER_RESERVATION_MS = 20 * 60 * 1000;
 
 export function sanitizeText(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ');
 }
 
-export function normalizePhone(value) {
-  const raw = String(value ?? '').replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]);
+}
 
-  if (!raw) return '';
-  if (raw.startsWith('+254')) return `0${raw.slice(4)}`;
-  if (raw.startsWith('254')) return `0${raw.slice(3)}`;
-  if (raw.startsWith('0')) return raw;
-  return raw;
+export function normalizePhone(value) {
+  return normalizeEastAfricanPhone(value);
 }
 
 export function validatePhone(value) {
-  const normalized = normalizePhone(value);
-  return (
-    /^(0\d{9}|\+?254\d{9})$/.test(normalized) ||
-    /^(\+?2547\d{8}|\+?2541\d{8})$/.test(normalized) ||
-    /^(07\d{8}|01\d{8})$/.test(normalized)
-  );
+  return validateEastAfricanPhone(value);
 }
 
 export function validateEmail(value) {
@@ -50,18 +56,11 @@ export function validateEmail(value) {
 
 export function generateOrderReference() {
   const year = new Date().getFullYear();
-  const store = readStore();
-  const count = store.orders.length + 1;
-  return `GH-${year}-${String(count).padStart(5, '0')}`;
+  return `GH-${year}-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
 }
 
 export function generateTicketCode(seed = '') {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const digits = '23456789';
-  const randomPart = Array.from({ length: 5 }, (_, index) => {
-    const pool = index % 2 === 0 ? letters : digits;
-    return pool[Math.floor(Math.random() * pool.length)];
-  }).join('');
+  const randomPart = crypto.randomBytes(8).toString('hex').toUpperCase();
   const suffix = seed ? `-${seed.slice(0, 2).toUpperCase()}` : '';
   return `GH${String(new Date().getFullYear()).slice(-2)}${suffix}-${randomPart}`;
 }
@@ -85,6 +84,7 @@ export function getEventDetail(slug) {
 
   return {
     ...event,
+    incentives: Array.isArray(event.incentives) ? event.incentives : [],
     ticket_types: getTicketTypesByEvent(event.id),
   };
 }
@@ -95,10 +95,23 @@ export function ensureOrderRequestValid(payload) {
   const phone = normalizePhone(payload.phone || '');
   const ticketTypeId = sanitizeText(payload.ticket_type_id || payload.ticketTypeId || '');
   const quantity = Number(payload.quantity ?? 1);
-  const paymentMethod = sanitizeText(payload.payment_method || payload.paymentMethod || '');
+  const paymentMethod = sanitizeText(
+    payload.payment_channel || payload.payment_method || payload.paymentMethod || ''
+  );
   const acceptedTerms = Boolean(payload.accept_terms ?? payload.acceptTerms ?? payload.terms_accepted);
   const studentVerificationId = sanitizeText(payload.student_verification_id || '');
   const studentVerificationToken = sanitizeText(payload.student_verification_token || '');
+  const organization = sanitizeText(payload.organization || payload.buyer_org || '');
+  const role = sanitizeText(payload.role || payload.buyer_role || '');
+  const attendees = Array.isArray(payload.attendees)
+    ? payload.attendees.map((a) => ({
+        name: sanitizeText(a?.name || ''),
+        email: sanitizeText(a?.email || ''),
+        phone: normalizePhone(a?.phone || ''),
+        organization: sanitizeText(a?.organization || ''),
+        role: sanitizeText(a?.role || ''),
+      }))
+    : [];
 
   if (!name || name.length < 2) {
     throw new Error('Full name is required.');
@@ -109,7 +122,7 @@ export function ensureOrderRequestValid(payload) {
   }
 
   if (!validatePhone(phone)) {
-    throw new Error('A valid Kenyan phone number is required.');
+    throw new Error('A valid East African phone number is required in international format.');
   }
 
   if (!ticketTypeId) {
@@ -120,24 +133,30 @@ export function ensureOrderRequestValid(payload) {
     throw new Error('Quantity must be between 1 and 5 tickets.');
   }
 
-  if (!['mpesa', 'card'].includes(paymentMethod)) {
-    throw new Error('Unsupported payment method.');
+  const paymentChannel = paymentMethod === 'mpesa' ? 'mobile_money' : paymentMethod;
+  if (!['mobile_money', 'card'].includes(paymentChannel)) {
+    throw new Error('Choose Paystack mobile money or card checkout.');
+  }
+  if (paymentChannel === 'mobile_money' && !isSafaricomKenyaPhone(phone)) {
+    throw new Error('Paystack M-Pesa is available only for Safaricom Kenya numbers. Choose card to pay with this number.');
   }
 
   if (!acceptedTerms) {
     throw new Error('You must accept the terms, privacy policy and refund policy.');
   }
-
   return {
     buyer_name: name,
     email,
     phone,
     ticket_type_id: ticketTypeId,
     quantity,
-    payment_method: paymentMethod,
+    payment_method: paymentChannel,
     accepted_terms: true,
     student_verification_id: studentVerificationId,
     student_verification_token: studentVerificationToken,
+    organization,
+    role,
+    attendees: [],
   };
 }
 
@@ -154,8 +173,19 @@ export function createOrderCheckout(eventId, requestPayload) {
     throw new Error('Selected ticket type is invalid for this event.');
   }
 
-  const totalSold = ticketType.sold_count ?? 0;
-  if (totalSold + validated.quantity > ticketType.allocation) {
+  const now = Date.now();
+  const activeReservations = store.orders
+    .filter((order) => {
+      if (order.ticket_type_id !== ticketType.id || order.status !== 'pending') return false;
+      const fallbackExpiry = new Date(order.created_at).getTime() + PENDING_ORDER_RESERVATION_MS;
+      const expiresAt = order.payment_expires_at
+        ? new Date(order.payment_expires_at).getTime()
+        : fallbackExpiry;
+      return expiresAt > now;
+    })
+    .reduce((sum, order) => sum + Number(order.quantity || 0), 0);
+  const totalReserved = Number(ticketType.sold_count || 0) + activeReservations;
+  if (totalReserved + validated.quantity > Number(ticketType.allocation)) {
     throw new Error('Selected ticket quantity exceeds remaining capacity.');
   }
 
@@ -163,7 +193,7 @@ export function createOrderCheckout(eventId, requestPayload) {
   // SERVER-SIDE STUDENT ELIGIBILITY ENFORCEMENT
   // ========================================================
   const isStudentTicket =
-    ticketType.name.toLowerCase().includes('student') || ticketType.price < 1000;
+    ticketType.category_type === 'student' || ticketType.name.toLowerCase().includes('student');
 
   let verifiedStudentRecord = null;
 
@@ -189,18 +219,12 @@ export function createOrderCheckout(eventId, requestPayload) {
     }
 
     // Token verification
-    if (verificationToken) {
-      const tokenResult = verifyVerificationToken(verificationToken, validated.buyer_name);
-      if (!tokenResult.isValid) {
-        throw new Error(`Student verification token invalid or expired: ${tokenResult.error}`);
-      }
-    } else {
-      // Name consistency check
-      const normRecorded = sanitizeText(verifiedStudentRecord.buyer_name).toLowerCase();
-      const normInput = sanitizeText(validated.buyer_name).toLowerCase();
-      if (normRecorded !== normInput) {
-        throw new Error('Student verification record was issued for a different buyer name.');
-      }
+    if (!verificationToken) {
+      throw new Error('A signed student verification token is required. Please verify your student details again.');
+    }
+    const tokenResult = verifyVerificationToken(verificationToken, validated.buyer_name);
+    if (!tokenResult.isValid || tokenResult.verificationId !== verifiedStudentRecord.id) {
+      throw new Error(`Student verification token invalid or expired: ${tokenResult.error || 'verification ID mismatch'}`);
     }
 
     // Reuse prevention check
@@ -216,6 +240,7 @@ export function createOrderCheckout(eventId, requestPayload) {
   // Price is strictly calculated from the database ticketType, never client-submitted!
   const amount = ticketType.price * validated.quantity;
 
+  const createdAt = new Date();
   const order = {
     id: crypto.randomUUID(),
     reference: orderRef,
@@ -226,19 +251,24 @@ export function createOrderCheckout(eventId, requestPayload) {
     email: validated.email,
     quantity: validated.quantity,
     amount,
+    organization: null,
+    role: null,
+    attendees: [],
     status: 'pending',
     payment_method: validated.payment_method,
+    payment_provider: 'paystack',
     accepted_terms: true,
     student_verification_id: verifiedStudentRecord ? verifiedStudentRecord.id : null,
-    created_at: new Date().toISOString(),
+    payment_expires_at: new Date(createdAt.getTime() + PENDING_ORDER_RESERVATION_MS).toISOString(),
+    created_at: createdAt.toISOString(),
     updated_at: new Date().toISOString(),
   };
 
   const payment = {
     id: crypto.randomUUID(),
     order_id: order.id,
-    provider: validated.payment_method,
-    provider_reference: `${validated.payment_method.toUpperCase()}-${Date.now()}`,
+    provider: 'paystack',
+    provider_reference: orderRef,
     amount,
     status: 'pending',
     created_at: new Date().toISOString(),
@@ -260,6 +290,7 @@ export function createOrderCheckout(eventId, requestPayload) {
     details: {
       reference: order.reference,
       payment_method: validated.payment_method,
+      payment_provider: 'paystack',
       is_student: isStudentTicket,
     },
   });
@@ -269,16 +300,38 @@ export function createOrderCheckout(eventId, requestPayload) {
   return { order, payment, ticketType, event };
 }
 
-export function verifyPaymentAndIssueTickets({ orderReference, provider, providerReference, status = 'paid' }) {
+export function verifyPaymentAndIssueTickets({ orderReference, provider, providerReference, amount, status = 'paid' }) {
   const store = readStore();
   const order = store.orders.find((entry) => entry.reference === orderReference);
   if (!order) {
     throw new Error('Order not found.');
   }
 
-  const existingPayment = getPaymentByReference(providerReference || `${provider.toUpperCase()}-${Date.now()}`);
+  if (provider !== 'paystack' || order.payment_provider !== 'paystack') {
+    throw new Error('Payment provider does not match this order.');
+  }
+  if (!['paid', 'failed', 'cancelled'].includes(status)) {
+    throw new Error('Unsupported payment status.');
+  }
+  if (amount !== undefined && Number(amount) !== Number(order.amount)) {
+    throw new Error('Verified payment amount does not match the order total.');
+  }
+
+  const existingPayment = providerReference ? getPaymentByReference(providerReference) : null;
   if (existingPayment && existingPayment.status === 'paid' && existingPayment.order_id === order.id) {
     return { order, payment: existingPayment, alreadyProcessed: true };
+  }
+  if (order.status === 'paid') {
+    throw new Error('This order has already been paid with a different payment reference.');
+  }
+  if (status === 'paid' && !providerReference) {
+    throw new Error('A verified provider payment reference is required.');
+  }
+  if (status === 'paid' && amount === undefined) {
+    throw new Error('A verified payment amount is required.');
+  }
+  if (existingPayment && existingPayment.order_id !== order.id) {
+    throw new Error('Provider payment reference is already associated with another order.');
   }
 
   const payment = store.payments.find((entry) => entry.order_id === order.id && entry.provider === provider) || {
@@ -300,6 +353,8 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
     store.payments.push(payment);
   }
 
+  let ticketDelivery = null;
+
   if (status === 'paid') {
     order.status = 'paid';
     order.updated_at = new Date().toISOString();
@@ -311,8 +366,24 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
 
     const existingTicketCount = store.tickets.filter((ticket) => ticket.order_id === order.id).length;
     if (existingTicketCount === 0) {
+      const isPro = ticketType.category_type === 'professional' || ticketType.name.toLowerCase().includes('professional');
+      const orderAttendees = Array.isArray(order.attendees) ? order.attendees : [];
+
       for (let index = 0; index < order.quantity; index += 1) {
-        const ticketCode = generateTicketCode(order.reference);
+        let ticketCode = generateTicketCode(order.reference);
+        for (let attempt = 0; store.tickets.some((ticket) => ticket.ticket_code === ticketCode) && attempt < 5; attempt += 1) {
+          ticketCode = generateTicketCode(order.reference);
+        }
+        if (store.tickets.some((ticket) => ticket.ticket_code === ticketCode)) {
+          throw new Error('A unique ticket code could not be generated.');
+        }
+        const attendee = orderAttendees[index] || null;
+        const attendeeName = attendee?.name || order.buyer_name;
+        const attendeeEmail = attendee?.email || order.email;
+        const attendeePhone = attendee?.phone || order.phone;
+        const attendeeOrg = attendee?.organization || order.organization || null;
+        const attendeeRole = attendee?.role || order.role || null;
+
         const ticket = {
           id: crypto.randomUUID(),
           order_id: order.id,
@@ -320,6 +391,12 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
           ticket_type_id: order.ticket_type_id,
           ticket_code: ticketCode,
           category: ticketType.name,
+          category_type: ticketType.category_type || (isPro ? 'professional' : ticketType.name.toLowerCase().includes('student') ? 'student' : 'standard'),
+          attendee_name: attendeeName,
+          attendee_email: attendeeEmail,
+          attendee_phone: attendeePhone,
+          organization: isPro ? attendeeOrg : null,
+          role: isPro ? attendeeRole : null,
           status: 'active',
           created_at: new Date().toISOString(),
         };
@@ -328,50 +405,24 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
     }
 
     const targetTicketType = store.ticket_types.find((entry) => entry.id === order.ticket_type_id);
-    if (targetTicketType) {
+    if (targetTicketType && existingTicketCount === 0) {
       targetTicketType.sold_count = Number(targetTicketType.sold_count || 0) + order.quantity;
     }
 
-    appendAuditLog({
-      action: 'payment_verified',
-      entity: 'order',
-      entity_id: order.id,
-      details: { reference: order.reference, provider },
-    });
-
     const event = getEventById(order.event_id);
     const orderTickets = store.tickets.filter((ticket) => ticket.order_id === order.id);
-
-    // 1. Email Confirmation (Non-blocking)
     if (event) {
-      sendConfirmationEmail({
-        buyerName: order.buyer_name,
-        buyerEmail: order.email,
-        eventTitle: event.title,
-        venue: event.venue,
-        startsAt: event.starts_at,
-        ticketTypeName: ticketType.name,
-        quantity: order.quantity,
+      ticketDelivery = {
+        order,
+        payment,
+        event,
+        ticketType,
         ticketCodes: orderTickets.map((ticket) => ticket.ticket_code),
-        paymentReference: payment.provider_reference,
-      }).catch((error) => {
-        appendAuditLog({
-          action: 'email_failed',
-          entity: 'order',
-          entity_id: order.id,
-          details: { message: error.message },
-        });
-      });
+      };
     }
   } else if (status === 'failed' || status === 'cancelled') {
     order.status = status;
     order.updated_at = new Date().toISOString();
-    appendAuditLog({
-      action: 'payment_failed',
-      entity: 'order',
-      entity_id: order.id,
-      details: { reference: order.reference, provider, status },
-    });
   }
 
   const orderIdx = store.orders.findIndex((o) => o.id === order.id);
@@ -380,6 +431,66 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
   }
 
   writeStore(store);
+
+  if (status === 'paid') {
+    appendAuditLog({
+      action: 'payment_verified',
+      entity: 'order',
+      entity_id: order.id,
+      details: { reference: order.reference, provider },
+    });
+  } else {
+    appendAuditLog({
+      action: 'payment_failed',
+      entity: 'order',
+      entity_id: order.id,
+      details: { reference: order.reference, provider, status },
+    });
+  }
+
+  if (ticketDelivery) {
+    const { order: paidOrder, payment: paidPayment, event, ticketType, ticketCodes } = ticketDelivery;
+    sendConfirmationEmail({
+      buyerName: paidOrder.buyer_name,
+      buyerEmail: paidOrder.email,
+      eventTitle: event.title,
+      venue: event.venue,
+      startsAt: event.starts_at,
+      ticketTypeName: ticketType.name,
+      quantity: paidOrder.quantity,
+      ticketCodes,
+      paymentReference: paidPayment.provider_reference,
+    }).catch((error) => {
+      console.error('[ticketing] Ticket email delivery failed:', error);
+      appendAuditLog({
+        action: 'email_failed',
+        entity: 'order',
+        entity_id: paidOrder.id,
+        details: { message: error.message },
+      });
+    });
+
+    sendWhatsAppTicketConfirmation({
+      buyerName: paidOrder.buyer_name,
+      buyerPhone: paidOrder.phone,
+      eventTitle: event.title,
+      venue: event.venue,
+      startsAt: event.starts_at,
+      ticketTypeName: ticketType.name,
+      quantity: paidOrder.quantity,
+      ticketCodes,
+      paymentReference: paidPayment.provider_reference,
+    }).catch((error) => {
+      console.error('[ticketing] WhatsApp ticket delivery failed:', error);
+      appendAuditLog({
+        action: 'whatsapp_failed',
+        entity: 'order',
+        entity_id: paidOrder.id,
+        details: { message: error.message },
+      });
+    });
+  }
+
   return { order, payment, alreadyProcessed: false };
 }
 
@@ -400,13 +511,7 @@ export async function sendConfirmationEmail({
   const recipients = [buyerEmail, process.env.CONFIRMATION_EMAIL_TO].filter(Boolean);
 
   if (!apiKey) {
-    appendAuditLog({
-      action: 'email_mocked',
-      entity: 'order',
-      entity_id: null,
-      details: { buyerName, eventTitle, paymentReference, recipients },
-    });
-    return { success: true, mocked: true };
+    throw new Error('Ticket email delivery is not configured. Set RESEND_API_KEY and retry delivery.');
   }
 
   const payload = {
@@ -415,17 +520,17 @@ export async function sendConfirmationEmail({
     subject: `Your GeoHabari ticket confirmation for ${eventTitle}`,
     html: `
       <h2>Ticket Confirmation</h2>
-      <p>Hello ${buyerName},</p>
-      <p>Your order for <strong>${eventTitle}</strong> has been confirmed.</p>
+        <p>Hello ${escapeHtml(buyerName)},</p>
+        <p>Your order for <strong>${escapeHtml(eventTitle)}</strong> has been confirmed.</p>
       <ul>
-        <li>Venue: ${venue}</li>
-        <li>Date: ${new Date(startsAt).toLocaleString()}</li>
-        <li>Ticket type: ${ticketTypeName}</li>
+          <li>Venue: ${escapeHtml(venue)}</li>
+          <li>Date: ${escapeHtml(new Date(startsAt).toLocaleString())}</li>
+          <li>Ticket type: ${escapeHtml(ticketTypeName)}</li>
         <li>Quantity: ${quantity}</li>
-        <li>Payment reference: ${paymentReference}</li>
+          <li>Payment reference: ${escapeHtml(paymentReference)}</li>
       </ul>
       <p>Ticket codes:</p>
-      <ul>${ticketCodes.map((code) => `<li><strong>${code}</strong></li>`).join('')}</ul>
+        <ul>${ticketCodes.map((code) => `<li><strong>${escapeHtml(code)}</strong></li>`).join('')}</ul>
     `,
   };
 
@@ -445,6 +550,63 @@ export async function sendConfirmationEmail({
   return { success: true, mocked: false };
 }
 
+export async function sendWhatsAppTicketConfirmation({
+  buyerName,
+  buyerPhone,
+  eventTitle,
+  venue,
+  startsAt,
+  ticketTypeName,
+  quantity,
+  ticketCodes,
+  paymentReference,
+}) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const templateName = process.env.WHATSAPP_TICKET_TEMPLATE;
+
+  if (!accessToken && !phoneNumberId && !templateName) return { success: false, skipped: true };
+  if (!accessToken || !phoneNumberId || !templateName) {
+    throw new Error('WhatsApp ticket delivery is incomplete. Configure WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, and WHATSAPP_TICKET_TEMPLATE.');
+  }
+
+  const eventDate = new Date(startsAt).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+  const ticketSummary = [
+    `Hello ${buyerName}, your GeoHabari payment is confirmed.`,
+    `${eventTitle} | ${venue} | ${eventDate}`,
+    `${ticketTypeName} x${quantity}`,
+    `Ticket codes: ${ticketCodes.join(', ')}`,
+    `Payment reference: ${paymentReference}`,
+  ].join(' | ');
+
+  const response = await fetch(`https://graph.facebook.com/v22.0/${encodeURIComponent(phoneNumberId)}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: buyerPhone,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en' },
+        components: [{
+          type: 'body',
+          parameters: [{ type: 'text', text: ticketSummary }],
+        }],
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`WhatsApp ticket delivery failed: ${response.status}`);
+  }
+
+  return { success: true };
+}
+
 /**
  * Dispatches one-time verification code to .ac.ke university email
  */
@@ -453,17 +615,7 @@ export async function sendUniversityVerificationEmail({ email, buyerName, code }
   const fromAddress = process.env.RESEND_FROM || 'noreply@geohabari.com';
 
   if (!apiKey) {
-    appendAuditLog({
-      action: 'verification_email_mocked',
-      entity: 'student_verification',
-      entity_id: null,
-      details: {
-        to: email,
-        buyerName,
-        note: 'RESEND_API_KEY unconfigured - verification code generated in secure store',
-      },
-    });
-    return { success: true, mocked: true };
+    throw new Error('Student email verification is not configured. Set RESEND_API_KEY to send verification codes.');
   }
 
   const payload = {
@@ -472,7 +624,7 @@ export async function sendUniversityVerificationEmail({ email, buyerName, code }
     subject: `Your GeoHabari Student Verification Code: ${code}`,
     html: `
       <h2>GeoHabari Student Ticket Verification</h2>
-      <p>Hello ${buyerName || 'Student'},</p>
+        <p>Hello ${escapeHtml(buyerName || 'Student')},</p>
       <p>Use the following single-use verification code to unlock discounted Student admission for GeoHabari events:</p>
       <div style="font-size: 28px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #f3f4f6; border-radius: 8px; display: inline-block; margin: 16px 0;">
         ${code}

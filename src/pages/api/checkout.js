@@ -1,44 +1,50 @@
 import { createOrderCheckout, verifyPaymentAndIssueTickets } from '../../lib/ticketing.js';
+import { assertPaystackConfigured, initializePaystackTransaction } from '../../lib/paystack.js';
+
+const JSON_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, private',
+};
 
 export async function POST({ request }) {
+  let order;
   try {
     const body = await request.json();
-    const { order, payment, event } = createOrderCheckout(body.event_id, body);
+    assertPaystackConfigured();
+    const checkout = createOrderCheckout(body.event_id, body);
+    order = checkout.order;
 
-    if (body.payment_method === 'mpesa') {
-      const response = {
-        success: true,
-        reference: order.reference,
-        message: 'M-Pesa STK push initiated. Please complete the prompt on your phone.',
-        pending: true,
-      };
-
-      return new Response(JSON.stringify(response), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const verification = verifyPaymentAndIssueTickets({
-      orderReference: order.reference,
-      provider: 'card',
-      providerReference: payment.provider_reference,
-      status: 'paid',
-    });
-
+    const payment = await initializePaystackTransaction(order, checkout.event);
     return new Response(JSON.stringify({
       success: true,
-      reference: verification.order.reference,
-      message: 'Card payment verified and tickets issued.',
-      redirect: `/events/${event.slug}/success?reference=${verification.order.reference}`,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+      reference: order.reference,
+      access_code: payment.accessCode,
+      authorization_url: payment.authorizationUrl,
+      message: 'Complete payment in the secure Paystack checkout. Tickets are issued after server verification.',
+      pending: true,
+    }), { status: 200, headers: JSON_HEADERS });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    if (order) {
+      try {
+        verifyPaymentAndIssueTickets({
+          orderReference: order.reference,
+          provider: 'paystack',
+          providerReference: order.reference,
+          status: 'failed',
+        });
+      } catch (recordError) {
+        console.error('[checkout] Failed to record Paystack initialization failure:', recordError);
+      }
+    }
+
+    const status = /not configured/i.test(error.message)
+      ? 503
+      : order ? 502 : 400;
+    const message = status === 503
+      ? 'Secure payment is temporarily unavailable. Please try again later or contact the event organizer.'
+      : error.message || 'Checkout could not be started. Please try again.';
+    return new Response(JSON.stringify({
+      error: message,
+    }), { status, headers: JSON_HEADERS });
   }
 }

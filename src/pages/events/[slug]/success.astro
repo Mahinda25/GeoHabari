@@ -1,25 +1,86 @@
 ---
 import Layout from "../../../layout/Layout.astro";
+import { getEventBySlug, getOrderByReference } from "../../../lib/ticketing-store.js";
+const { slug } = Astro.params;
 const reference = Astro.url.searchParams.get("reference");
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
+const event = getEventBySlug(slug);
+const order = reference ? getOrderByReference(reference) : null;
+const orderMatchesEvent = Boolean(event && order && order.event_id === event.id);
+const paymentStatus = orderMatchesEvent ? order.status : "not_found";
+Astro.response.headers.set("Cache-Control", "no-store, private, max-age=0, must-revalidate");
+Astro.response.headers.set("Pragma", "no-cache");
 ---
 
 <Layout
-  title="Ticket confirmed"
-  description="Your event ticket has been confirmed."
+  title={paymentStatus === "paid" ? "Ticket confirmed" : "Payment status"}
+  description="Check the status of your event ticket payment."
+  url={canonicalUrl}
 >
   <div class="success-shell">
     <div class="success-card">
-      <span class="badge">Confirmed</span>
-      <h1>Tickets are ready.</h1>
-      <p>
-        Your payment was received successfully. Your confirmation reference is <strong
-          >{reference || "N/A"}</strong
-        >.
-      </p>
+      {paymentStatus === "paid" ? (
+        <>
+          <span class="badge">Confirmed</span>
+          <h1>Tickets are ready.</h1>
+          <p>Your payment is confirmed. Ticket details will be sent to the purchaser's email and, when configured, WhatsApp.</p>
+        </>
+      ) : paymentStatus === "pending" ? (
+        <>
+          <span class="badge pending-badge">Payment pending</span>
+          <h1>We are confirming your payment.</h1>
+          <p id="payment-status-message">Tickets are issued only after Paystack verifies the transaction. This page will check again automatically.</p>
+        </>
+      ) : paymentStatus === "failed" || paymentStatus === "cancelled" ? (
+        <>
+          <span class="badge failed-badge">Payment not completed</span>
+          <h1>Your tickets were not issued.</h1>
+          <p>The payment provider did not confirm payment. Contact the event organizer if you believe this is incorrect.</p>
+        </>
+      ) : (
+        <>
+          <span class="badge failed-badge">Reference unavailable</span>
+          <h1>We could not verify this order.</h1>
+          <p>Check the reference or contact the event organizer for help.</p>
+        </>
+      )}
+      <p>Reference: <strong>{orderMatchesEvent ? order.reference : "N/A"}</strong></p>
       <a href="/events" class="primary-btn">Back to events</a>
     </div>
   </div>
 </Layout>
+
+<script define:vars={{ reference, paymentStatus }}>
+  if (paymentStatus === 'pending' && reference) {
+    const checkPayment = async () => {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        try {
+          const response = await fetch('/api/payments/paystack/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            body: JSON.stringify({ reference }),
+          });
+          const result = await response.json();
+          if (response.ok && result.status !== 'pending') {
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // Retry while the webhook or provider status is catching up.
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 2500));
+      }
+
+      const message = document.getElementById('payment-status-message');
+      if (message) {
+        message.textContent = 'Payment is still pending. Your tickets will be issued after Paystack confirms it; refresh this page later to check again.';
+      }
+    };
+
+    void checkPayment();
+  }
+</script>
 
 <style lang="scss">
   @use "../../../styles/partials/combined.scss" as *;
@@ -50,6 +111,16 @@ const reference = Astro.url.searchParams.get("reference");
     color: #2f6b1a;
     font-weight: 700;
     margin-bottom: 1rem;
+  }
+
+  .pending-badge {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+  }
+
+  .failed-badge {
+    background: rgba(220, 38, 38, 0.1);
+    color: #991b1b;
   }
 
   h1 {

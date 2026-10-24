@@ -31,6 +31,7 @@ import {
 import {
   generateVerificationToken,
 } from '../src/lib/student-verification.js';
+import { POST as handleAdminLogout, GET as handleAdminLogoutGet } from '../src/pages/api/admin/logout.js';
 
 // Clean initial state for test run
 const initStore = readStore();
@@ -151,6 +152,29 @@ test('Suite 3: Login Rate Limiting & Brute-Force Guard', async (t) => {
   });
 });
 
+test('Admin logout endpoint clears the cookie, revokes the session, and redirects to the public home', async () => {
+  const email = `logout-${Date.now()}@geohabari.com`;
+  provisionAdminUser({ email, password: 'SecurePass@2026', fullName: 'Logout Admin' });
+  const login = await authenticateAdmin({ email, password: 'SecurePass@2026' });
+  const request = new Request('https://tickets.geohabari.com/api/admin/logout', {
+    method: 'POST',
+    headers: { cookie: `${ADMIN_COOKIE_NAME}=${login.sessionToken}` },
+  });
+
+  const response = await handleAdminLogout({ request });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('set-cookie'), /Max-Age=0/);
+  assert.match(response.headers.get('cache-control'), /no-store/);
+  assert.equal(validateSession(login.sessionToken), null);
+
+  const fallback = await handleAdminLogoutGet({
+    request: new Request('https://tickets.geohabari.com/api/admin/logout'),
+  });
+  assert.equal(fallback.status, 303);
+  assert.equal(fallback.headers.get('location'), 'https://geohabari.com');
+  assert.match(fallback.headers.get('set-cookie'), /Max-Age=0/);
+});
+
 // ============================================================================
 // SUITE 2: TICKET-HOLDER QUERY, FILTERING & CHECK-IN
 // ============================================================================
@@ -169,13 +193,18 @@ test('Suite 4: Ticket-Holder Records & Search Engine', async (t) => {
     quantity: 2,
     payment_method: 'card',
     accept_terms: true,
+    attendees: [
+      { name: 'Wanjiru Mwangi' },
+      { name: 'Second Test Attendee' },
+    ],
   });
 
   // Confirm payment & issue tickets
   verifyPaymentAndIssueTickets({
     orderReference: orderResult.order.reference,
-    provider: 'card',
+    provider: 'paystack',
     providerReference: `card-test-${Date.now()}`,
+    amount: orderResult.order.amount,
     status: 'paid',
   });
 
@@ -240,7 +269,7 @@ test('Suite 5: CSV Export Sanitization & Formula Injection Guard', async (t) => 
   function sanitizeCsvCell(value) {
     if (value === null || value === undefined) return '""';
     let str = String(value);
-    if (/^[=+\-@\t\r]/.test(str)) {
+    if (/^[=+\-@\t\r]/.test(str) || /^[\u0000-\u0020]+[=+\-@]/.test(str)) {
       str = `'${str}`;
     }
     return `"${str.replace(/"/g, '""')}"`;
@@ -252,6 +281,7 @@ test('Suite 5: CSV Export Sanitization & Formula Injection Guard', async (t) => 
     assert.equal(sanitizeCsvCell('-1000'), `"'-1000"`);
     assert.equal(sanitizeCsvCell('@attacker'), `"'@attacker"`);
     assert.equal(sanitizeCsvCell('\tmalicious'), `"'\tmalicious"`);
+    assert.equal(sanitizeCsvCell('  =SUM(A1:A10)'), `"'  =SUM(A1:A10)"`);
     assert.equal(sanitizeCsvCell('Normal Name'), `"Normal Name"`);
   });
 
@@ -278,8 +308,9 @@ test('Suite 6: Financial Integrity & Revenue Calculation', async (t) => {
     phone: '0700000001',
     ticket_type_id: proTicket.id,
     quantity: 1,
-    payment_method: 'mpesa',
+    payment_channel: 'mobile_money',
     accept_terms: true,
+    attendees: [{ name: 'Pending Buyer' }],
   });
 
   await t.test('Pending orders DO NOT increment issued tickets or paid revenue', () => {
@@ -296,7 +327,7 @@ test('Suite 6: Financial Integrity & Revenue Calculation', async (t) => {
   await t.test('Failed payment does not issue tickets', () => {
     verifyPaymentAndIssueTickets({
       orderReference: pendingOrder.order.reference,
-      provider: 'mpesa',
+      provider: 'paystack',
       providerReference: 'FAILED-TXN-123',
       status: 'failed',
     });
@@ -319,6 +350,10 @@ test('Suite 6: Financial Integrity & Revenue Calculation', async (t) => {
       quantity: 2,
       payment_method: 'card',
       accept_terms: true,
+      attendees: [
+        { name: 'Confirmed Buyer' },
+        { name: 'Second Confirmed Attendee' },
+      ],
     });
 
     const txnRef = `card-confirm-${Date.now()}`;
@@ -326,8 +361,9 @@ test('Suite 6: Financial Integrity & Revenue Calculation', async (t) => {
     // Callback 1: Success
     const firstCall = verifyPaymentAndIssueTickets({
       orderReference: orderToPay.order.reference,
-      provider: 'card',
+      provider: 'paystack',
       providerReference: txnRef,
+      amount: orderToPay.order.amount,
       status: 'paid',
     });
 
@@ -341,8 +377,9 @@ test('Suite 6: Financial Integrity & Revenue Calculation', async (t) => {
     // Callback 2: Repeated webhook retry
     const secondCall = verifyPaymentAndIssueTickets({
       orderReference: orderToPay.order.reference,
-      provider: 'card',
+      provider: 'paystack',
       providerReference: txnRef,
+      amount: orderToPay.order.amount,
       status: 'paid',
     });
 

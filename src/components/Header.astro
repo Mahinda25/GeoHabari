@@ -4,6 +4,7 @@ import LogoImage from "../images/logo/geopod-dark.svg";
 import LogoLight from "../images/logo/geopod-green.svg";
 import Button from "./Button.astro";
 import Link from "./Link.astro";
+import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
 
 interface Props {
   darkHero?: boolean;
@@ -16,6 +17,12 @@ function isActive(href: string): boolean {
   if (href === "/") return currentPath === "/";
   return currentPath.startsWith(href);
 }
+
+const homeUrl = getWordPressUrl("/");
+const aboutUrl = getWordPressUrl("/about");
+const eventsUrl = getTicketingUrl("/events");
+const contactUrl = getWordPressUrl("/contact");
+const episodesUrl = getWordPressUrl("/episodes");
 ---
 
 <script>
@@ -125,26 +132,41 @@ function isActive(href: string): boolean {
 
 <div class="scroll-progress" id="scrollProgress"></div>
 <header class={darkHero ? "header-transparent" : ""}>
-  <a href="/" class="container_logo">
+  <a href={homeUrl} class="container_logo">
     <LogoImage class="logo-vector logo-dark" width={140} height={48} />
     <LogoLight class="logo-vector logo-light" width={140} height={48} />
   </a>
   <nav class="container_nav">
-    <a class={`nav-link ${isActive("/") ? "active" : ""}`} href="/">Home</a>
-    <a class={`nav-link ${isActive("/about") ? "active" : ""}`} href="/about"
-      >About</a
+    <a
+      class={`nav-link ${isActive("/") ? "active" : ""}`}
+      href={homeUrl}
     >
-    <a class={`nav-link ${isActive("/events") ? "active" : ""}`} href="/events"
-      >Events</a
+      Home
+    </a>
+    <a
+      class={`nav-link ${isActive("/about") ? "active" : ""}`}
+      href={aboutUrl}
     >
+      About
+    </a>
+    <a
+      class={`nav-link ${isActive("/events") ? "active" : ""}`}
+      href={eventsUrl}
+    >
+      Events
+    </a>
     <a
       class={`nav-link ${isActive("/contact") ? "active" : ""}`}
-      href="/contact">Contact</a
+      href={contactUrl}
     >
+      Contact
+    </a>
     <a
       class={`nav-cta ${isActive("/episodes") ? "active" : ""}`}
-      href="/episodes">Episodes</a
+      href={episodesUrl}
     >
+      Episodes
+    </a>
   </nav>
   <div class="icon_menu">
     <MenuIcon />
@@ -161,21 +183,25 @@ function isActive(href: string): boolean {
       </div>
     </div>
     <nav class="drawer_nav">
-      <a class={`drawer-link ${isActive("/") ? "active" : ""}`} href="/">Home</a
+      <a
+        class={`drawer-link ${isActive("/") ? "active" : ""}`}
+        href={homeUrl}>Home</a
       >
       <a
         class={`drawer-link ${isActive("/about") ? "active" : ""}`}
-        href="/about">About</a
+        href={aboutUrl}>About</a
       >
       <a
         class={`drawer-link ${isActive("/events") ? "active" : ""}`}
-        href="/events">Events</a
+        href={eventsUrl}>Events</a
       >
       <a
         class={`drawer-link ${isActive("/contact") ? "active" : ""}`}
-        href="/contact">Contact</a
+        href={contactUrl}>Contact</a
       >
-      <a class="drawer-cta" href="/episodes">Listen to Episodes</a>
+      <a class="drawer-cta" href={episodesUrl}
+        >Listen to Episodes</a
+      >
     </nav>
     <div class="drawer_footer">
       <p>Amplifying African Tech Stories</p>

@@ -1,6 +1,13 @@
 ---
 import LogoImage from "../images/logo/geopod-green.svg";
 import platforms from "../data/platforms.json";
+import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
+
+const homeUrl = getWordPressUrl("/");
+const aboutUrl = getWordPressUrl("/about");
+const episodesUrl = getWordPressUrl("/episodes");
+const eventsUrl = getTicketingUrl("/events");
+const contactUrl = getWordPressUrl("/contact");
 ---
 
 <footer>
@@ -88,11 +95,11 @@ import platforms from "../data/platforms.json";
       <div class="footer-links-group">
         <div class="footer-col">
           <h5 class="footer-col-title">Navigation</h5>
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/episodes">Episodes</a>
-          <a href="/events">Events</a>
-          <a href="/contact">Contact</a>
+          <a href={homeUrl}>Home</a>
+          <a href={aboutUrl}>About</a>
+          <a href={episodesUrl}>Episodes</a>
+          <a href={eventsUrl}>Events</a>
+          <a href={contactUrl}>Contact</a>
         </div>
 
         <div class="footer-col">
@@ -141,7 +148,7 @@ import platforms from "../data/platforms.json";
       <div class="dev-credit">
         <p>
           <a
-            href="../admin/login.astro"
+            href="../admin/login"
             target="_blank"
             rel="noopener noreferrer">Adminstrator</a
           >
