@@ -16,7 +16,7 @@ Set these environment variables in the server deployment:
 | `PAYSTACK_SECRET_KEY` | Yes | Server-only Paystack secret (`sk_test_...` for testing, `sk_live_...` for production). Never use a `PUBLIC_` prefix. |
 | `PUBLIC_SITE_URL` | Yes | Ticketing site origin, for example `https://tickets.geohabari.com`. |
 | `RESEND_API_KEY` | No | Sends ticket confirmation and codes by email after verified payment. Missing or failed email delivery does not block checkout or undo a verified payment; configure it and use **Resend tickets** in the admin order ledger to retry. |
-| `RESEND_FROM` | Optional | Verified sender address; defaults to `noreply@geohabari.com`. |
+| `RESEND_FROM` | Optional | Must be `GeoHabari Tickets <tickets@tickets.geohabari.com>` for ticket confirmations. |
 
 No Paystack key is exposed to browser code. The server initializes each KES transaction with a unique order reference and enables both `mobile_money` and `card` channels. The browser resumes Paystack's secure popup with its short-lived access code. Neither the popup callback nor the redirect issues tickets: the server verifies the transaction reference, status, KES amount, and channel with Paystack first. A verified webhook is also required for asynchronous updates; duplicate events use the same order reference and do not issue duplicate tickets.
 

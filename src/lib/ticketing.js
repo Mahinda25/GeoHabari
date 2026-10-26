@@ -370,36 +370,43 @@ export async function sendConfirmationEmail({
   paymentReference,
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromAddress = process.env.RESEND_FROM || 'noreply@geohabari.com';
-
-  const recipients = [buyerEmail, process.env.CONFIRMATION_EMAIL_TO].filter(Boolean);
+  const requiredSender = 'GeoHabari Tickets <tickets@tickets.geohabari.com>';
+  const configuredSender = process.env.RESEND_FROM?.trim();
+  const fromAddress = configuredSender === requiredSender ? configuredSender : requiredSender;
 
   if (!apiKey) {
     throw new Error('Ticket email delivery is not configured. Set RESEND_API_KEY and retry delivery.');
   }
+  if (!buyerEmail) {
+    throw new Error('Ticket email delivery requires a customer email address.');
+  }
+
+  const firstName = String(buyerName ?? '').trim().split(/\s+/)[0] || 'there';
 
   const payload = {
     from: fromAddress,
-    to: recipients.length > 0 ? recipients : ['hello@geohabari.com'],
-    subject: `Your GeoHabari ticket confirmation for ${eventTitle}`,
+    to: [buyerEmail],
+    subject: `Your Ticket for ${eventTitle} [Confirmed]`,
     html: `
-      <h2>Ticket Confirmation</h2>
-        <p>Hello ${escapeHtml(buyerName)},</p>
-        <p>Your order for <strong>${escapeHtml(eventTitle)}</strong> has been confirmed.</p>
+      <h1>Thank you for your purchase!</h1>
+      <p>Hi ${escapeHtml(firstName)}, your payment was successfully processed via Paystack.</p>
+      <p>Your ticket${ticketCodes.length === 1 ? '' : 's'} for <strong>${escapeHtml(eventTitle)}</strong> are confirmed.</p>
+      <p><strong>Your Unique Ticket Access Code${ticketCodes.length === 1 ? '' : 's'}:</strong></p>
+      <ul>${ticketCodes.map((code) => `<li><strong>${escapeHtml(code)}</strong></li>`).join('')}</ul>
+      <p><strong>Payment Reference:</strong> ${escapeHtml(paymentReference)}</p>
+      <p>Please present your access code${ticketCodes.length === 1 ? '' : 's'} at the gate entry check-in station.</p>
       <ul>
-          <li>Venue: ${escapeHtml(venue)}</li>
-          <li>Date: ${escapeHtml(new Date(startsAt).toLocaleString())}</li>
-          <li>Ticket type: ${escapeHtml(ticketTypeName)}</li>
+        <li>Venue: ${escapeHtml(venue)}</li>
+        <li>Date: ${escapeHtml(new Date(startsAt).toLocaleString())}</li>
+        <li>Ticket type: ${escapeHtml(ticketTypeName)}</li>
         <li>Quantity: ${quantity}</li>
-          <li>Payment reference: ${escapeHtml(paymentReference)}</li>
       </ul>
-      <p>Ticket codes:</p>
-        <ul>${ticketCodes.map((code) => `<li><strong>${escapeHtml(code)}</strong></li>`).join('')}</ul>
     `,
   };
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
