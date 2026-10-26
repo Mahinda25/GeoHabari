@@ -194,7 +194,12 @@ export async function resetStore() {
 }
 
 export async function listEvents() {
-  return selectRows('events', (query) => query.order('starts_at', { ascending: true }));
+  const { data, error } = await database()
+    .from('events')
+    .select('*')
+    .order('starts_at', { ascending: true });
+  throwDatabaseError(error, 'read events');
+  return data || [];
 }
 
 export async function getEventBySlug(slug) {
