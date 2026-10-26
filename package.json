@@ -14,7 +14,7 @@
     "@astrojs/partytown": "^2.1.8",
     "@astrojs/react": "^7.0.1",
     "@astrojs/sitemap": "^3.7.4",
-    "@astrojs/vercel": "^8.0.4",
+    "@astrojs/vercel": "^11.0.16",
     "@contentful/rich-text-html-renderer": "^17.1.0",
     "@fortawesome/fontawesome-svg-core": "^7.0.0",
     "@fortawesome/free-brands-svg-icons": "^7.0.0",
@@ -48,12 +48,14 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/server": "^1.9.2",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/vite": "^4.1.16",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "astro": "^7.3.6",
-    "astro-robots-txt": "^1.0.0",
+    "astro-robots-txt": "^0.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -90,6 +92,7 @@
     "@types/sanitize-html": "^2.16.0",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "astro-icon": "^1.1.5",
+    "prisma": "^8.0.0-rc.27",
     "vite": "^6.4.1"
   }
 }
