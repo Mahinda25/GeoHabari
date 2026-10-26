@@ -14,6 +14,7 @@ const paidOrders = (
   store.orders as Array<{
     id: string | number;
     status: string;
+    buyer_name?: string | null;
     email: string;
     amount: string | number;
     quantity: number;
@@ -132,11 +133,13 @@ const recentPaymentAttempts = [
   )
   .slice(0, 5)
   .map((payment) => {
-    const order = (store.orders as Array<{
-      id: string | number;
-      reference?: string | null;
-      buyer_name?: string | null;
-    }>).find(
+    const order = (
+      store.orders as Array<{
+        id: string | number;
+        reference?: string | null;
+        buyer_name?: string | null;
+      }>
+    ).find(
       (o: {
         id: string | number;
         reference?: string | null;
@@ -256,7 +259,7 @@ const recentPaymentAttempts = [
                 ) : (
                   recentPurchases.map((order) => (
                     <tr>
-                      <td class="font-mono text-bold">{order.reference}</td>
+                      <td class="font-mono text-bold">{order.id}</td>
                       <td>
                         <div class="buyer-name">{order.buyer_name}</div>
                         <div class="buyer-email">{order.email}</div>
