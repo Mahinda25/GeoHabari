@@ -4,27 +4,73 @@ import { verifyPaymentAndIssueTickets } from './ticketing.js';
 
 const API_BASE_URL = 'https://api.paystack.co';
 
+function getServerEnv(name) {
+  const viteEnv = import.meta.env || {};
+  return viteEnv[name] || process.env[name] || '';
+}
+
 function getSecretKey() {
-  const secretKey = process.env.PAYSTACK_SECRET_KEY;
+  const secretKey = getServerEnv('PAYSTACK_SECRET_KEY');
   if (!secretKey) {
     throw new Error('Paystack is not configured. Set PAYSTACK_SECRET_KEY on the server.');
   }
   return secretKey;
 }
 
-async function requestPaystack(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${getSecretKey()}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-  const payload = await response.json();
+function getSiteUrl() {
+  const siteUrl = getServerEnv('PUBLIC_SITE_URL');
+  if (!siteUrl) {
+    throw new Error('Paystack checkout requires PUBLIC_SITE_URL to be configured.');
+  }
+  try {
+    const parsedUrl = new URL(siteUrl);
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.hostname !== 'localhost') {
+      throw new Error();
+    }
+  } catch {
+    throw new Error('PUBLIC_SITE_URL must be a valid HTTPS URL (localhost is allowed for development).');
+  }
+  return siteUrl;
+}
 
-  if (!response.ok || payload.status !== true) {
-    throw new Error(payload.message || `Paystack request failed with status ${response.status}.`);
+async function requestPaystack(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let response;
+  let payload;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error('Paystack returned an invalid response. Please try again.');
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Paystack request timed out. Please try again.');
+    }
+    if (error instanceof Error && error.message.startsWith('Paystack returned an invalid response')) {
+      throw error;
+    }
+    throw new Error('Unable to reach Paystack. Please try again.');
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok || !payload || payload.status !== true || !payload.data) {
+    const message = typeof payload?.message === 'string' ? payload.message : '';
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Paystack rejected the server credentials. Check PAYSTACK_SECRET_KEY.');
+    }
+    throw new Error(message || `Paystack request failed with status ${response.status}.`);
   }
 
   return payload.data;
@@ -32,9 +78,7 @@ async function requestPaystack(path, options = {}) {
 
 export function assertPaystackConfigured() {
   getSecretKey();
-  if (!process.env.PUBLIC_SITE_URL) {
-    throw new Error('Paystack checkout requires PUBLIC_SITE_URL to be configured.');
-  }
+  getSiteUrl();
 }
 
 export async function initializePaystackTransaction(order, event) {
@@ -42,10 +86,14 @@ export async function initializePaystackTransaction(order, event) {
   if (!['card', 'mobile_money'].includes(order.payment_method)) {
     throw new Error('Unsupported Paystack payment channel.');
   }
+  const amountKobo = Math.round(Number(order.amount) * 100);
+  if (!Number.isSafeInteger(amountKobo) || amountKobo <= 0) {
+    throw new Error('The order amount must be a positive KES amount.');
+  }
 
   const callbackUrl = new URL(
     `/events/${encodeURIComponent(event.slug)}/success`,
-    process.env.PUBLIC_SITE_URL
+    getSiteUrl()
   );
   callbackUrl.searchParams.set('reference', order.reference);
 
@@ -53,7 +101,7 @@ export async function initializePaystackTransaction(order, event) {
     method: 'POST',
     body: JSON.stringify({
       email: order.email,
-      amount: String(Math.round(Number(order.amount) * 100)),
+      amount: String(amountKobo),
       currency: 'KES',
       reference: order.reference,
       callback_url: callbackUrl.toString(),

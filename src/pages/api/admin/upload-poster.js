@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { getAdminFromRequest } from '../../../lib/auth.js';
-import { supabase } from '../../../lib/supabase.js';
+import { getSupabaseClient } from '../../../lib/supabase.js';
 import { appendAuditLog } from '../../../lib/ticketing-store.js';
 
 const MAX_POSTER_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
@@ -123,9 +123,7 @@ export async function POST({ request, cookies }) {
     const finalMime = magicCheck.detectedType;
     const safeFilename = `poster-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
-    if (!supabase) {
-      throw new Error('Poster storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-    }
+    const supabase = getSupabaseClient();
     const bucketName = process.env.SUPABASE_POSTER_BUCKET || 'event-posters';
     const storagePath = `posters/${safeFilename}`;
     const { data: uploadData, error: uploadError } = await supabase.storage

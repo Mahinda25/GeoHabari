@@ -1,10 +1,6 @@
 import crypto from 'node:crypto';
-import { createClient } from '@supabase/supabase-js';
-import { supabase } from './supabase.js';
+import { getSupabaseClient } from './supabase.js';
 
-const key =
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY ||
-  import.meta.env.SUPABASE_SECRET_KEY;
 const TABLES = {
   events: 'events',
   ticket_types: 'ticket_types',
@@ -19,25 +15,8 @@ const TABLES = {
   login_attempts: 'login_attempts',
 };
 
-let cachedClient = null;
-
 function database() {
-  if (cachedClient) return cachedClient;
-
-  const supabaseUrl = import.meta.env.SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = 
-    import.meta.env.SUPABASE_SERVICE_ROLE_KEY || 
-    import.meta.env.SUPABASE_SECRET_KEY || 
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 
-    process.env.SUPABASE_SECRET_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.");
-  }
-  
-  // Initialize and cache the Supabase client properly
-  cachedClient = createClient(supabaseUrl, supabaseKey);
-  return cachedClient;
+  return getSupabaseClient();
 }
 
 function throwDatabaseError(error, operation) {

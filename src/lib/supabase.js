@@ -1,17 +1,37 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const viteEnv = import.meta.env || {};
+let supabaseClient = null;
 
-export const supabase = supabaseUrl && serviceRoleKey
-  ? createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    })
-  : null;
+function getServerEnv(name) {
+  return viteEnv[name] || (typeof process !== 'undefined' ? process.env[name] : '') || '';
+}
+
+function getSupabaseConfig() {
+  return {
+    url: getServerEnv('SUPABASE_URL') || getServerEnv('PUBLIC_SUPABASE_URL'),
+    serviceRoleKey: getServerEnv('SUPABASE_SERVICE_ROLE_KEY'),
+  };
+}
+
+export function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+
+  const { url, serviceRoleKey } = getSupabaseConfig();
+  if (!url || !serviceRoleKey) {
+    throw new Error('Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.');
+  }
+
+  supabaseClient = createClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  return supabaseClient;
+}
 
 export function hasSupabaseConfig() {
-  return Boolean(supabase);
+  const { url, serviceRoleKey } = getSupabaseConfig();
+  return Boolean(url && serviceRoleKey);
 }
