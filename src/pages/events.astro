@@ -1,0 +1,150 @@
+---
+import Layout from "../layout/Layout.astro";
+import { getPublishedEvents } from "../lib/ticketing.js";
+
+const events = await getPublishedEvents();
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
+---
+
+<Layout
+  title="Events"
+  description="Upcoming GeoHabari events and ticketing information."
+  url={canonicalUrl}
+>
+  <div class="events-page-shell">
+    <section class="events-hero">
+      <div class="eyebrow">GeoHabari Events</div>
+      <h1>Tickets for the next conversation.</h1>
+      <p>
+        Reserve your place at learning sessions, networking evenings, and
+        community-building events across the African tech ecosystem.
+      </p>
+    </section>
+
+    <section class="events-grid">
+      {
+        events.map((event) => (
+          <article class="event-card">
+            <img src={event.poster} alt={event.title} loading="lazy" />
+            <div class="card-body">
+              <div class="event-meta">
+                <span>
+                  {new Date(event.starts_at).toLocaleDateString("en-KE", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+                <span>{event.venue}</span>
+              </div>
+              <h2>{event.title}</h2>
+              <p>{event.description}</p>
+              <a href={`/events/${event.slug}`} class="primary-btn">
+                Get Tickets
+              </a>
+            </div>
+          </article>
+        ))
+      }
+    </section>
+  </div>
+</Layout>
+
+<style lang="scss">
+  @use "../styles/partials/combined.scss" as *;
+
+  .events-page-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 7rem 1.25rem 4rem;
+  }
+
+  .events-hero {
+    text-align: center;
+    margin-bottom: 2.5rem;
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: $green;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 4vw, 4rem);
+      margin: 0 0 1rem;
+      line-height: 1.1;
+    }
+
+    p {
+      max-width: 720px;
+      margin: 0 auto;
+      color: rgba(15, 23, 42, 0.72);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+  }
+
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .event-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
+
+    img {
+      display: block;
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+    }
+  }
+
+  .card-body {
+    padding: 1.25rem;
+
+    .event-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: rgba(15, 23, 42, 0.75);
+      margin-bottom: 0.8rem;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      margin: 0 0 0.75rem;
+    }
+
+    p {
+      font-size: 0.96rem;
+      line-height: 1.7;
+      color: rgba(15, 23, 42, 0.7);
+      margin-bottom: 1rem;
+    }
+  }
+
+  .primary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0.8rem 1.15rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, $purple, $green);
+    color: $white-pure;
+    text-decoration: none;
+    font-weight: 700;
+  }
+</style>
