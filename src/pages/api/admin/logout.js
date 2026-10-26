@@ -6,10 +6,10 @@ const noCacheHeaders = {
   Expires: '0',
 };
 
-function endSession(request) {
-  const auth = getAdminFromRequest(request);
+async function endSession(request) {
+  const auth = await getAdminFromRequest(request);
   if (auth?.session?.session_token) {
-    logoutAdmin(auth.session.session_token);
+    await logoutAdmin(auth.session.session_token);
   }
 
   const cookie = [
@@ -26,7 +26,7 @@ function endSession(request) {
 }
 
 export async function POST({ request }) {
-  const cookie = endSession(request);
+  const cookie = await endSession(request);
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers: {
@@ -38,7 +38,7 @@ export async function POST({ request }) {
 }
 
 export async function GET({ request }) {
-  const cookie = endSession(request);
+  const cookie = await endSession(request);
   const publicHome = new URL(process.env.PUBLIC_WORDPRESS_URL || 'https://tickets.geohabari.com').origin;
   return new Response(null, {
     status: 303,

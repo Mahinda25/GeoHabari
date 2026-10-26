@@ -2,7 +2,7 @@ import { getPublishedEvents } from '../../../lib/ticketing.js';
 
 export async function GET() {
   try {
-    const events = getPublishedEvents();
+    const events = await getPublishedEvents();
     return new Response(JSON.stringify({ events }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

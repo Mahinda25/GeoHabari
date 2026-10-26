@@ -14,7 +14,7 @@ export async function onRequest(context, next) {
     return next();
   }
 
-  if (!getAdminFromRequest(context.request, context.cookies)) {
+  if (!await getAdminFromRequest(context.request, context.cookies)) {
     const response = context.redirect('/admin/login', 302);
     for (const [name, value] of Object.entries(NO_CACHE_HEADERS)) {
       response.headers.set(name, value);

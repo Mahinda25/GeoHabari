@@ -11,23 +11,23 @@ if (Astro.request.method === 'POST') {
     const action = formData.get('action');
 
     if (action === 'purge_retention') {
-      const store = readStore();
+      const store = await readStore();
       const nowIso = new Date().toISOString();
       let filesDeleted = 0;
 
       for (const record of store.student_verifications) {
         if (record.retention_expires_at && record.retention_expires_at <= nowIso && !record.purged_at) {
           if (record.document_storage_key) {
-            deletePrivateFile(record.document_storage_key);
+            await deletePrivateFile(record.document_storage_key);
             filesDeleted += 1;
           }
         }
       }
 
-      const { purgedCount } = purgeExpiredStudentDocuments(nowIso);
+      const { purgedCount } = await purgeExpiredStudentDocuments(nowIso);
       actionMessage = `Purged ${purgedCount} expired verification records and deleted ${filesDeleted} private documents.`;
 
-      appendAuditLog({
+      await appendAuditLog({
         action: 'admin_ui_retention_purge',
         entity: 'student_verification',
         entity_id: null,
@@ -39,8 +39,8 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const verifications = listStudentVerifications();
-const store = readStore();
+const verifications = await listStudentVerifications();
+const store = await readStore();
 
 const total = verifications.length;
 const approved = verifications.filter((v) => v.status === 'approved').length;

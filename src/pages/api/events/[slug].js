@@ -2,7 +2,7 @@ import { getEventDetail } from '../../../lib/ticketing.js';
 
 export async function GET({ params }) {
   try {
-    const event = getEventDetail(params.slug);
+    const event = await getEventDetail(params.slug);
     if (!event) {
       return new Response(JSON.stringify({ error: 'Event not found.' }), {
         status: 404,

@@ -15,8 +15,8 @@ export async function GET({ request }) {
       });
     }
 
-    const order = getOrderByReference(merchantReference);
-    const payment = getPaymentByReference(trackingId);
+    const order = await getOrderByReference(merchantReference);
+    const payment = await getPaymentByReference(trackingId);
     if (!order || !payment || payment.order_id !== order.id || payment.provider !== order.payment_method) {
       return new Response(JSON.stringify({ error: 'Payment transaction could not be matched to an order.' }), {
         status: 404,
@@ -45,7 +45,7 @@ export async function GET({ request }) {
         });
       }
 
-      const result = verifyPaymentAndIssueTickets({
+      const result = await verifyPaymentAndIssueTickets({
         orderReference: order.reference,
         provider: order.payment_method,
         providerReference: trackingId,
@@ -63,7 +63,7 @@ export async function GET({ request }) {
     }
 
     if (statusCode === 2) {
-      const result = verifyPaymentAndIssueTickets({
+      const result = await verifyPaymentAndIssueTickets({
         orderReference: order.reference,
         provider: order.payment_method,
         providerReference: trackingId,

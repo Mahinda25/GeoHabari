@@ -2,7 +2,6 @@ import {
   listStudentVerifications,
   purgeExpiredStudentDocuments,
   getTicketMetrics,
-  readStore,
   appendAuditLog,
 } from '../../../lib/ticketing-store.js';
 import { deletePrivateFile } from '../../../lib/private-storage.js';
@@ -31,9 +30,8 @@ export async function GET({ request }) {
     );
   }
 
-  const metrics = getTicketMetrics();
-  const verifications = listStudentVerifications();
-  const store = readStore();
+  const metrics = await getTicketMetrics();
+  const verifications = await listStudentVerifications();
 
   // Sanitize verification records for admin observability (mask sensitive emails and hashes)
   const sanitizedVerifications = verifications.slice(0, 50).map((v) => ({
@@ -72,22 +70,22 @@ export async function POST({ request }) {
     const action = body.action || 'purge_retention';
 
     if (action === 'purge_retention') {
-      const store = readStore();
+      const store = await readStore();
       const nowIso = new Date().toISOString();
       let filesDeleted = 0;
 
       for (const record of store.student_verifications) {
         if (record.retention_expires_at && record.retention_expires_at <= nowIso && !record.purged_at) {
           if (record.document_storage_key) {
-            deletePrivateFile(record.document_storage_key);
+            await deletePrivateFile(record.document_storage_key);
             filesDeleted += 1;
           }
         }
       }
 
-      const { purgedCount } = purgeExpiredStudentDocuments(nowIso);
+      const { purgedCount } = await purgeExpiredStudentDocuments(nowIso);
 
-      appendAuditLog({
+      await appendAuditLog({
         action: 'admin_retention_purge',
         entity: 'student_verification',
         entity_id: null,

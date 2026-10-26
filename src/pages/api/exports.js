@@ -12,7 +12,7 @@ function sanitizeCsvCell(value) {
 
 export async function GET({ request }) {
   // CRITICAL SECURITY GUARD: Verify administrator authentication
-  const auth = getAdminFromRequest(request);
+  const auth = await getAdminFromRequest(request);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required to download ticket exports.' }),
@@ -32,7 +32,7 @@ export async function GET({ request }) {
     const category = url.searchParams.get('category') || 'all';
     const status = url.searchParams.get('status') || 'all';
 
-    const { rows } = queryTicketHolders({
+    const { rows } = await queryTicketHolders({
       search,
       category,
       status,
@@ -70,7 +70,7 @@ export async function GET({ request }) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    appendAuditLog({
+    await appendAuditLog({
       action: 'ticket_holders_exported_legacy',
       entity: 'export',
       entity_id: null,

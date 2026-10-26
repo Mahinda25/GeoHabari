@@ -56,6 +56,10 @@ Student verification requires `VERIFICATION_TOKEN_SECRET`. University-email veri
 
 Admin sign-out is available at `/api/admin/logout`. The endpoint revokes the server-side session, expires the HTTP-only auth cookie, and sends the browser to the configured public home. Authenticated admin responses use `no-store` headers and reload if restored from the browser back-forward cache.
 
-## Production persistence limitation
+## Supabase persistence
 
-Ticket orders, payments, ticket issuance, admin sessions, and verification metadata currently use `src/data/ticketing-store.json`; private student documents use local filesystem storage. The Supabase SQL migrations are not yet connected to those runtime operations. A Vercel serverless filesystem is not a durable, shared transactional database, so production sales must wait until checkout, inventory reservations, payment callbacks, admin operations, and private-document storage are wired to durable services with database transactions.
+Ticketing data (events, ticket types, orders, payments, tickets, student verifications, admin sessions, audit logs, login attempts, and exports) is stored in Supabase through the shared server-side client. Configure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the server deployment; never expose the service-role key to browser code.
+
+Apply the migrations in `supabase/migrations/` in timestamp order, including `20261026_supabase_ticketing_runtime.sql`. The runtime migration creates or extends the tables used by the application and installs the atomic order-reservation and payment-confirmation RPCs. Ticket prices and order amounts are integer KES values. Private student documents are stored in the private Supabase Storage bucket, not on the server filesystem.
+
+The migration does not import historical records from a former local JSON store. If there are records that exist only in that file, import them into the corresponding Supabase tables before relying on them in production.

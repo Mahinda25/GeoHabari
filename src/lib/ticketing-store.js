@@ -1,105 +1,81 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
+import { supabase } from './supabase.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dataDir = path.resolve(__dirname, '../data');
-// Use a writable location in serverless environments (e.g., Vercel)
-// If running on Vercel, store data in /tmp which is writable at runtime.
-// Otherwise fall back to the project's data directory (read‑only on Vercel).
-const storePath = process.env.TICKETING_STORE_PATH
-  ? path.resolve(process.env.TICKETING_STORE_PATH)
-  : (process.env.VERCEL ? path.join('/tmp', 'ticketing-store.json') : path.join(dataDir, 'ticketing-store.json'));
+const TABLES = {
+  events: 'events',
+  ticket_types: 'ticket_types',
+  orders: 'orders',
+  payments: 'payments',
+  tickets: 'tickets',
+  exports: 'ticket_exports',
+  audit_logs: 'audit_logs',
+  student_verifications: 'student_verifications',
+  admin_users: 'admin_users',
+  admin_sessions: 'admin_sessions',
+  login_attempts: 'login_attempts',
+};
 
+function database() {
+  if (!supabase) {
+    throw new Error('Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.');
+  }
+  return supabase;
+}
 
-const defaultStore = {
-  events: [
-    {
-      id: 'evt-summit-2026',
-      title: 'GeoHabari Summit 2026',
-      slug: 'geohabari-summit-2026',
-      poster: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
-      description: 'A flagship event bringing together founders, practitioners, marketers and geospatial experts across Africa.',
-      venue: 'Kenyatta International Convention Centre, Nairobi',
-      starts_at: '2026-12-12T09:00:00+03:00',
-      ends_at: '2026-12-12T17:00:00+03:00',
-      status: 'published',
-      archived_at: null,
-      incentives: [
-        {
-          id: 'inc-summit-earlybird',
-          title: 'Early Bird Offer',
-          description: 'Book early and save 20% on summit admission.',
-          discount_type: 'percentage',
-          discount_value: 20,
-          eligibility: 'First 50 registrations',
-          start_date: '2026-10-01T00:00:00.000Z',
-          end_date: '2026-11-30T23:59:59.000Z',
-          is_active: true,
-        },
-      ],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'evt-ai-2026',
-      title: 'AI & Spatial Innovation Forum',
-      slug: 'ai-spatial-innovation-forum',
-      poster: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80',
-      description: 'A practical conversation on how AI and geospatial intelligence are reshaping public systems and business models.',
-      venue: 'iHub, Nairobi',
-      starts_at: '2026-11-04T15:00:00+03:00',
-      ends_at: '2026-11-04T19:00:00+03:00',
-      status: 'published',
-      archived_at: null,
-      incentives: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-  ],
-  ticket_types: [
-    {
-      id: 'ticket-student-evt-summit-2026',
-      event_id: 'evt-summit-2026',
-      name: 'Student',
-      category_type: 'student',
-      price: 600,
-      allocation: 30,
-      sold_count: 0,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'ticket-professional-evt-summit-2026',
-      event_id: 'evt-summit-2026',
-      name: 'Professional',
-      category_type: 'professional',
-      price: 1000,
-      allocation: 70,
-      sold_count: 0,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'ticket-student-evt-ai-2026',
-      event_id: 'evt-ai-2026',
-      name: 'Student',
-      category_type: 'student',
-      price: 600,
-      allocation: 30,
-      sold_count: 0,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'ticket-professional-evt-ai-2026',
-      event_id: 'evt-ai-2026',
-      name: 'Professional',
-      category_type: 'professional',
-      price: 1000,
-      allocation: 70,
-      sold_count: 0,
-      created_at: new Date().toISOString(),
-    }
-  ],
+function throwDatabaseError(error, operation) {
+  if (error) {
+    console.error(`[ticketing-store] Supabase ${operation} failed:`, error);
+    throw new Error(`Ticketing database operation failed (${operation}): ${error.message}`);
+  }
+}
+
+async function selectRows(table, query = (builder) => builder) {
+  const rows = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await query(database().from(table).select('*'))
+      .range(offset, offset + 999);
+    throwDatabaseError(error, `read ${table}`);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+async function selectIdentifiers(table) {
+  const ids = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await database().from(table).select('id')
+      .range(offset, offset + 999);
+    throwDatabaseError(error, `read ${table} identifiers`);
+    ids.push(...(data || []).map((row) => row.id));
+    if (!data || data.length < 1000) break;
+  }
+  return ids;
+}
+
+function chunks(rows, size = 500) {
+  const result = [];
+  for (let offset = 0; offset < rows.length; offset += size) {
+    result.push(rows.slice(offset, offset + size));
+  }
+  return result;
+}
+
+async function insertRow(table, row) {
+  const { data, error } = await database().from(table).insert(row).select('*').single();
+  throwDatabaseError(error, `insert ${table}`);
+  return data;
+}
+
+async function upsertRow(table, row) {
+  const { data, error } = await database().from(table).upsert(row, { onConflict: 'id' }).select('*').single();
+  throwDatabaseError(error, `save ${table}`);
+  return data;
+}
+
+const emptyStore = () => ({
+  events: [],
+  ticket_types: [],
   orders: [],
   payments: [],
   tickets: [],
@@ -109,482 +85,437 @@ const defaultStore = {
   admin_users: [],
   admin_sessions: [],
   login_attempts: [],
-};
+});
 
-function ensureStoreFile() {
-  const storeDirectory = path.dirname(storePath);
-  if (!fs.existsSync(storeDirectory)) {
-    fs.mkdirSync(storeDirectory, { recursive: true });
+export async function readStore() {
+  const store = emptyStore();
+  await Promise.all(Object.entries(TABLES).map(async ([key, table]) => {
+    store[key] = await selectRows(table);
+  }));
+  return store;
+}
+
+export async function writeStore(nextStore) {
+  if (!nextStore || typeof nextStore !== 'object') {
+    throw new Error('A ticketing store object is required.');
   }
 
-  if (!fs.existsSync(storePath)) {
-    fs.writeFileSync(storePath, JSON.stringify(defaultStore, null, 2), 'utf8');
-  }
-}
-
-export function readStore() {
-  ensureStoreFile();
-  const raw = fs.readFileSync(storePath, 'utf8');
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    data = structuredClone(defaultStore);
-  }
-
-  // Ensure collections always exist
-  data.events = data.events || [];
-  data.ticket_types = data.ticket_types || [];
-  data.orders = data.orders || [];
-  data.payments = data.payments || [];
-  data.tickets = data.tickets || [];
-  data.exports = data.exports || [];
-  data.audit_logs = data.audit_logs || [];
-  data.student_verifications = data.student_verifications || [];
-  data.admin_users = data.admin_users || [];
-  data.admin_sessions = data.admin_sessions || [];
-  data.login_attempts = data.login_attempts || [];
-
-  for (const event of data.events) {
-    event.incentives = Array.isArray(event.incentives) ? event.incentives : [];
-  }
-
-  return data;
-}
-
-export function writeStore(nextStore) {
-  ensureStoreFile();
-  fs.writeFileSync(storePath, JSON.stringify(nextStore, null, 2), 'utf8');
-  return nextStore;
-}
-
-export function resetStore() {
-  writeStore(structuredClone(defaultStore));
-  return readStore();
-}
-
-export function listEvents() {
-  const store = readStore();
-  return [...store.events].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
-}
-
-export function getEventBySlug(slug) {
-  const store = readStore();
-  return store.events.find((event) => event.slug === slug) || null;
-}
-
-export function getEventById(id) {
-  const store = readStore();
-  return store.events.find((event) => event.id === id) || null;
-}
-
-export function getTicketTypesByEvent(eventId) {
-  const store = readStore();
-  return store.ticket_types.filter((ticketType) => ticketType.event_id === eventId);
-}
-
-export function getTicketTypeById(ticketTypeId) {
-  const store = readStore();
-  return store.ticket_types.find((ticketType) => ticketType.id === ticketTypeId) || null;
-}
-
-export function saveEvent(eventData) {
-  const store = readStore();
-  const now = new Date().toISOString();
-
-  let slug = (eventData.slug || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  if (!slug && eventData.title) {
-    slug = eventData.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  }
-  if (!slug) {
-    slug = `event-${Date.now()}`;
-  }
-
-  const existingIndex = store.events.findIndex(
-    (e) => (eventData.id && e.id === eventData.id) || (slug && e.slug === slug)
-  );
-
-  const eventId = eventData.id || (existingIndex >= 0 ? store.events[existingIndex].id : `evt-${slug}-${Date.now().toString(36)}`);
-
-  const record = {
-    id: eventId,
-    title: eventData.title || (existingIndex >= 0 ? store.events[existingIndex].title : 'Untitled Event'),
-    slug: slug,
-    poster: eventData.poster || (existingIndex >= 0 ? store.events[existingIndex].poster : ''),
-    description: eventData.description || (existingIndex >= 0 ? store.events[existingIndex].description : ''),
-    venue: eventData.venue || (existingIndex >= 0 ? store.events[existingIndex].venue : ''),
-    starts_at: eventData.starts_at || (existingIndex >= 0 ? store.events[existingIndex].starts_at : now),
-    ends_at: eventData.ends_at || (existingIndex >= 0 ? store.events[existingIndex].ends_at : now),
-    status: eventData.status || (existingIndex >= 0 ? store.events[existingIndex].status : 'published'),
-    speakers: Array.isArray(eventData.speakers) ? eventData.speakers : (existingIndex >= 0 ? store.events[existingIndex].speakers || [] : []),
-    partners: Array.isArray(eventData.partners) ? eventData.partners : (existingIndex >= 0 ? store.events[existingIndex].partners || [] : []),
-    incentives: Array.isArray(eventData.incentives) ? eventData.incentives : (existingIndex >= 0 ? store.events[existingIndex].incentives || [] : []),
-    archived_at: eventData.archived_at !== undefined ? eventData.archived_at : (existingIndex >= 0 ? store.events[existingIndex].archived_at : null),
-    created_at: existingIndex >= 0 ? store.events[existingIndex].created_at : now,
-    updated_at: now,
-  };
-
-  if (existingIndex >= 0) {
-    store.events[existingIndex] = record;
-  } else {
-    store.events.push(record);
-  }
-
-  writeStore(store);
-
-  appendAuditLog({
-    action: existingIndex >= 0 ? 'event_updated' : 'event_created',
-    entity: 'event',
-    entity_id: record.id,
-    details: { title: record.title, slug: record.slug, status: record.status },
-  });
-
-  return record;
-}
-
-export function saveTicketType(ticketData) {
-  const store = readStore();
-  const now = new Date().toISOString();
-
-  const existingIndex = store.ticket_types.findIndex(
-    (t) => (ticketData.id && t.id === ticketData.id) ||
-           (ticketData.event_id && t.event_id === ticketData.event_id && t.name.toLowerCase() === (ticketData.name || '').toLowerCase())
-  );
-
-  const ticketId = ticketData.id || (existingIndex >= 0 ? store.ticket_types[existingIndex].id : `ticket-${ticketData.event_id}-${crypto.randomUUID().slice(0, 8)}`);
-
-  const record = {
-    id: ticketId,
-    event_id: ticketData.event_id,
-    name: ticketData.name || (existingIndex >= 0 ? store.ticket_types[existingIndex].name : 'Standard'),
-    category_type: ticketData.category_type || (existingIndex >= 0 ? store.ticket_types[existingIndex].category_type : ((ticketData.name || '').toLowerCase().includes('professional') ? 'professional' : (ticketData.name || '').toLowerCase().includes('student') ? 'student' : 'standard')),
-    price: Number(ticketData.price ?? (existingIndex >= 0 ? store.ticket_types[existingIndex].price : 1000)),
-    allocation: Number(ticketData.allocation ?? (existingIndex >= 0 ? store.ticket_types[existingIndex].allocation : 50)),
-    sold_count: existingIndex >= 0 ? Number(store.ticket_types[existingIndex].sold_count || 0) : 0,
-    description: ticketData.description || (existingIndex >= 0 ? store.ticket_types[existingIndex].description : ''),
-    created_at: existingIndex >= 0 ? store.ticket_types[existingIndex].created_at : now,
-    updated_at: now,
-  };
-
-  if (existingIndex >= 0) {
-    store.ticket_types[existingIndex] = record;
-  } else {
-    store.ticket_types.push(record);
-  }
-
-  writeStore(store);
-  return record;
-}
-
-export function saveEventWithTickets({ eventData, ticketTypes = [] }) {
-  const event = saveEvent(eventData);
-
-  const savedTickets = [];
-  if (Array.isArray(ticketTypes) && ticketTypes.length > 0) {
-    for (const t of ticketTypes) {
-      if (!t || !t.name) continue;
-      const saved = saveTicketType({
-        ...t,
-        event_id: event.id,
-      });
-      savedTickets.push(saved);
+  const deleteOrder = [
+    'tickets',
+    'payments',
+    'orders',
+    'student_verifications',
+    'ticket_types',
+    'events',
+    'admin_sessions',
+    'login_attempts',
+    'admin_users',
+    'audit_logs',
+    'exports',
+  ];
+  for (const key of deleteOrder) {
+    const rows = Array.isArray(nextStore[key]) ? nextStore[key] : [];
+    const existingIds = await selectIdentifiers(TABLES[key]);
+    const nextIds = new Set(rows.map((row) => row.id).filter(Boolean));
+    const staleIds = existingIds.filter((id) => !nextIds.has(id));
+    for (const staleBatch of chunks(staleIds, 500)) {
+      const { error } = await database().from(TABLES[key]).delete().in('id', staleBatch);
+      throwDatabaseError(error, `delete stale ${TABLES[key]}`);
     }
   }
 
-  return {
-    event,
-    ticket_types: savedTickets,
+  const saveOrder = [
+    'events',
+    'ticket_types',
+    'orders',
+    'payments',
+    'tickets',
+    'student_verifications',
+    'admin_users',
+    'admin_sessions',
+    'login_attempts',
+    'audit_logs',
+    'exports',
+  ];
+  for (const key of saveOrder) {
+    const rows = Array.isArray(nextStore[key]) ? nextStore[key] : [];
+    for (const batch of chunks(rows, 500)) {
+      const { error } = await database().from(TABLES[key]).upsert(batch, { onConflict: 'id' });
+      throwDatabaseError(error, `save ${TABLES[key]}`);
+    }
+  }
+  return nextStore;
+}
+
+export async function createTicketOrderWithPayment(order, payment) {
+  const { data, error } = await database().rpc('create_ticket_order_with_payment', {
+    p_order: order,
+    p_payment: payment,
+  });
+  throwDatabaseError(error, 'create ticket order');
+  return data;
+}
+
+export async function confirmPaystackOrder({ orderReference, providerReference, amount, status }) {
+  const { data, error } = await database().rpc('confirm_paystack_ticket_order', {
+    p_order_reference: orderReference,
+    p_provider_reference: providerReference || '',
+    p_amount: amount === undefined ? null : Number(amount),
+    p_status: status,
+  });
+  throwDatabaseError(error, 'confirm Paystack order');
+  return data;
+}
+
+export async function saveExport(record) {
+  return insertRow(TABLES.exports, {
+    id: record.id || crypto.randomUUID(),
+    format: record.format || 'csv',
+    created_at: record.created_at || new Date().toISOString(),
+    rows: Number(record.rows || 0),
+  });
+}
+
+export async function resetStore() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('resetStore is disabled in production.');
+  }
+  const store = await readStore();
+  store.events = [];
+  store.ticket_types = [];
+  store.orders = [];
+  store.payments = [];
+  store.tickets = [];
+  store.exports = [];
+  store.audit_logs = [];
+  store.student_verifications = [];
+  store.admin_users = [];
+  store.admin_sessions = [];
+  store.login_attempts = [];
+  await writeStore(store);
+  return readStore();
+}
+
+export async function listEvents() {
+  return selectRows('events', (query) => query.order('starts_at', { ascending: true }));
+}
+
+export async function getEventBySlug(slug) {
+  const rows = await selectRows('events', (query) => query.eq('slug', slug).limit(1));
+  return rows[0] || null;
+}
+
+export async function getEventById(id) {
+  if (!id) return null;
+  const rows = await selectRows('events', (query) => query.eq('id', id).limit(1));
+  return rows[0] || null;
+}
+
+export async function getTicketTypesByEvent(eventId) {
+  return selectRows('ticket_types', (query) => query.eq('event_id', eventId).order('created_at'));
+}
+
+export async function getTicketTypeById(ticketTypeId) {
+  if (!ticketTypeId) return null;
+  const rows = await selectRows('ticket_types', (query) => query.eq('id', ticketTypeId).limit(1));
+  return rows[0] || null;
+}
+
+export async function saveEvent(eventData) {
+  const title = String(eventData.title || '').trim();
+  let slug = String(eventData.slug || title)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!slug) slug = `event-${Date.now()}`;
+
+  const existing = eventData.id
+    ? await getEventById(eventData.id)
+    : await getEventBySlug(slug);
+  const now = new Date().toISOString();
+  const record = {
+    id: eventData.id || existing?.id || `evt-${slug}-${Date.now().toString(36)}`,
+    title: title || existing?.title || 'Untitled Event',
+    slug,
+    poster: eventData.poster ?? existing?.poster ?? '',
+    description: eventData.description ?? existing?.description ?? '',
+    venue: eventData.venue ?? existing?.venue ?? '',
+    starts_at: eventData.starts_at ?? existing?.starts_at ?? now,
+    ends_at: eventData.ends_at ?? existing?.ends_at ?? now,
+    status: eventData.status ?? existing?.status ?? 'published',
+    speakers: Array.isArray(eventData.speakers) ? eventData.speakers : existing?.speakers || [],
+    partners: Array.isArray(eventData.partners) ? eventData.partners : existing?.partners || [],
+    incentives: Array.isArray(eventData.incentives) ? eventData.incentives : existing?.incentives || [],
+    archived_at: eventData.archived_at !== undefined ? eventData.archived_at : existing?.archived_at ?? null,
+    created_at: existing?.created_at || now,
+    updated_at: now,
   };
+  const saved = await upsertRow('events', record);
+  await appendAuditLog({
+    action: existing ? 'event_updated' : 'event_created',
+    entity: 'event',
+    entity_id: saved.id,
+    details: { title: saved.title, slug: saved.slug, status: saved.status },
+  });
+  return saved;
 }
 
-export function listOrders() {
-  const store = readStore();
-  return [...store.orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+export async function saveTicketType(ticketData) {
+  let existing = ticketData.id ? await getTicketTypeById(ticketData.id) : null;
+  if (!existing && ticketData.event_id && ticketData.name) {
+    const rows = await selectRows('ticket_types', (query) =>
+      query.eq('event_id', ticketData.event_id).ilike('name', ticketData.name).limit(1));
+    existing = rows[0] || null;
+  }
+  const now = new Date().toISOString();
+  return upsertRow('ticket_types', {
+    id: ticketData.id || existing?.id || `ticket-${ticketData.event_id}-${crypto.randomUUID().slice(0, 8)}`,
+    event_id: ticketData.event_id,
+    name: ticketData.name || existing?.name || 'Standard',
+    category_type: ticketData.category_type || existing?.category_type ||
+      (String(ticketData.name || '').toLowerCase().includes('professional') ? 'professional'
+        : String(ticketData.name || '').toLowerCase().includes('student') ? 'student' : 'standard'),
+    price: Number(ticketData.price ?? existing?.price ?? 1000),
+    allocation: Number(ticketData.allocation ?? existing?.allocation ?? 50),
+    sold_count: Number(existing?.sold_count || 0),
+    description: ticketData.description ?? existing?.description ?? '',
+    created_at: existing?.created_at || now,
+    updated_at: now,
+  });
 }
 
-export function getOrderById(orderId) {
-  const store = readStore();
-  return store.orders.find((order) => order.id === orderId) || null;
+export async function saveEventWithTickets({ eventData, ticketTypes = [] }) {
+  const event = await saveEvent(eventData);
+  const savedTickets = [];
+  for (const ticket of ticketTypes) {
+    if (!ticket?.name) continue;
+    savedTickets.push(await saveTicketType({ ...ticket, event_id: event.id }));
+  }
+  return { event, ticket_types: savedTickets };
 }
 
-export function getOrderByReference(reference) {
-  const store = readStore();
-  return store.orders.find((order) => order.reference === reference) || null;
+export async function listOrders() {
+  return selectRows('orders', (query) => query.order('created_at', { ascending: false }));
 }
 
-export function getPaymentByReference(providerReference) {
-  const store = readStore();
-  return store.payments.find((payment) => payment.provider_reference === providerReference) || null;
+export async function getOrderById(orderId) {
+  if (!orderId) return null;
+  const rows = await selectRows('orders', (query) => query.eq('id', orderId).limit(1));
+  return rows[0] || null;
 }
 
-export function setPaymentProviderReference(orderId, providerReference) {
-  const store = readStore();
-  const payment = store.payments.find((entry) => entry.order_id === orderId);
-  if (!payment || !providerReference) {
+export async function getOrderByReference(reference) {
+  if (!reference) return null;
+  const rows = await selectRows('orders', (query) => query.eq('reference', reference).limit(1));
+  return rows[0] || null;
+}
+
+export async function getPaymentByReference(providerReference) {
+  if (!providerReference) return null;
+  const rows = await selectRows('payments', (query) =>
+    query.eq('provider_reference', providerReference).limit(1));
+  return rows[0] || null;
+}
+
+export async function setPaymentProviderReference(orderId, providerReference) {
+  if (!orderId || !providerReference) {
     throw new Error('Payment record or provider reference was not found.');
   }
-  if (store.payments.some((entry) => (
-    entry.id !== payment.id &&
-    entry.provider === payment.provider &&
-    entry.provider_reference === providerReference
-  ))) {
+  const existing = await getPaymentByReference(providerReference);
+  if (existing && existing.order_id !== orderId) {
     throw new Error('The provider payment reference is already associated with another order.');
   }
-
-  payment.provider_reference = providerReference;
-  payment.updated_at = new Date().toISOString();
-  writeStore(store);
-  return payment;
+  const { data, error } = await database()
+    .from('payments')
+    .update({ provider_reference: providerReference, updated_at: new Date().toISOString() })
+    .eq('order_id', orderId)
+    .select('*')
+    .maybeSingle();
+  throwDatabaseError(error, 'update payment reference');
+  if (!data) throw new Error('Payment record or provider reference was not found.');
+  return data;
 }
 
-export function getTicketsByOrder(orderId) {
-  const store = readStore();
-  return store.tickets.filter((ticket) => ticket.order_id === orderId);
+export async function getTicketsByOrder(orderId) {
+  return selectRows('tickets', (query) => query.eq('order_id', orderId));
 }
 
-export function getLastExport() {
-  const store = readStore();
-  return store.exports.at(-1) || null;
+export async function getLastExport() {
+  const rows = await selectRows('ticket_exports', (query) => query.order('created_at', { ascending: false }).limit(1));
+  return rows[0] || null;
 }
 
-export function appendAuditLog(entry) {
-  const store = readStore();
-  store.audit_logs.unshift({
+export async function appendAuditLog(entry) {
+  return insertRow('audit_logs', {
     id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
     ...entry,
   });
-  writeStore(store);
-  return store.audit_logs[0];
 }
 
-// ==========================================
-// STUDENT VERIFICATIONS
-// ==========================================
-
-export function getStudentVerificationById(id) {
+export async function getStudentVerificationById(id) {
   if (!id) return null;
-  const store = readStore();
-  return store.student_verifications.find((v) => v.id === id) || null;
+  const rows = await selectRows('student_verifications', (query) => query.eq('id', id).limit(1));
+  return rows[0] || null;
 }
 
-export function saveStudentVerification(record) {
-  const store = readStore();
-  const index = store.student_verifications.findIndex((v) => v.id === record.id);
+export async function saveStudentVerification(record) {
+  const existing = record.id ? await getStudentVerificationById(record.id) : null;
   const now = new Date().toISOString();
-
-  if (index >= 0) {
-    store.student_verifications[index] = {
-      ...store.student_verifications[index],
-      ...record,
-      updated_at: now,
-    };
-  } else {
-    store.student_verifications.push({
-      ...record,
-      created_at: record.created_at || now,
-      updated_at: now,
-    });
-  }
-
-  writeStore(store);
-  return record;
+  return upsertRow('student_verifications', {
+    ...existing,
+    ...record,
+    id: record.id || crypto.randomUUID(),
+    created_at: record.created_at || existing?.created_at || now,
+    updated_at: now,
+  });
 }
 
-export function getStudentVerificationByHash(documentHash) {
+export async function getStudentVerificationByHash(documentHash) {
   if (!documentHash) return null;
-  const store = readStore();
-  return store.student_verifications.find((v) => v.document_hash === documentHash) || null;
+  const rows = await selectRows('student_verifications', (query) =>
+    query.eq('document_hash', documentHash).limit(1));
+  return rows[0] || null;
 }
 
-export function listStudentVerifications() {
-  const store = readStore();
-  return [...store.student_verifications].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+export async function listStudentVerifications() {
+  return selectRows('student_verifications', (query) => query.order('created_at', { ascending: false }));
 }
 
-export function getTicketMetrics() {
-  const store = readStore();
-  const totalRevenue = store.orders.filter(o => o.status === 'paid').reduce((sum, order) => sum + Number(order.amount || 0), 0);
-  const openOrders = store.orders.filter((order) => order.status !== 'paid').length;
-  const totalVerifications = store.student_verifications.length;
-  const approvedVerifications = store.student_verifications.filter((v) => v.status === 'approved').length;
-
+export async function getTicketMetrics() {
+  const store = await readStore();
   return {
     totalEvents: store.events.length,
     totalOrders: store.orders.length,
-    totalRevenue,
-    openOrders,
+    totalRevenue: store.orders.filter((order) => order.status === 'paid')
+      .reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    openOrders: store.orders.filter((order) => order.status !== 'paid').length,
     totalTickets: store.tickets.length,
-    totalVerifications,
-    approvedVerifications,
+    totalVerifications: store.student_verifications.length,
+    approvedVerifications: store.student_verifications.filter((verification) => verification.status === 'approved').length,
   };
 }
 
-export function purgeExpiredStudentDocuments(nowIso = new Date().toISOString()) {
-  const store = readStore();
-  let purgedCount = 0;
-
-  for (const record of store.student_verifications) {
-    if (record.retention_expires_at && record.retention_expires_at <= nowIso && !record.purged_at) {
-      record.purged_at = nowIso;
-      record.document_storage_key = null; // Removed pointer
-      purgedCount += 1;
-    }
+export async function purgeExpiredStudentDocuments(nowIso = new Date().toISOString()) {
+  const expired = await selectRows('student_verifications', (query) =>
+    query.lte('retention_expires_at', nowIso).is('purged_at', null));
+  for (const record of expired) {
+    const { error } = await database()
+      .from('student_verifications')
+      .update({ purged_at: nowIso, document_storage_key: null, updated_at: nowIso })
+      .eq('id', record.id);
+    throwDatabaseError(error, 'purge student document metadata');
   }
-
-  if (purgedCount > 0) {
-    writeStore(store);
-  }
-
-  return { purgedCount };
+  return { purgedCount: expired.length };
 }
 
-// ==========================================
-// ADMIN USERS & AUTHENTICATION
-// ==========================================
-
-export function getAdminUserByEmail(email) {
+export async function getAdminUserByEmail(email) {
   if (!email) return null;
-  const store = readStore();
-  return store.admin_users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim()) || null;
+  const rows = await selectRows('admin_users', (query) =>
+    query.ilike('email', String(email).trim()).limit(1));
+  return rows[0] || null;
 }
 
-export function getAdminUserById(id) {
+export async function getAdminUserById(id) {
   if (!id) return null;
-  const store = readStore();
-  return store.admin_users.find((u) => u.id === id) || null;
+  const rows = await selectRows('admin_users', (query) => query.eq('id', id).limit(1));
+  return rows[0] || null;
 }
 
-export function listAdminUsers() {
-  const store = readStore();
-  return store.admin_users.map((u) => ({
-    id: u.id,
-    email: u.email,
-    full_name: u.full_name,
-    role: u.role,
-    is_active: u.is_active,
-    created_at: u.created_at,
-    updated_at: u.updated_at,
+export async function listAdminUsers() {
+  const users = await selectRows('admin_users');
+  return users.map(({ id, email, full_name, role, is_active, created_at, updated_at }) => ({
+    id, email, full_name, role, is_active, created_at, updated_at,
   }));
 }
 
-export function saveAdminUser(userData) {
-  const store = readStore();
+export async function saveAdminUser(userData) {
+  const normalizedEmail = String(userData.email || '').toLowerCase().trim();
+  const existing = userData.id
+    ? await getAdminUserById(userData.id)
+    : await getAdminUserByEmail(normalizedEmail);
   const now = new Date().toISOString();
-  const normalizedEmail = (userData.email || '').toLowerCase().trim();
-  const index = store.admin_users.findIndex(
-    (u) => u.id === userData.id || u.email.toLowerCase() === normalizedEmail
-  );
-
-  const record = {
-    id: userData.id || (index >= 0 ? store.admin_users[index].id : crypto.randomUUID()),
+  return upsertRow('admin_users', {
+    id: userData.id || existing?.id || crypto.randomUUID(),
     email: normalizedEmail,
-    password_hash: userData.password_hash !== undefined ? userData.password_hash : (index >= 0 ? store.admin_users[index].password_hash : ''),
-    full_name: userData.full_name || (index >= 0 ? store.admin_users[index].full_name : 'Administrator'),
-    role: userData.role || (index >= 0 ? store.admin_users[index].role : 'admin'),
-    is_active: userData.is_active !== undefined ? Boolean(userData.is_active) : true,
-    created_at: index >= 0 ? store.admin_users[index].created_at : now,
+    password_hash: userData.password_hash ?? existing?.password_hash ?? '',
+    full_name: userData.full_name || existing?.full_name || 'Administrator',
+    role: userData.role || existing?.role || 'admin',
+    is_active: userData.is_active !== undefined ? Boolean(userData.is_active) : existing?.is_active ?? true,
+    created_at: existing?.created_at || now,
     updated_at: now,
-  };
-
-  if (index >= 0) {
-    store.admin_users[index] = record;
-  } else {
-    store.admin_users.push(record);
-  }
-
-  writeStore(store);
-  return record;
+  });
 }
 
-export function createAdminSession(sessionData) {
-  const store = readStore();
-  const now = new Date().toISOString();
-  const session = {
+export async function createAdminSession(sessionData) {
+  return insertRow('admin_sessions', {
     id: crypto.randomUUID(),
     user_id: sessionData.user_id,
     session_token: sessionData.session_token,
     user_agent: sessionData.user_agent || '',
     ip_address: sessionData.ip_address || '',
     expires_at: sessionData.expires_at,
-    created_at: now,
-  };
-  store.admin_sessions.push(session);
-  writeStore(store);
-  return session;
+    created_at: new Date().toISOString(),
+  });
 }
 
-export function getAdminSession(token) {
+export async function getAdminSession(token) {
   if (!token) return null;
-  const store = readStore();
-  const now = new Date().toISOString();
-  const session = store.admin_sessions.find((s) => s.session_token === token && s.expires_at > now);
+  const sessions = await selectRows('admin_sessions', (query) =>
+    query.eq('session_token', token).gt('expires_at', new Date().toISOString()).limit(1));
+  const session = sessions[0];
   if (!session) return null;
-  const user = store.admin_users.find((u) => u.id === session.user_id && u.is_active);
-  if (!user) return null;
+  const user = await getAdminUserById(session.user_id);
+  if (!user?.is_active) return null;
   return {
     session,
-    user: {
-      id: user.id,
-      email: user.email,
-      full_name: user.full_name,
-      role: user.role,
-    },
+    user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role },
   };
 }
 
-export function deleteAdminSession(token) {
+export async function deleteAdminSession(token) {
   if (!token) return false;
-  const store = readStore();
-  const initialLen = store.admin_sessions.length;
-  store.admin_sessions = store.admin_sessions.filter((s) => s.session_token !== token);
-  if (store.admin_sessions.length !== initialLen) {
-    writeStore(store);
-    return true;
-  }
-  return false;
+  const { data, error } = await database().from('admin_sessions').delete()
+    .eq('session_token', token).select('id');
+  throwDatabaseError(error, 'delete admin session');
+  return Boolean(data?.length);
 }
 
-export function purgeExpiredAdminSessions() {
-  const store = readStore();
-  const now = new Date().toISOString();
-  const initialLen = store.admin_sessions.length;
-  store.admin_sessions = store.admin_sessions.filter((s) => s.expires_at > now);
-  if (store.admin_sessions.length !== initialLen) {
-    writeStore(store);
-  }
+export async function purgeExpiredAdminSessions() {
+  const { data, error } = await database().from('admin_sessions').delete()
+    .lte('expires_at', new Date().toISOString()).select('id');
+  throwDatabaseError(error, 'purge admin sessions');
+  return data?.length || 0;
 }
 
-// Rate-limiting store functions
-export function recordLoginAttempt(identifier, success) {
-  const store = readStore();
+export async function recordLoginAttempt(identifier, success) {
+  const normalized = String(identifier || '').toLowerCase().trim();
   const now = new Date().toISOString();
-  store.login_attempts.push({
+  await insertRow('login_attempts', {
     id: crypto.randomUUID(),
-    identifier: identifier.toLowerCase().trim(),
+    identifier: normalized,
     success: Boolean(success),
     created_at: now,
   });
-  // Keep only attempts from the last 2 hours
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-  store.login_attempts = store.login_attempts.filter((a) => a.created_at >= twoHoursAgo);
-  writeStore(store);
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const { error } = await database().from('login_attempts').delete().lt('created_at', cutoff);
+  throwDatabaseError(error, 'purge old login attempts');
 }
 
-export function getRecentFailedLoginAttempts(identifier, windowMinutes = 15) {
-  const store = readStore();
+export async function getRecentFailedLoginAttempts(identifier, windowMinutes = 15) {
+  const normalized = String(identifier || '').toLowerCase().trim();
   const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
-  const normalized = identifier.toLowerCase().trim();
-  return store.login_attempts.filter(
-    (a) => a.identifier === normalized && !a.success && a.created_at >= cutoff
-  ).length;
+  const { count, error } = await database().from('login_attempts')
+    .select('id', { count: 'exact', head: true })
+    .eq('identifier', normalized)
+    .eq('success', false)
+    .gte('created_at', cutoff);
+  throwDatabaseError(error, 'count failed login attempts');
+  return count || 0;
 }
 
-// ==========================================
-// TICKET HOLDERS QUERY & MANAGEMENT
-// ==========================================
-
-export function queryTicketHolders({
+export async function queryTicketHolders({
   search = '',
   category = 'all',
   status = 'all',
@@ -596,19 +527,21 @@ export function queryTicketHolders({
   sortField = 'created_at',
   sortOrder = 'desc',
 } = {}) {
-  const store = readStore();
-
+  const store = await readStore();
   let rows = [];
+  const events = new Map(store.events.map((event) => [event.id, event]));
+  const orders = new Map(store.orders.map((order) => [order.id, order]));
+  const payments = new Map(store.payments.map((payment) => [payment.order_id, payment]));
+  const verifications = new Map(store.student_verifications.map((verification) => [verification.id, verification]));
+  const ticketTypes = new Map(store.ticket_types.map((ticketType) => [ticketType.id, ticketType]));
 
-  // 1. Process confirmed tickets
   for (const ticket of store.tickets) {
-    const order = store.orders.find((o) => o.id === ticket.order_id);
-    const event = store.events.find((e) => e.id === ticket.event_id);
-    const payment = store.payments.find((p) => p.order_id === ticket.order_id);
+    const order = orders.get(ticket.order_id);
+    const event = events.get(ticket.event_id);
+    const payment = payments.get(ticket.order_id);
     const verification = order?.student_verification_id
-      ? store.student_verifications.find((v) => v.id === order.student_verification_id)
+      ? verifications.get(order.student_verification_id)
       : null;
-
     rows.push({
       ticket_id: ticket.id,
       ticket_code: ticket.ticket_code,
@@ -638,108 +571,76 @@ export function queryTicketHolders({
     });
   }
 
-  // 2. Only include confirmed failed orders when explicitly queried or all
-  // Notice: Pending transactions are internal payment states and NOT ticket holders
   for (const order of store.orders) {
-    if (order.status === 'failed' || order.status === 'cancelled') {
-      const event = store.events.find((e) => e.id === order.event_id);
-      const ticketType = store.ticket_types.find((t) => t.id === order.ticket_type_id);
-      const payment = store.payments.find((p) => p.order_id === order.id);
-
-      rows.push({
-        ticket_id: `failed-${order.id}`,
-        ticket_code: 'PAYMENT_FAILED',
-        ticket_status: 'unissued',
-        category: ticketType?.name || 'Standard',
-        category_type: ticketType?.category_type || 'standard',
-        event_id: order.event_id,
-        event_title: event?.title || 'GeoHabari Event',
-        order_id: order.id,
-        order_reference: order.reference,
-        buyer_name: order.buyer_name,
-        attendee_name: order.buyer_name,
-        email: order.email,
-        phone: order.phone,
-        organization: order.organization || '',
-        role: order.role || '',
-        order_quantity: order.quantity,
-        order_amount: order.amount,
-        payment_method: order.payment_method || payment?.provider || 'N/A',
-        payment_status: order.status,
-        payment_reference: payment?.provider_reference || 'N/A',
-        created_at: order.created_at,
-        is_student_verified: Boolean(order.student_verification_id),
-        verification_method: null,
-        check_in_status: 'not_checked_in',
-        check_in_at: null,
-      });
-    }
+    if (!['failed', 'cancelled'].includes(order.status)) continue;
+    const ticketType = ticketTypes.get(order.ticket_type_id);
+    const payment = payments.get(order.id);
+    rows.push({
+      ticket_id: `failed-${order.id}`,
+      ticket_code: 'PAYMENT_FAILED',
+      ticket_status: 'unissued',
+      category: ticketType?.name || 'Standard',
+      category_type: ticketType?.category_type || 'standard',
+      event_id: order.event_id,
+      event_title: events.get(order.event_id)?.title || 'GeoHabari Event',
+      order_id: order.id,
+      order_reference: order.reference,
+      buyer_name: order.buyer_name,
+      attendee_name: order.buyer_name,
+      email: order.email,
+      phone: order.phone,
+      organization: order.organization || '',
+      role: order.role || '',
+      order_quantity: order.quantity,
+      order_amount: order.amount,
+      payment_method: order.payment_method || payment?.provider || 'N/A',
+      payment_status: order.status,
+      payment_reference: payment?.provider_reference || 'N/A',
+      created_at: order.created_at,
+      is_student_verified: Boolean(order.student_verification_id),
+      verification_method: null,
+      check_in_status: 'not_checked_in',
+      check_in_at: null,
+    });
   }
 
-  // Event filtering (Scoping by event)
-  if (eventId && eventId !== 'all') {
-    rows = rows.filter((r) => r.event_id === eventId);
+  if (eventId && eventId !== 'all') rows = rows.filter((row) => row.event_id === eventId);
+  if (search.trim()) {
+    const query = search.toLowerCase().trim();
+    rows = rows.filter((row) => [
+      row.ticket_code, row.order_reference, row.buyer_name, row.email, row.phone,
+      row.organization, row.role,
+    ].some((value) => String(value || '').toLowerCase().includes(query)));
   }
-
-  // Search filtering
-  if (search && search.trim()) {
-    const s = search.toLowerCase().trim();
-    rows = rows.filter(
-      (r) =>
-        r.ticket_code.toLowerCase().includes(s) ||
-        r.order_reference.toLowerCase().includes(s) ||
-        r.buyer_name.toLowerCase().includes(s) ||
-        r.email.toLowerCase().includes(s) ||
-        r.phone.toLowerCase().includes(s) ||
-        (r.organization && r.organization.toLowerCase().includes(s)) ||
-        (r.role && r.role.toLowerCase().includes(s))
-    );
-  }
-
-  // Category filtering
   if (category && category !== 'all') {
-    const cat = category.toLowerCase().trim();
-    rows = rows.filter((r) => r.category.toLowerCase().includes(cat));
+    const value = category.toLowerCase().trim();
+    rows = rows.filter((row) => row.category.toLowerCase().includes(value));
   }
-
-  // Payment status filtering
   if (status && status !== 'all') {
-    const st = status.toLowerCase().trim();
-    rows = rows.filter((r) => r.payment_status.toLowerCase() === st);
+    const value = status.toLowerCase().trim();
+    rows = rows.filter((row) => row.payment_status.toLowerCase() === value);
   }
-
-  // Date range filtering
-  if (dateFrom) {
-    const fromTime = new Date(dateFrom).getTime();
-    if (!isNaN(fromTime)) {
-      rows = rows.filter((r) => new Date(r.created_at).getTime() >= fromTime);
-    }
+  if (dateFrom && !Number.isNaN(new Date(dateFrom).getTime())) {
+    const from = new Date(dateFrom).getTime();
+    rows = rows.filter((row) => new Date(row.created_at).getTime() >= from);
   }
-
   if (dateTo) {
-    const toDate = new Date(dateTo);
-    toDate.setHours(23, 59, 59, 999);
-    const toTime = toDate.getTime();
-    if (!isNaN(toTime)) {
-      rows = rows.filter((r) => new Date(r.created_at).getTime() <= toTime);
-    }
+    const end = new Date(dateTo);
+    end.setHours(23, 59, 59, 999);
+    if (!Number.isNaN(end.getTime())) rows = rows.filter((row) => new Date(row.created_at).getTime() <= end.getTime());
   }
 
-  // Sorting
   rows.sort((a, b) => {
-    let valA = a[sortField] ?? '';
-    let valB = b[sortField] ?? '';
+    let left = a[sortField] ?? '';
+    let right = b[sortField] ?? '';
     if (sortField === 'created_at') {
-      valA = new Date(valA).getTime();
-      valB = new Date(valB).getTime();
-    } else if (typeof valA === 'string') {
-      valA = valA.toLowerCase();
-      valB = String(valB).toLowerCase();
+      left = new Date(left).getTime();
+      right = new Date(right).getTime();
+    } else if (typeof left === 'string') {
+      left = left.toLowerCase();
+      right = String(right).toLowerCase();
     }
-    if (sortOrder === 'asc') {
-      return valA > valB ? 1 : valA < valB ? -1 : 0;
-    }
-    return valA < valB ? 1 : valA > valB ? -1 : 0;
+    return sortOrder === 'asc' ? (left > right ? 1 : left < right ? -1 : 0) : (left < right ? 1 : left > right ? -1 : 0);
   });
 
   const total = rows.length;
@@ -747,10 +648,8 @@ export function queryTicketHolders({
   const pageLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
   const totalPages = Math.ceil(total / pageLimit) || 1;
   const offset = (pageNum - 1) * pageLimit;
-  const paginatedRows = rows.slice(offset, offset + pageLimit);
-
   return {
-    rows: paginatedRows,
+    rows: rows.slice(offset, offset + pageLimit),
     total,
     page: pageNum,
     limit: pageLimit,
@@ -760,13 +659,32 @@ export function queryTicketHolders({
   };
 }
 
-// Check-in helper for ticket validation
-export function checkInTicket(ticketCode, adminEmail = 'admin') {
-  const store = readStore();
-  const ticket = store.tickets.find((t) => t.ticket_code === ticketCode);
-  if (!ticket) {
-    return { success: false, error: 'Ticket code not found.' };
+export async function checkInTicket(ticketCode, adminEmail = 'admin') {
+  const { data, error } = await database().from('tickets')
+    .update({
+      check_in_status: 'checked_in',
+      check_in_at: new Date().toISOString(),
+      checked_in_by: adminEmail,
+    })
+    .eq('ticket_code', ticketCode)
+    .eq('check_in_status', 'not_checked_in')
+    .select('*')
+    .maybeSingle();
+  throwDatabaseError(error, 'check in ticket');
+
+  if (data) {
+    await appendAuditLog({
+      action: 'ticket_check_in',
+      entity: 'ticket',
+      entity_id: data.id,
+      details: { ticket_code: data.ticket_code, checked_in_by: adminEmail },
+    });
+    return { success: true, ticket: data };
   }
+
+  const rows = await selectRows('tickets', (query) => query.eq('ticket_code', ticketCode).limit(1));
+  const ticket = rows[0];
+  if (!ticket) return { success: false, error: 'Ticket code not found.' };
   if (ticket.check_in_status === 'checked_in') {
     return {
       success: false,
@@ -775,17 +693,5 @@ export function checkInTicket(ticketCode, adminEmail = 'admin') {
       ticket,
     };
   }
-  ticket.check_in_status = 'checked_in';
-  ticket.check_in_at = new Date().toISOString();
-  ticket.checked_in_by = adminEmail;
-  writeStore(store);
-
-  appendAuditLog({
-    action: 'ticket_check_in',
-    entity: 'ticket',
-    entity_id: ticket.id,
-    details: { ticket_code: ticket.ticket_code, checked_in_by: adminEmail },
-  });
-
-  return { success: true, ticket };
+  throw new Error('Ticket check-in did not complete. Please retry.');
 }

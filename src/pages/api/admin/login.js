@@ -3,7 +3,7 @@ import { authenticateAdmin, ADMIN_COOKIE_NAME, SESSION_MAX_AGE_SECONDS, ensureIn
 export async function POST({ request, cookies }) {
   try {
     // Ensure at least one admin exists
-    ensureInitialAdmin();
+    await ensureInitialAdmin();
 
     const body = await request.json().catch(() => ({}));
     const { email, password } = body;

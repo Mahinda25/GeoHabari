@@ -59,8 +59,8 @@ export function verifyPassword(password, storedHash) {
 /**
  * Checks login rate limiting for IP and Email identifiers
  */
-export function checkRateLimit(identifier) {
-  const attempts = getRecentFailedLoginAttempts(identifier, LOCKOUT_WINDOW_MINUTES);
+export async function checkRateLimit(identifier) {
+  const attempts = await getRecentFailedLoginAttempts(identifier, LOCKOUT_WINDOW_MINUTES);
   if (attempts >= MAX_LOGIN_ATTEMPTS) {
     return {
       allowed: false,
@@ -75,11 +75,11 @@ export function checkRateLimit(identifier) {
  */
 export async function authenticateAdmin({ email, password, ipAddress = '', userAgent = '' }) {
   const normalizedEmail = (email || '').toLowerCase().trim();
-  const rateCheck = checkRateLimit(normalizedEmail);
+  const rateCheck = await checkRateLimit(normalizedEmail);
 
   if (!rateCheck.allowed) {
-    recordLoginAttempt(normalizedEmail, false);
-    appendAuditLog({
+    await recordLoginAttempt(normalizedEmail, false);
+    await appendAuditLog({
       action: 'admin_login_locked',
       entity: 'admin_user',
       entity_id: null,
@@ -88,11 +88,11 @@ export async function authenticateAdmin({ email, password, ipAddress = '', userA
     return { success: false, error: rateCheck.error, status: 429 };
   }
 
-  const user = getAdminUserByEmail(normalizedEmail);
+  const user = await getAdminUserByEmail(normalizedEmail);
 
   if (!user || !user.is_active) {
-    recordLoginAttempt(normalizedEmail, false);
-    appendAuditLog({
+    await recordLoginAttempt(normalizedEmail, false);
+    await appendAuditLog({
       action: 'admin_login_failed',
       entity: 'admin_user',
       entity_id: null,
@@ -105,8 +105,8 @@ export async function authenticateAdmin({ email, password, ipAddress = '', userA
   const isValidPassword = verifyPassword(password, user.password_hash);
 
   if (!isValidPassword) {
-    recordLoginAttempt(normalizedEmail, false);
-    appendAuditLog({
+    await recordLoginAttempt(normalizedEmail, false);
+    await appendAuditLog({
       action: 'admin_login_failed',
       entity: 'admin_user',
       entity_id: user.id,
@@ -116,13 +116,13 @@ export async function authenticateAdmin({ email, password, ipAddress = '', userA
   }
 
   // Record successful login
-  recordLoginAttempt(normalizedEmail, true);
+  await recordLoginAttempt(normalizedEmail, true);
 
   // Generate cryptographically secure session token
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000).toISOString();
 
-  const session = createAdminSession({
+  const session = await createAdminSession({
     user_id: user.id,
     session_token: sessionToken,
     user_agent: userAgent,
@@ -130,7 +130,7 @@ export async function authenticateAdmin({ email, password, ipAddress = '', userA
     expires_at: expiresAt,
   });
 
-  appendAuditLog({
+  await appendAuditLog({
     action: 'admin_login_success',
     entity: 'admin_user',
     entity_id: user.id,
@@ -153,7 +153,7 @@ export async function authenticateAdmin({ email, password, ipAddress = '', userA
 /**
  * Validates session token from cookie or authorization header
  */
-export function validateSession(token) {
+export async function validateSession(token) {
   if (!token) return null;
   return getAdminSession(token);
 }
@@ -161,7 +161,7 @@ export function validateSession(token) {
 /**
  * Destroys admin session
  */
-export function logoutAdmin(token) {
+export async function logoutAdmin(token) {
   if (!token) return false;
   return deleteAdminSession(token);
 }
@@ -169,7 +169,7 @@ export function logoutAdmin(token) {
 /**
  * Extracts and verifies admin authentication from Request or Astro.cookies
  */
-export function getAdminFromRequest(request, cookies = null) {
+export async function getAdminFromRequest(request, cookies = null) {
   let token = null;
 
   // 1. Try Astro cookies if passed
@@ -205,13 +205,13 @@ export function getAdminFromRequest(request, cookies = null) {
 /**
  * Provisions or updates an administrator account securely
  */
-export function provisionAdminUser({ email, password, fullName = 'Administrator', role = 'admin' }) {
+export async function provisionAdminUser({ email, password, fullName = 'Administrator', role = 'admin' }) {
   if (!email || !email.includes('@')) {
     throw new Error('Valid email address is required.');
   }
 
   const passwordHash = hashPassword(password);
-  const user = saveAdminUser({
+  const user = await saveAdminUser({
     email,
     password_hash: passwordHash,
     full_name: fullName,
@@ -219,7 +219,7 @@ export function provisionAdminUser({ email, password, fullName = 'Administrator'
     is_active: true,
   });
 
-  appendAuditLog({
+  await appendAuditLog({
     action: 'admin_provisioned',
     entity: 'admin_user',
     entity_id: user.id,
@@ -237,9 +237,9 @@ export function provisionAdminUser({ email, password, fullName = 'Administrator'
 /**
  * Ensures initial administrator exists, bootstrapping from environment if needed
  */
-export function ensureInitialAdmin() {
+export async function ensureInitialAdmin() {
   const email = process.env.INITIAL_ADMIN_EMAIL || process.env.ADMIN_BOOTSTRAP_EMAIL || 'admin@geohabari.com';
-  const existing = getAdminUserByEmail(email);
+  const existing = await getAdminUserByEmail(email);
   if (existing) {
     return existing;
   }

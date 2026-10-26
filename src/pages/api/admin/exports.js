@@ -13,7 +13,7 @@ function sanitizeCsvCell(value) {
 
 export async function GET({ request }) {
   // 1. Verify admin authentication
-  const auth = getAdminFromRequest(request);
+  const auth = await getAdminFromRequest(request);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required to export records.' }),
@@ -37,7 +37,7 @@ export async function GET({ request }) {
     const dateTo = url.searchParams.get('to') || '';
 
     // Fetch up to 10,000 records matching active filters (scoped by eventId if provided)
-    const { rows } = queryTicketHolders({
+    const { rows } = await queryTicketHolders({
       eventId,
       search,
       category,
@@ -102,7 +102,7 @@ export async function GET({ request }) {
       : `geohabari-ticket-holders-${today}.csv`;
 
     // Audit log the export event
-    appendAuditLog({
+    await appendAuditLog({
       action: 'ticket_holders_exported',
       entity: 'export',
       entity_id: null,

@@ -77,7 +77,7 @@ export async function submitPesapalOrder(order, event) {
     throw new Error(data.message || 'Pesapal did not return a hosted checkout URL.');
   }
 
-  setPaymentProviderReference(order.id, data.order_tracking_id);
+  await setPaymentProviderReference(order.id, data.order_tracking_id);
   return {
     redirectUrl: data.redirect_url,
     trackingId: data.order_tracking_id,

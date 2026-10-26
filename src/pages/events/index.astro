@@ -2,7 +2,7 @@
 import Layout from "../../layout/Layout.astro";
 import { getPublishedEvents } from "../../lib/ticketing.js";
 
-const events = getPublishedEvents();
+const events = await getPublishedEvents();
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 ---
 
