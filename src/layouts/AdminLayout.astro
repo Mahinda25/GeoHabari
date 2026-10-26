@@ -18,10 +18,10 @@ Astro.response.headers.set("Pragma", "no-cache");
 Astro.response.headers.set("Expires", "0");
 
 // Ensure bootstrap admin exists
-ensureInitialAdmin();
+await ensureInitialAdmin();
 
 // Server-side authentication check
-const auth = getAdminFromRequest(Astro.request, Astro.cookies);
+const auth = await getAdminFromRequest(Astro.request, Astro.cookies);
 const user = auth?.user || { full_name: "Administrator", role: "admin" };
 ---
 

@@ -47,7 +47,7 @@ export async function POST({ request }) {
     }
 
     // Rate-limiting check: count recent verification requests for this email
-    const allVerifications = listStudentVerifications();
+    const allVerifications = await listStudentVerifications();
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const recentRequests = allVerifications.filter(
       (v) => v.email === email && v.created_at >= tenMinutesAgo
@@ -81,7 +81,7 @@ export async function POST({ request }) {
       created_at: new Date().toISOString(),
     };
 
-    saveStudentVerification(verificationRecord);
+    await saveStudentVerification(verificationRecord);
 
     // Send code to student's email (non-blocking failure logging)
     try {
@@ -89,8 +89,8 @@ export async function POST({ request }) {
     } catch (error) {
       verificationRecord.status = 'expired';
       verificationRecord.code_hash = null;
-      saveStudentVerification(verificationRecord);
-      appendAuditLog({
+      await saveStudentVerification(verificationRecord);
+      await appendAuditLog({
         action: 'student_email_delivery_failed',
         entity: 'student_verification',
         entity_id: verificationRecord.id,
@@ -104,7 +104,7 @@ export async function POST({ request }) {
       });
     }
 
-    appendAuditLog({
+    await appendAuditLog({
       action: 'student_email_code_dispatched',
       entity: 'student_verification',
       entity_id: verificationRecord.id,

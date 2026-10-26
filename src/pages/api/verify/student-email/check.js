@@ -32,7 +32,7 @@ export async function POST({ request }) {
       );
     }
 
-    const record = getStudentVerificationById(verificationId);
+    const record = await getStudentVerificationById(verificationId);
     if (!record) {
       return new Response(
         JSON.stringify({ error: 'Verification session not found or expired.' }),
@@ -58,7 +58,7 @@ export async function POST({ request }) {
     record.code_attempts = Number(record.code_attempts || 0) + 1;
     if (record.code_attempts > MAX_VERIFICATION_ATTEMPTS) {
       record.status = 'expired';
-      saveStudentVerification(record);
+      await saveStudentVerification(record);
       return new Response(
         JSON.stringify({
           error: 'Maximum verification attempts exceeded. Please request a new code.',
@@ -70,7 +70,7 @@ export async function POST({ request }) {
     // Check expiration
     if (new Date(record.code_expires_at) < new Date()) {
       record.status = 'expired';
-      saveStudentVerification(record);
+      await saveStudentVerification(record);
       return new Response(
         JSON.stringify({ error: 'Verification code has expired. Please request a new code.' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -80,7 +80,7 @@ export async function POST({ request }) {
     // Verify hash
     const isValid = verifyCodeHash(inputCode, record.code_hash);
     if (!isValid) {
-      saveStudentVerification(record);
+      await saveStudentVerification(record);
       return new Response(
         JSON.stringify({
           error: `Incorrect verification code. ${MAX_VERIFICATION_ATTEMPTS - record.code_attempts} attempts remaining.`,
@@ -96,7 +96,7 @@ export async function POST({ request }) {
     if (buyerName && buyerName.length >= 2) {
       record.buyer_name = buyerName;
     }
-    saveStudentVerification(record);
+    await saveStudentVerification(record);
 
     const { token, expiresAt } = generateVerificationToken(
       record.id,
@@ -104,7 +104,7 @@ export async function POST({ request }) {
       'university_email'
     );
 
-    appendAuditLog({
+    await appendAuditLog({
       action: 'student_email_verified',
       entity: 'student_verification',
       entity_id: record.id,

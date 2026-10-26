@@ -4,8 +4,8 @@ import { getEventBySlug, getOrderByReference } from "../../../lib/ticketing-stor
 const { slug } = Astro.params;
 const reference = Astro.url.searchParams.get("reference");
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
-const event = getEventBySlug(slug);
-const order = reference ? getOrderByReference(reference) : null;
+const event = await getEventBySlug(slug);
+const order = reference ? await getOrderByReference(reference) : null;
 const orderMatchesEvent = Boolean(event && order && order.event_id === event.id);
 const paymentStatus = orderMatchesEvent ? order.status : "not_found";
 Astro.response.headers.set("Cache-Control", "no-store, private, max-age=0, must-revalidate");

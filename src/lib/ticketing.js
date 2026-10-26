@@ -4,17 +4,17 @@ import {
   getEventBySlug,
   getOrderById,
   getOrderByReference,
-  getPaymentByReference,
   getTicketTypeById,
   getTicketTypesByEvent,
   listEvents,
   readStore,
-  writeStore,
+  createTicketOrderWithPayment,
+  confirmPaystackOrder,
+  saveExport,
   saveEvent,
   saveTicketType,
   saveEventWithTickets,
   getStudentVerificationById,
-  saveStudentVerification,
 } from './ticketing-store.js';
 import { verifyVerificationToken } from './student-verification.js';
 import {
@@ -27,6 +27,14 @@ import crypto from 'node:crypto';
 const MAX_QUANTITY = 5;
 const MIN_QUANTITY = 1;
 const PENDING_ORDER_RESERVATION_MS = 20 * 60 * 1000;
+
+async function appendAuditLogBestEffort(entry, context) {
+  try {
+    await appendAuditLog(entry);
+  } catch (error) {
+    console.error(`[ticketing] ${context} audit logging failed:`, error);
+  }
+}
 
 export function sanitizeText(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ');
@@ -67,17 +75,17 @@ export function generateTicketCode(seed = '') {
 
 export { saveEvent, saveTicketType, saveEventWithTickets };
 
-export function getPublishedEvents() {
-  return listEvents()
+export async function getPublishedEvents() {
+  return Promise.all((await listEvents())
     .filter((event) => event.status === 'published' && !event.archived_at)
-    .map((event) => ({
+    .map(async (event) => ({
       ...event,
-      ticket_types: getTicketTypesByEvent(event.id),
-    }));
+      ticket_types: await getTicketTypesByEvent(event.id),
+    })));
 }
 
-export function getEventDetail(slug) {
-  const event = getEventBySlug(slug);
+export async function getEventDetail(slug) {
+  const event = await getEventBySlug(slug);
   if (!event || event.status !== 'published' || event.archived_at) {
     return null;
   }
@@ -85,7 +93,7 @@ export function getEventDetail(slug) {
   return {
     ...event,
     incentives: Array.isArray(event.incentives) ? event.incentives : [],
-    ticket_types: getTicketTypesByEvent(event.id),
+    ticket_types: await getTicketTypesByEvent(event.id),
   };
 }
 
@@ -160,33 +168,16 @@ export function ensureOrderRequestValid(payload) {
   };
 }
 
-export function createOrderCheckout(eventId, requestPayload) {
-  const store = readStore();
-  const event = getEventById(eventId);
+export async function createOrderCheckout(eventId, requestPayload) {
+  const event = await getEventById(eventId);
   if (!event || event.status !== 'published' || event.archived_at) {
     throw new Error('Event is not available for purchase.');
   }
 
   const validated = ensureOrderRequestValid(requestPayload);
-  const ticketType = getTicketTypeById(validated.ticket_type_id);
+  const ticketType = await getTicketTypeById(validated.ticket_type_id);
   if (!ticketType || ticketType.event_id !== event.id) {
     throw new Error('Selected ticket type is invalid for this event.');
-  }
-
-  const now = Date.now();
-  const activeReservations = store.orders
-    .filter((order) => {
-      if (order.ticket_type_id !== ticketType.id || order.status !== 'pending') return false;
-      const fallbackExpiry = new Date(order.created_at).getTime() + PENDING_ORDER_RESERVATION_MS;
-      const expiresAt = order.payment_expires_at
-        ? new Date(order.payment_expires_at).getTime()
-        : fallbackExpiry;
-      return expiresAt > now;
-    })
-    .reduce((sum, order) => sum + Number(order.quantity || 0), 0);
-  const totalReserved = Number(ticketType.sold_count || 0) + activeReservations;
-  if (totalReserved + validated.quantity > Number(ticketType.allocation)) {
-    throw new Error('Selected ticket quantity exceeds remaining capacity.');
   }
 
   // ========================================================
@@ -207,7 +198,7 @@ export function createOrderCheckout(eventId, requestPayload) {
       );
     }
 
-    verifiedStudentRecord = getStudentVerificationById(verificationId);
+    verifiedStudentRecord = await getStudentVerificationById(verificationId);
     if (!verifiedStudentRecord) {
       throw new Error('Student verification record not found. Please complete verification.');
     }
@@ -229,7 +220,7 @@ export function createOrderCheckout(eventId, requestPayload) {
 
     // Reuse prevention check
     if (verifiedStudentRecord.consumed_by_order_id) {
-      const priorOrder = getOrderById(verifiedStudentRecord.consumed_by_order_id);
+      const priorOrder = await getOrderById(verifiedStudentRecord.consumed_by_order_id);
       if (priorOrder && priorOrder.status === 'paid') {
         throw new Error('This student verification has already been utilized for a completed order.');
       }
@@ -275,54 +266,27 @@ export function createOrderCheckout(eventId, requestPayload) {
     updated_at: new Date().toISOString(),
   };
 
-  store.orders.push(order);
-  store.payments.push(payment);
+  const created = await createTicketOrderWithPayment(order, payment);
 
-  if (verifiedStudentRecord) {
-    verifiedStudentRecord.consumed_by_order_id = order.id;
-    saveStudentVerification(verifiedStudentRecord);
-  }
-
-  appendAuditLog({
+  await appendAuditLogBestEffort({
     action: 'order_created',
     entity: 'order',
-    entity_id: order.id,
+    entity_id: created.order.id,
     details: {
-      reference: order.reference,
+      reference: created.order.reference,
       payment_method: validated.payment_method,
       payment_provider: 'paystack',
       is_student: isStudentTicket,
     },
-  });
+  }, 'Order creation');
 
-  writeStore(store);
-
-  return { order, payment, ticketType, event };
+  return { order: created.order, payment: created.payment, ticketType, event };
 }
 
-export function verifyPaymentAndIssueTickets({ orderReference, provider, providerReference, amount, status = 'paid' }) {
-  const store = readStore();
-  const order = store.orders.find((entry) => entry.reference === orderReference);
-  if (!order) {
-    throw new Error('Order not found.');
-  }
-
-  if (provider !== 'paystack' || order.payment_provider !== 'paystack') {
-    throw new Error('Payment provider does not match this order.');
-  }
+export async function verifyPaymentAndIssueTickets({ orderReference, provider, providerReference, amount, status = 'paid' }) {
+  if (provider !== 'paystack') throw new Error('Payment provider does not match this order.');
   if (!['paid', 'failed', 'cancelled'].includes(status)) {
     throw new Error('Unsupported payment status.');
-  }
-  if (amount !== undefined && Number(amount) !== Number(order.amount)) {
-    throw new Error('Verified payment amount does not match the order total.');
-  }
-
-  const existingPayment = providerReference ? getPaymentByReference(providerReference) : null;
-  if (existingPayment && existingPayment.status === 'paid' && existingPayment.order_id === order.id) {
-    return { order, payment: existingPayment, alreadyProcessed: true };
-  }
-  if (order.status === 'paid') {
-    throw new Error('This order has already been paid with a different payment reference.');
   }
   if (status === 'paid' && !providerReference) {
     throw new Error('A verified provider payment reference is required.');
@@ -330,168 +294,68 @@ export function verifyPaymentAndIssueTickets({ orderReference, provider, provide
   if (status === 'paid' && amount === undefined) {
     throw new Error('A verified payment amount is required.');
   }
-  if (existingPayment && existingPayment.order_id !== order.id) {
-    throw new Error('Provider payment reference is already associated with another order.');
-  }
-
-  const payment = store.payments.find((entry) => entry.order_id === order.id && entry.provider === provider) || {
-    id: crypto.randomUUID(),
-    order_id: order.id,
-    provider,
-    provider_reference: providerReference || `${provider.toUpperCase()}-${Date.now()}`,
-    amount: order.amount,
-    status: 'pending',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  payment.status = status;
-  payment.provider_reference = providerReference || payment.provider_reference;
-  payment.updated_at = new Date().toISOString();
-
-  if (!store.payments.some((entry) => entry.id === payment.id)) {
-    store.payments.push(payment);
-  }
-
-  let ticketDelivery = null;
+  const result = await confirmPaystackOrder({ orderReference, providerReference, amount, status });
+  const { order, payment, tickets, alreadyProcessed } = result;
 
   if (status === 'paid') {
-    order.status = 'paid';
-    order.updated_at = new Date().toISOString();
-
-    const ticketType = getTicketTypeById(order.ticket_type_id);
-    if (!ticketType) {
-      throw new Error('Ticket type could not be resolved.');
+    if (!alreadyProcessed) {
+      await appendAuditLogBestEffort({
+        action: 'payment_verified',
+        entity: 'order',
+        entity_id: order.id,
+        details: { reference: order.reference, provider },
+      }, 'Payment confirmation');
     }
-
-    const existingTicketCount = store.tickets.filter((ticket) => ticket.order_id === order.id).length;
-    if (existingTicketCount === 0) {
-      const isPro = ticketType.category_type === 'professional' || ticketType.name.toLowerCase().includes('professional');
-      const orderAttendees = Array.isArray(order.attendees) ? order.attendees : [];
-
-      for (let index = 0; index < order.quantity; index += 1) {
-        let ticketCode = generateTicketCode(order.reference);
-        for (let attempt = 0; store.tickets.some((ticket) => ticket.ticket_code === ticketCode) && attempt < 5; attempt += 1) {
-          ticketCode = generateTicketCode(order.reference);
-        }
-        if (store.tickets.some((ticket) => ticket.ticket_code === ticketCode)) {
-          throw new Error('A unique ticket code could not be generated.');
-        }
-        const attendee = orderAttendees[index] || null;
-        const attendeeName = attendee?.name || order.buyer_name;
-        const attendeeEmail = attendee?.email || order.email;
-        const attendeePhone = attendee?.phone || order.phone;
-        const attendeeOrg = attendee?.organization || order.organization || null;
-        const attendeeRole = attendee?.role || order.role || null;
-
-        const ticket = {
-          id: crypto.randomUUID(),
-          order_id: order.id,
-          event_id: order.event_id,
-          ticket_type_id: order.ticket_type_id,
-          ticket_code: ticketCode,
-          category: ticketType.name,
-          category_type: ticketType.category_type || (isPro ? 'professional' : ticketType.name.toLowerCase().includes('student') ? 'student' : 'standard'),
-          attendee_name: attendeeName,
-          attendee_email: attendeeEmail,
-          attendee_phone: attendeePhone,
-          organization: isPro ? attendeeOrg : null,
-          role: isPro ? attendeeRole : null,
-          status: 'active',
-          created_at: new Date().toISOString(),
-        };
-        store.tickets.push(ticket);
-      }
-    }
-
-    const targetTicketType = store.ticket_types.find((entry) => entry.id === order.ticket_type_id);
-    if (targetTicketType && existingTicketCount === 0) {
-      targetTicketType.sold_count = Number(targetTicketType.sold_count || 0) + order.quantity;
-    }
-
-    const event = getEventById(order.event_id);
-    const orderTickets = store.tickets.filter((ticket) => ticket.order_id === order.id);
-    if (event) {
-      ticketDelivery = {
-        order,
-        payment,
-        event,
-        ticketType,
-        ticketCodes: orderTickets.map((ticket) => ticket.ticket_code),
-      };
-    }
-  } else if (status === 'failed' || status === 'cancelled') {
-    order.status = status;
-    order.updated_at = new Date().toISOString();
-  }
-
-  const orderIdx = store.orders.findIndex((o) => o.id === order.id);
-  if (orderIdx >= 0) {
-    store.orders[orderIdx] = order;
-  }
-
-  writeStore(store);
-
-  if (status === 'paid') {
-    appendAuditLog({
-      action: 'payment_verified',
-      entity: 'order',
-      entity_id: order.id,
-      details: { reference: order.reference, provider },
-    });
   } else {
-    appendAuditLog({
+    await appendAuditLogBestEffort({
       action: 'payment_failed',
       entity: 'order',
       entity_id: order.id,
       details: { reference: order.reference, provider, status },
-    });
+    }, 'Payment failure');
   }
 
-  if (ticketDelivery) {
-    const { order: paidOrder, payment: paidPayment, event, ticketType, ticketCodes } = ticketDelivery;
-    sendConfirmationEmail({
-      buyerName: paidOrder.buyer_name,
-      buyerEmail: paidOrder.email,
-      eventTitle: event.title,
-      venue: event.venue,
-      startsAt: event.starts_at,
-      ticketTypeName: ticketType.name,
-      quantity: paidOrder.quantity,
-      ticketCodes,
-      paymentReference: paidPayment.provider_reference,
-    }).catch((error) => {
-      console.error('[ticketing] Ticket email delivery failed:', error);
-      appendAuditLog({
-        action: 'email_failed',
-        entity: 'order',
-        entity_id: paidOrder.id,
-        details: { message: error.message },
-      });
-    });
-
-    sendWhatsAppTicketConfirmation({
-      buyerName: paidOrder.buyer_name,
-      buyerPhone: paidOrder.phone,
-      eventTitle: event.title,
-      venue: event.venue,
-      startsAt: event.starts_at,
-      ticketTypeName: ticketType.name,
-      quantity: paidOrder.quantity,
-      ticketCodes,
-      paymentReference: paidPayment.provider_reference,
-    }).catch((error) => {
-      console.error('[ticketing] WhatsApp ticket delivery failed:', error);
-      appendAuditLog({
-        action: 'whatsapp_failed',
-        entity: 'order',
-        entity_id: paidOrder.id,
-        details: { message: error.message },
-      });
-    });
+  if (status === 'paid' && !alreadyProcessed && tickets.length > 0) {
+    const event = await getEventById(order.event_id);
+    const ticketType = await getTicketTypeById(order.ticket_type_id);
+    if (event && ticketType) {
+      const ticketCodes = tickets.map((ticket) => ticket.ticket_code);
+      const delivery = {
+        buyerName: order.buyer_name,
+        eventTitle: event.title,
+        venue: event.venue,
+        startsAt: event.starts_at,
+        ticketTypeName: ticketType.name,
+        quantity: order.quantity,
+        ticketCodes,
+        paymentReference: payment.provider_reference,
+      };
+      try {
+        await sendConfirmationEmail({ ...delivery, buyerEmail: order.email });
+      } catch (error) {
+        console.error('[ticketing] Ticket email delivery failed:', error);
+        await appendAuditLogBestEffort({
+          action: 'email_failed',
+          entity: 'order',
+          entity_id: order.id,
+          details: { message: error.message },
+        }, 'Email delivery failure');
+      }
+      try {
+        await sendWhatsAppTicketConfirmation({ ...delivery, buyerPhone: order.phone });
+      } catch (error) {
+        console.error('[ticketing] WhatsApp ticket delivery failed:', error);
+        await appendAuditLogBestEffort({
+          action: 'whatsapp_failed',
+          entity: 'order',
+          entity_id: order.id,
+          details: { message: error.message },
+        }, 'WhatsApp delivery failure');
+      }
+    }
   }
 
-  return { order, payment, alreadyProcessed: false };
+  return { order, payment, alreadyProcessed };
 }
 
 export async function sendConfirmationEmail({
@@ -652,8 +516,8 @@ export async function sendUniversityVerificationEmail({ email, buyerName, code }
   return { success: true, mocked: false };
 }
 
-export function getTicketMetrics() {
-  const store = readStore();
+export async function getTicketMetrics() {
+  const store = await readStore();
   const totalRevenue = store.orders.reduce((sum, order) => sum + Number(order.amount || 0), 0);
   const openOrders = store.orders.filter((order) => order.status !== 'paid').length;
   const totalVerifications = store.student_verifications.length;
@@ -670,11 +534,13 @@ export function getTicketMetrics() {
   };
 }
 
-export function exportRecords(format = 'csv') {
-  const store = readStore();
+export async function exportRecords(format = 'csv') {
+  const store = await readStore();
+  const events = new Map(store.events.map((event) => [event.id, event]));
+  const ticketTypes = new Map(store.ticket_types.map((ticketType) => [ticketType.id, ticketType]));
   const rows = store.orders.map((order) => {
-    const event = getEventById(order.event_id);
-    const ticketType = getTicketTypeById(order.ticket_type_id);
+    const event = events.get(order.event_id);
+    const ticketType = ticketTypes.get(order.ticket_type_id);
     const ticketCodes = store.tickets.filter((ticket) => ticket.order_id === order.id).map((ticket) => ticket.ticket_code);
 
     return {
@@ -697,7 +563,6 @@ export function exportRecords(format = 'csv') {
     rows: rows.length,
   };
 
-  store.exports.push(exportRecord);
-  writeStore(store);
-  return { rows, exportRecord };
+  const savedExport = await saveExport(exportRecord);
+  return { rows, exportRecord: savedExport };
 }

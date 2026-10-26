@@ -96,8 +96,8 @@ export function verifyPaystackWebhookSignature(rawBody, signature) {
 }
 
 export async function reconcilePaystackPayment(reference) {
-  const order = getOrderByReference(reference);
-  const payment = getPaymentByReference(reference);
+  const order = await getOrderByReference(reference);
+  const payment = await getPaymentByReference(reference);
   if (
     !order ||
     order.payment_provider !== 'paystack' ||
@@ -121,7 +121,7 @@ export async function reconcilePaystackPayment(reference) {
       throw new Error('Verified Paystack payment channel is not enabled for this checkout.');
     }
 
-    const result = verifyPaymentAndIssueTickets({
+    const result = await verifyPaymentAndIssueTickets({
       orderReference: order.reference,
       provider: 'paystack',
       providerReference: reference,
@@ -133,7 +133,7 @@ export async function reconcilePaystackPayment(reference) {
 
   if (transaction.status === 'failed' || transaction.status === 'abandoned' || transaction.status === 'cancelled') {
     const paymentStatus = transaction.status === 'failed' ? 'failed' : 'cancelled';
-    const result = verifyPaymentAndIssueTickets({
+    const result = await verifyPaymentAndIssueTickets({
       orderReference: order.reference,
       provider: 'paystack',
       providerReference: reference,

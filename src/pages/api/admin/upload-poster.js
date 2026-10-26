@@ -1,6 +1,4 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 import { getAdminFromRequest } from '../../../lib/auth.js';
 import { supabase } from '../../../lib/supabase.js';
 import { appendAuditLog } from '../../../lib/ticketing-store.js';
@@ -61,7 +59,7 @@ function validateImageMagicBytes(buffer) {
 
 export async function POST({ request, cookies }) {
   // 1. Authenticate admin user
-  const auth = getAdminFromRequest(request, cookies);
+  const auth = await getAdminFromRequest(request, cookies);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required.' }),
@@ -125,61 +123,23 @@ export async function POST({ request, cookies }) {
     const finalMime = magicCheck.detectedType;
     const safeFilename = `poster-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
-    let persistentUrl = '';
-    let storageProvider = 'data-url';
-
-    // 5. Attempt upload to Supabase Object Storage if configured
-    if (supabase) {
-      try {
-        const bucketName = process.env.SUPABASE_POSTER_BUCKET || process.env.SUPABASE_STORAGE_BUCKET || 'event-posters';
-        const storagePath = `posters/${safeFilename}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(bucketName)
-          .upload(storagePath, buffer, {
-            contentType: finalMime,
-            upsert: true,
-          });
-
-        if (!uploadError && uploadData) {
-          const { data: publicUrlData } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(storagePath);
-
-          if (publicUrlData && publicUrlData.publicUrl) {
-            persistentUrl = publicUrlData.publicUrl;
-            storageProvider = 'supabase-storage';
-          }
-        } else if (uploadError) {
-          console.warn('Supabase storage upload failed, using persistent fallback:', uploadError.message);
-        }
-      } catch (sbErr) {
-        console.warn('Supabase storage error, using fallback:', sbErr.message);
-      }
+    if (!supabase) {
+      throw new Error('Poster storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
     }
-
-    // 6. Resilient persistent fallback (data URI & local public file if available)
-    if (!persistentUrl) {
-      // Also write to public/uploads/posters/ if filesystem is writable
-      try {
-        const publicUploadsDir = path.resolve(process.cwd(), 'public/uploads/posters');
-        if (!fs.existsSync(publicUploadsDir)) {
-          fs.mkdirSync(publicUploadsDir, { recursive: true });
-        }
-        const localFilePath = path.join(publicUploadsDir, safeFilename);
-        fs.writeFileSync(localFilePath, buffer);
-        persistentUrl = `/uploads/posters/${safeFilename}`;
-        storageProvider = 'local-public';
-      } catch {
-        // If filesystem is read-only (e.g. serverless Vercel function without Supabase bucket),
-        // fallback to standard Base64 Data URL which is 100% persistent in store record
-        persistentUrl = `data:${finalMime};base64,${buffer.toString('base64')}`;
-        storageProvider = 'base64-data-uri';
-      }
+    const bucketName = process.env.SUPABASE_POSTER_BUCKET || 'event-posters';
+    const storagePath = `posters/${safeFilename}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(storagePath, buffer, { contentType: finalMime, upsert: false });
+    if (uploadError || !uploadData) {
+      throw new Error(`Poster upload failed: ${uploadError?.message || 'No upload result returned.'}`);
     }
+    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+    const persistentUrl = publicUrlData?.publicUrl;
+    if (!persistentUrl) throw new Error('Poster uploaded but Supabase did not return a public URL.');
 
     // 7. Audit log
-    appendAuditLog({
+    await appendAuditLog({
       action: 'admin_poster_uploaded',
       entity: 'event_poster',
       entity_id: safeFilename,
@@ -188,7 +148,7 @@ export async function POST({ request, cookies }) {
         file_name: file.name || safeFilename,
         size_bytes: buffer.length,
         mime_type: finalMime,
-        storage_provider: storageProvider,
+        storage_provider: 'supabase-storage',
       },
     });
 
@@ -199,7 +159,7 @@ export async function POST({ request, cookies }) {
         filename: safeFilename,
         size: buffer.length,
         mimeType: finalMime,
-        storageProvider,
+        storageProvider: 'supabase-storage',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );

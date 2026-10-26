@@ -1,19 +1,17 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { supabase } from './supabase.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const PRIVATE_DOCUMENT_BUCKET = process.env.SUPABASE_PRIVATE_DOCUMENT_BUCKET || 'student-documents';
 
-// Private directory outside of static public routes
-const DEFAULT_UPLOAD_DIR = path.resolve(__dirname, '../data/private-uploads');
-const uploadDir = process.env.PRIVATE_UPLOAD_DIR || DEFAULT_UPLOAD_DIR;
-
-function ensureUploadDir() {
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true, mode: 0o700 });
+function normalizeDocumentKey(storageKey) {
+  if (typeof storageKey !== 'string' || storageKey.includes('..') || storageKey.includes('\\')) {
+    throw new Error('Invalid private document storage key.');
   }
+  const normalized = storageKey.startsWith('student-ids/') ? storageKey : `student-ids/${storageKey}`;
+  if (!/^student-ids\/[A-Za-z0-9-]+\.[A-Za-z0-9]+$/.test(normalized)) {
+    throw new Error('Invalid private document storage key.');
+  }
+  return normalized;
 }
 
 /**
@@ -27,19 +25,24 @@ export function calculateFileHash(buffer) {
  * Saves a file to private storage with a random UUID
  */
 export async function savePrivateFile(buffer, extension, mimeType) {
-  ensureUploadDir();
+  if (!supabase) {
+    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  }
 
   const fileId = crypto.randomUUID();
   const cleanExt = extension.replace(/^\./, '').toLowerCase();
   const safeFilename = `${fileId}.${cleanExt}`;
-  const absolutePath = path.join(uploadDir, safeFilename);
-
-  fs.writeFileSync(absolutePath, buffer, { mode: 0o600 });
+  const storageKey = `student-ids/${safeFilename}`;
+  const { error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).upload(storageKey, buffer, {
+    contentType: mimeType,
+    upsert: false,
+  });
+  if (error) throw new Error(`Unable to store private document: ${error.message}`);
   const hash = calculateFileHash(buffer);
 
   return {
-    storageKey: safeFilename,
-    absolutePath,
+    storageKey,
+    absolutePath: null,
     hash,
     size: buffer.length,
     mimeType,
@@ -50,35 +53,32 @@ export async function savePrivateFile(buffer, extension, mimeType) {
 /**
  * Reads a private file from storage
  */
-export function readPrivateFile(storageKey) {
-  // Prevent directory traversal attacks
-  const safeKey = path.basename(storageKey);
-  const absolutePath = path.join(uploadDir, safeKey);
-
-  if (!fs.existsSync(absolutePath)) {
-    return null;
+export async function readPrivateFile(storageKey) {
+  if (!supabase) {
+    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
-
-  return fs.readFileSync(absolutePath);
+  const normalizedKey = normalizeDocumentKey(storageKey);
+  const { data, error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).download(normalizedKey);
+  if (error) {
+    if (error.message.toLowerCase().includes('not found')) return null;
+    throw new Error(`Unable to read private document: ${error.message}`);
+  }
+  if (!data) throw new Error('Private document storage returned no file data.');
+  return Buffer.from(await data.arrayBuffer());
 }
 
 /**
  * Securely deletes a private file
  */
-export function deletePrivateFile(storageKey) {
+export async function deletePrivateFile(storageKey) {
   if (!storageKey) return false;
-  const safeKey = path.basename(storageKey);
-  const absolutePath = path.join(uploadDir, safeKey);
-
-  if (fs.existsSync(absolutePath)) {
-    try {
-      fs.unlinkSync(absolutePath);
-      return true;
-    } catch {
-      return false;
-    }
+  if (!supabase) {
+    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
-  return false;
+  const normalizedKey = normalizeDocumentKey(storageKey);
+  const { error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).remove([normalizedKey]);
+  if (error) throw new Error(`Unable to delete private document: ${error.message}`);
+  return true;
 }
 
 /**

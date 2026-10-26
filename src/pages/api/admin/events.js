@@ -5,13 +5,11 @@ import {
   getTicketTypesByEvent,
   saveEventWithTickets,
   saveEvent,
-  readStore,
-  writeStore,
   appendAuditLog,
 } from '../../../lib/ticketing-store.js';
 
 export async function GET({ request, cookies }) {
-  const auth = getAdminFromRequest(request, cookies);
+  const auth = await getAdminFromRequest(request, cookies);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required.' }),
@@ -20,11 +18,11 @@ export async function GET({ request, cookies }) {
   }
 
   try {
-    const rawEvents = listEvents();
-    const events = rawEvents.map((event) => ({
+    const rawEvents = await listEvents();
+    const events = await Promise.all(rawEvents.map(async (event) => ({
       ...event,
-      ticket_types: getTicketTypesByEvent(event.id),
-    }));
+      ticket_types: await getTicketTypesByEvent(event.id),
+    })));
 
     return new Response(JSON.stringify({ events }), {
       status: 200,
@@ -39,7 +37,7 @@ export async function GET({ request, cookies }) {
 }
 
 export async function POST({ request, cookies }) {
-  const auth = getAdminFromRequest(request, cookies);
+  const auth = await getAdminFromRequest(request, cookies);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required.' }),
@@ -126,7 +124,7 @@ export async function POST({ request, cookies }) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const store = readStore();
+    const store = await readStore();
     for (const ticketType of ticketTypes) {
       const existingTicketType = ticketType.id
         ? store.ticket_types.find((ticket) => ticket.id === ticketType.id)
@@ -192,9 +190,9 @@ export async function POST({ request, cookies }) {
       archived_at: isArchived ? new Date().toISOString() : null,
     };
 
-    const result = saveEventWithTickets({ eventData, ticketTypes });
+    const result = await saveEventWithTickets({ eventData, ticketTypes });
 
-    appendAuditLog({
+    await appendAuditLog({
       action: body.id ? 'admin_event_updated' : 'admin_event_created',
       entity: 'event',
       entity_id: result.event.id,
@@ -228,7 +226,7 @@ export async function PUT(context) {
 }
 
 export async function DELETE({ request, cookies }) {
-  const auth = getAdminFromRequest(request, cookies);
+  const auth = await getAdminFromRequest(request, cookies);
   if (!auth) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized. Admin session required.' }),
@@ -246,7 +244,7 @@ export async function DELETE({ request, cookies }) {
       });
     }
 
-    const event = getEventById(eventId);
+    const event = await getEventById(eventId);
     if (!event) {
       return new Response(JSON.stringify({ error: 'Event not found.' }), {
         status: 404,
@@ -260,13 +258,13 @@ export async function DELETE({ request, cookies }) {
       });
     }
 
-    saveEvent({
+    await saveEvent({
       ...event,
       status: 'archived',
       archived_at: new Date().toISOString(),
     });
 
-    appendAuditLog({
+    await appendAuditLog({
       action: 'admin_event_archived',
       entity: 'event',
       entity_id: eventId,

@@ -25,7 +25,7 @@ try {
   console.log(`Full Name: ${fullName}`);
   console.log(`Role:      ${role}`);
 
-  const user = provisionAdminUser({
+  const user = await provisionAdminUser({
     email,
     password,
     fullName,

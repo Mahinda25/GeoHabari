@@ -11,7 +11,7 @@ export async function POST({ request }) {
   try {
     const body = await request.json();
     assertPaystackConfigured();
-    const checkout = createOrderCheckout(body.event_id, body);
+    const checkout = await createOrderCheckout(body.event_id, body);
     order = checkout.order;
 
     const payment = await initializePaystackTransaction(order, checkout.event);
@@ -26,7 +26,7 @@ export async function POST({ request }) {
   } catch (error) {
     if (order) {
       try {
-        verifyPaymentAndIssueTickets({
+        await verifyPaymentAndIssueTickets({
           orderReference: order.reference,
           provider: 'paystack',
           providerReference: order.reference,

@@ -2,7 +2,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { queryTicketHolders, checkInTicket, listEvents } from '../../lib/ticketing-store.js';
 
-const allEvents = listEvents();
+const allEvents = await listEvents();
 const activeEvents = allEvents.filter((e) => e.status !== 'archived' && !e.archived_at);
 const archivedEvents = allEvents.filter((e) => e.status === 'archived' || Boolean(e.archived_at));
 
@@ -28,7 +28,7 @@ if (Astro.request.method === 'POST') {
     const ticketCode = formData.get('ticket_code');
 
     if (action === 'check_in' && ticketCode) {
-      checkInFeedback = checkInTicket(String(ticketCode));
+      checkInFeedback = await checkInTicket(String(ticketCode));
     }
   } catch (err) {
     checkInFeedback = { success: false, error: (err as any).message };
@@ -36,7 +36,7 @@ if (Astro.request.method === 'POST') {
 }
 
 // Query authoritative ticket holders scoped by selected event
-const { rows, total, totalPages, hasNextPage, hasPrevPage } = queryTicketHolders({
+const { rows, total, totalPages, hasNextPage, hasPrevPage } = await queryTicketHolders({
   eventId,
   search,
   category,

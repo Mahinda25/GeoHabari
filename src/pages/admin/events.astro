@@ -2,11 +2,11 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { listEvents, getTicketTypesByEvent, readStore } from '../../lib/ticketing-store.js';
 
-const rawEvents = listEvents();
-const store = readStore();
+const rawEvents = await listEvents();
+const store = await readStore();
 
-const events = rawEvents.map((event) => {
-  const tickets = getTicketTypesByEvent(event.id);
+const events = await Promise.all(rawEvents.map(async (event) => {
+  const tickets = await getTicketTypesByEvent(event.id);
   const totalAllocation = tickets.reduce((sum, t) => sum + Number(t.allocation || 0), 0);
   const totalSold = tickets.reduce((sum, t) => sum + Number(t.sold_count || 0), 0);
   const ticketHolderCount = store.tickets.filter((ticket) => ticket.event_id === event.id).length;
@@ -17,7 +17,7 @@ const events = rawEvents.map((event) => {
     totalSold,
     ticketHolderCount,
   };
-}).sort((a, b) => {
+})).then((results) => results.sort((a, b) => {
   const now = Date.now();
   const getGroup = (event) => {
     if (event.status === 'archived' || event.archived_at) return 3;
@@ -29,7 +29,7 @@ const events = rawEvents.map((event) => {
   if (groupDifference !== 0) return groupDifference;
   const dateDifference = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
   return getGroup(a) === 2 ? -dateDifference : dateDifference;
-});
+}));
 
 const totalPublished = events.filter((e) => e.status === 'published' && !e.archived_at).length;
 const totalCapacity = events.reduce((sum, e) => sum + e.totalAllocation, 0);

@@ -70,12 +70,12 @@ export async function POST({ request }) {
     const documentHash = calculateFileHash(buffer);
 
     // 3. Duplicate document & abuse prevention check
-    const existingSubmission = getStudentVerificationByHash(documentHash);
+    const existingSubmission = await getStudentVerificationByHash(documentHash);
     let isFlaggedDuplicate = false;
 
     if (existingSubmission && existingSubmission.buyer_name.toLowerCase() !== buyerName.toLowerCase()) {
       isFlaggedDuplicate = true;
-      appendAuditLog({
+      await appendAuditLog({
         action: 'student_id_duplicate_detected',
         entity: 'student_verification',
         entity_id: existingSubmission.id,
@@ -109,7 +109,7 @@ export async function POST({ request }) {
     if (isFlaggedDuplicate) {
       verificationRecord.status = 'retry_required';
       verificationRecord.failure_reason = 'duplicate_document_different_applicant';
-      saveStudentVerification(verificationRecord);
+      await saveStudentVerification(verificationRecord);
 
       return new Response(
         JSON.stringify({
@@ -127,7 +127,7 @@ export async function POST({ request }) {
     if (!ocrResult.success) {
       verificationRecord.status = 'retry_required';
       verificationRecord.failure_reason = ocrResult.reason;
-      saveStudentVerification(verificationRecord);
+      await saveStudentVerification(verificationRecord);
 
       return new Response(
         JSON.stringify({
@@ -148,7 +148,7 @@ export async function POST({ request }) {
       // High confidence match approved automatically
       verificationRecord.status = 'approved';
       verificationRecord.verified_at = new Date().toISOString();
-      saveStudentVerification(verificationRecord);
+      await saveStudentVerification(verificationRecord);
 
       const { token, expiresAt } = generateVerificationToken(
         verificationRecord.id,
@@ -156,7 +156,7 @@ export async function POST({ request }) {
         'student_id_name_match'
       );
 
-      appendAuditLog({
+      await appendAuditLog({
         action: 'student_id_name_match_approved',
         entity: 'student_verification',
         entity_id: verificationRecord.id,
@@ -183,9 +183,9 @@ export async function POST({ request }) {
     // Ambiguous or mismatch
     verificationRecord.status = 'retry_required';
     verificationRecord.failure_reason = matchResult.reason;
-    saveStudentVerification(verificationRecord);
+    await saveStudentVerification(verificationRecord);
 
-    appendAuditLog({
+    await appendAuditLog({
       action: 'student_id_name_match_failed',
       entity: 'student_verification',
       entity_id: verificationRecord.id,

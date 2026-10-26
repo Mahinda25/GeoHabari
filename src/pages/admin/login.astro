@@ -4,10 +4,10 @@ import '../../styles/global.scss';
 import '../../styles/globals.css';
 
 // Ensure bootstrap admin exists
-ensureInitialAdmin();
+await ensureInitialAdmin();
 
 // If already authenticated, redirect to dashboard
-const auth = getAdminFromRequest(Astro.request, Astro.cookies);
+const auth = await getAdminFromRequest(Astro.request, Astro.cookies);
 if (auth) {
   return Astro.redirect('/admin');
 }

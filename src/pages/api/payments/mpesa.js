@@ -6,7 +6,7 @@ export async function POST({ request }) {
   try {
     const body = await request.json();
     const orderReference = String(body.order_reference || body.OrderReference || '').trim();
-    const order = getOrderByReference(orderReference);
+    const order = await getOrderByReference(orderReference);
     if (!order || order.payment_method !== 'mpesa' || order.status !== 'pending') {
       return new Response(JSON.stringify({ error: 'A pending M-Pesa order is required.' }), {
         status: 404,
@@ -14,7 +14,8 @@ export async function POST({ request }) {
       });
     }
 
-    const payment = readStore().payments.find((entry) => entry.order_id === order.id);
+    const store = await readStore();
+    const payment = store.payments.find((entry) => entry.order_id === order.id);
     if (!payment || !payment.provider_reference.startsWith('MPESA-')) {
       return new Response(JSON.stringify({ error: 'Payment checkout has already been started for this order.' }), {
         status: 409,
@@ -22,7 +23,7 @@ export async function POST({ request }) {
       });
     }
 
-    const event = getEventById(order.event_id);
+    const event = await getEventById(order.event_id);
     if (!event) {
       return new Response(JSON.stringify({ error: 'The event for this order was not found.' }), {
         status: 404,

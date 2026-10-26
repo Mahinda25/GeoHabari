@@ -8,7 +8,7 @@ const JSON_HEADERS = {
 };
 
 export async function POST({ request, cookies }) {
-  if (!getAdminFromRequest(request, cookies)) {
+  if (!await getAdminFromRequest(request, cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized. Admin session required.' }), {
       status: 401,
       headers: JSON_HEADERS,
@@ -17,7 +17,7 @@ export async function POST({ request, cookies }) {
 
   try {
     const { reference } = await request.json();
-    const store = readStore();
+    const store = await readStore();
     const order = store.orders.find((entry) => entry.reference === String(reference || '').trim());
     if (!order || order.status !== 'paid') {
       return new Response(JSON.stringify({ error: 'Only paid orders can receive ticket emails.' }), {
@@ -48,7 +48,7 @@ export async function POST({ request, cookies }) {
       paymentReference: store.payments.find((payment) => payment.order_id === order.id)?.provider_reference || order.reference,
     });
 
-    appendAuditLog({
+    await appendAuditLog({
       action: 'email_resent',
       entity: 'order',
       entity_id: order.id,

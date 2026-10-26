@@ -2,8 +2,8 @@
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { readStore, getTicketMetrics } from "../../lib/ticketing-store.js";
 
-const store = readStore();
-const metrics = getTicketMetrics();
+const store = await readStore();
+const metrics = await getTicketMetrics();
 
 // 1. Confirmed figures strictly derived from paid transactions
 const paidOrders = store.orders.filter(

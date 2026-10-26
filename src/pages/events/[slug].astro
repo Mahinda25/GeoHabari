@@ -4,7 +4,7 @@ import TicketPurchase from "../../components/TicketPurchase";
 import { getEventDetail } from "../../lib/ticketing.js";
 
 const { slug } = Astro.params;
-const event = getEventDetail(slug);
+const event = await getEventDetail(slug);
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 
 if (!event) {
