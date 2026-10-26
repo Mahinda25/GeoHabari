@@ -8,7 +8,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "test": "node --test tests/*.test.js",
-    "admin:create": "node scripts/provision-admin.js"
+    "admin:create": "node scripts/provision-admin.js",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
     "@astrojs/partytown": "^2.1.8",
@@ -94,5 +95,17 @@
     "astro-icon": "^1.1.5",
     "prisma": "^8.0.0-rc.27",
     "vite": "^6.4.1"
-  }
+  },
+  
+  "rewrites": [
+    {
+      "source": "/events",
+      "destination": "/events"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin"
+    }
+  ]
+
 }
