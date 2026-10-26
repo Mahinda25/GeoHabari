@@ -9,6 +9,7 @@ import {
 } from '../src/lib/phone.js';
 import {
   createOrderCheckout as makeOrder,
+  sendConfirmationEmail,
   verifyPaymentAndIssueTickets,
 } from '../src/lib/ticketing.js';
 import { readStore, resetStore, writeStore } from '../src/lib/ticketing-store.js';
@@ -39,6 +40,47 @@ test('East African phone inputs normalize to valid E.164 contacts', () => {
   assert.equal(isSafaricomKenyaPhone('0712345678'), true);
   assert.equal(isSafaricomKenyaPhone('+254731234567'), false);
   assert.equal(validateEastAfricanPhone('123', '254'), false);
+});
+
+test('Ticket confirmation email uses the verified sender and issued ticket codes', async () => {
+  const oldResend = process.env.RESEND_API_KEY;
+  const oldResendFrom = process.env.RESEND_FROM;
+  const oldFetch = globalThis.fetch;
+  process.env.RESEND_API_KEY = 're_test';
+  process.env.RESEND_FROM = 'GeoHabari Tickets  < tickets@tickets.geohabari.com >';
+
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), 'https://api.resend.com/emails');
+    assert.equal(options.headers.Authorization, 'Bearer re_test');
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.from, 'GeoHabari Tickets <tickets@tickets.geohabari.com>');
+    assert.deepEqual(payload.to, ['buyer@example.com']);
+    assert.equal(payload.subject, 'Your Ticket for Tech Summit [Confirmed]');
+    assert.match(payload.html, /Hi Ada, your payment was successfully processed via Paystack/);
+    assert.match(payload.html, /GH26-UNIQUE123/);
+    assert.match(payload.html, /PAY-REFERENCE-123/);
+    return Response.json({ id: 'email-test' });
+  };
+
+  try {
+    await sendConfirmationEmail({
+      buyerName: 'Ada Lovelace',
+      buyerEmail: 'buyer@example.com',
+      eventTitle: 'Tech Summit',
+      venue: 'Nairobi',
+      startsAt: '2026-10-26T09:00:00.000Z',
+      ticketTypeName: 'Professional',
+      quantity: 1,
+      ticketCodes: ['GH26-UNIQUE123'],
+      paymentReference: 'PAY-REFERENCE-123',
+    });
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldResend === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = oldResend;
+    if (oldResendFrom === undefined) delete process.env.RESEND_FROM;
+    else process.env.RESEND_FROM = oldResendFrom;
+  }
 });
 
 test('Paystack initialization is server-side, KES-denominated, and enables card and mobile money', async () => {
@@ -267,10 +309,12 @@ test('Signed Paystack webhooks verify server-side and issue tickets exactly once
   const oldSecret = process.env.PAYSTACK_SECRET_KEY;
   const oldSite = process.env.PUBLIC_SITE_URL;
   const oldResend = process.env.RESEND_API_KEY;
+  const oldResendFrom = process.env.RESEND_FROM;
   const oldFetch = globalThis.fetch;
   process.env.PAYSTACK_SECRET_KEY = 'sk_test_private';
   process.env.PUBLIC_SITE_URL = 'https://tickets.geohabari.com';
   process.env.RESEND_API_KEY = 're_test';
+  process.env.RESEND_FROM = 'GeoHabari Tickets  < tickets@tickets.geohabari.com >';
   resetStore();
 
   const store = readStore();
@@ -286,8 +330,9 @@ test('Signed Paystack webhooks verify server-side and issue tickets exactly once
     accept_terms: true,
   }).order;
   let verificationCalls = 0;
+  const sentEmails = [];
 
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, options) => {
     if (String(url) === `https://api.paystack.co/transaction/verify/${order.reference}`) {
       verificationCalls += 1;
       return Response.json({
@@ -302,6 +347,7 @@ test('Signed Paystack webhooks verify server-side and issue tickets exactly once
       });
     }
     if (String(url) === 'https://api.resend.com/emails') {
+      sentEmails.push(JSON.parse(options.body));
       return Response.json({ id: 'email-test' });
     }
     throw new Error('Unexpected request in Paystack webhook test.');
@@ -332,8 +378,17 @@ test('Signed Paystack webhooks verify server-side and issue tickets exactly once
     assert.equal(duplicate.status, 200);
     assert.equal(duplicateBody.alreadyProcessed, true);
     assert.equal(verificationCalls, 2);
+    assert.equal(sentEmails.length, 1);
+    assert.equal(sentEmails[0].from, 'GeoHabari Tickets <tickets@tickets.geohabari.com>');
+    assert.deepEqual(sentEmails[0].to, ['buyer@example.com']);
+    assert.equal(sentEmails[0].subject, `Your Ticket for ${event.title} [Confirmed]`);
+    assert.match(sentEmails[0].html, /Thank you for your purchase!/);
+    assert.match(sentEmails[0].html, /payment was successfully processed via Paystack/);
     assert.equal(readStore().tickets.filter((ticket) => ticket.order_id === order.id).length, 2);
     assert.ok(readStore().tickets.every((ticket) => ticket.attendee_name === order.buyer_name));
+    for (const ticket of readStore().tickets.filter((entry) => entry.order_id === order.id)) {
+      assert.match(sentEmails[0].html, new RegExp(ticket.ticket_code));
+    }
 
     const invalid = await handlePaystackWebhook({
       request: new Request('https://tickets.geohabari.com/api/payments/paystack', {
@@ -352,6 +407,8 @@ test('Signed Paystack webhooks verify server-side and issue tickets exactly once
     else process.env.PUBLIC_SITE_URL = oldSite;
     if (oldResend === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = oldResend;
+    if (oldResendFrom === undefined) delete process.env.RESEND_FROM;
+    else process.env.RESEND_FROM = oldResendFrom;
   }
 });
 
