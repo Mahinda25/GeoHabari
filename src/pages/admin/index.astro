@@ -10,9 +10,18 @@ const ticketTypes = store.ticket_types as {
 }[];
 
 // 1. Confirmed figures strictly derived from paid transactions
-const paidOrders = store.orders.filter(
-  (o: { status: string }) => o.status === "paid",
-);
+const paidOrders = (
+  store.orders as Array<{
+    id: string | number;
+    status: string;
+    email: string;
+    amount: string | number;
+    quantity: number;
+    ticket_type_id: string | number;
+    event_id: string | number;
+    created_at: string;
+  }>
+).filter((o: { status: string }) => o.status === "paid");
 const pendingOrders = store.orders.filter(
   (o: { status: string }) => o.status === "pending",
 );
@@ -87,16 +96,17 @@ const recentPurchases = [...paidOrders]
   )
   .slice(0, 8)
   .map((order) => {
-    const event = store.events.find(
-      (e: { id: string | number }) => e.id === order.event_id,
-    );
+    const event = (
+      store.events as Array<{
+        id: string | number;
+        title?: string | null;
+      }>
+    ).find((e) => e.id === order.event_id);
     const tickets = store.tickets.filter(
       (t: { order_id: string | number; ticket_code: string }) =>
         t.order_id === order.id,
     );
-    const ticketType = ticketTypes.find(
-      (tt) => tt.id === order.ticket_type_id,
-    );
+    const ticketType = ticketTypes.find((tt) => tt.id === order.ticket_type_id);
     return {
       ...order,
       eventTitle: event?.title || "Summit 2026",
@@ -106,14 +116,27 @@ const recentPurchases = [...paidOrders]
   });
 
 // Recent payment attempts (pending or failed, last 5)
-const recentPaymentAttempts = [...store.payments]
+const recentPaymentAttempts = [
+  ...(store.payments as Array<{
+    created_at: string;
+    order_id: string | number;
+    provider_reference?: string | null;
+    provider: string;
+    amount?: string | number | null;
+    status: string;
+  }>),
+]
   .sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
   .slice(0, 5)
   .map((payment) => {
-    const order = store.orders.find(
+    const order = (store.orders as Array<{
+      id: string | number;
+      reference?: string | null;
+      buyer_name?: string | null;
+    }>).find(
       (o: {
         id: string | number;
         reference?: string | null;
