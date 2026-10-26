@@ -98,10 +98,6 @@
   },
   "rewrites": [
     {
-      "source": "/events",
-      "destination": "/events"
-    },
-    {
       "source": "/admin",
       "destination": "/admin"
     }
