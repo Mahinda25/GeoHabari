@@ -342,6 +342,18 @@
   "exports": [],
   "audit_logs": [
     {
+      "id": "fd45f39e-2f70-4ead-a61e-ebeba6ea70bf",
+      "created_at": "2026-10-26T07:56:28.614Z",
+      "action": "admin_login_success",
+      "entity": "admin_user",
+      "entity_id": "251ca4ed-1eae-4cc6-97c8-bd691b245c0e",
+      "details": {
+        "email": "admin@geohabari.com",
+        "ipAddress": "127.0.0.1",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+      }
+    },
+    {
       "id": "740d3c0c-0d3a-4b67-8e1b-6bd9408deafc",
       "created_at": "2026-10-24T21:21:35.135Z",
       "action": "admin_login_success",
@@ -824,44 +836,23 @@
       "ip_address": "127.0.0.1",
       "expires_at": "2026-10-31T17:44:00.823Z",
       "created_at": "2026-10-24T17:44:00.826Z"
+    },
+    {
+      "id": "ae965a93-d506-4d99-8e98-f92f565249be",
+      "user_id": "251ca4ed-1eae-4cc6-97c8-bd691b245c0e",
+      "session_token": "71fa0d7eade465cb721f075b1574d8f6ab6c26846d83825f946f412d6bb7b9dc",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "ip_address": "127.0.0.1",
+      "expires_at": "2026-11-02T07:56:28.606Z",
+      "created_at": "2026-10-26T07:56:28.609Z"
     }
   ],
   "login_attempts": [
     {
-      "id": "cae08ca3-ec72-4128-af92-49aeea5646a1",
+      "id": "f4740a19-0b63-4b64-aa2e-8baf4b15bbf3",
       "identifier": "admin@geohabari.com",
       "success": true,
-      "created_at": "2026-10-24T19:36:26.325Z"
-    },
-    {
-      "id": "4c33d130-afbd-4dba-81de-dc04da970a60",
-      "identifier": "admin@geohabari.com",
-      "success": true,
-      "created_at": "2026-10-24T19:40:06.291Z"
-    },
-    {
-      "id": "21d70353-6ac9-4653-a825-7a6a1c0a5c24",
-      "identifier": "admin@geohabari.com",
-      "success": true,
-      "created_at": "2026-10-24T20:47:56.900Z"
-    },
-    {
-      "id": "09e263fd-7856-43cb-81e6-1b1c73542739",
-      "identifier": "admin@geohabari.com",
-      "success": true,
-      "created_at": "2026-10-24T21:13:17.397Z"
-    },
-    {
-      "id": "90af1a94-0e5b-4781-873b-ed905997a7bb",
-      "identifier": "admin@geohabari.com",
-      "success": true,
-      "created_at": "2026-10-24T21:18:31.677Z"
-    },
-    {
-      "id": "d37d991f-00c3-4b37-bbd0-271453406a15",
-      "identifier": "admin@geohabari.com",
-      "success": true,
-      "created_at": "2026-10-24T21:21:35.125Z"
+      "created_at": "2026-10-26T07:56:28.602Z"
     }
   ]
 }

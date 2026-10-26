@@ -5,9 +5,13 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dataDir = path.resolve(__dirname, '../data');
+// Use a writable location in serverless environments (e.g., Vercel)
+// If running on Vercel, store data in /tmp which is writable at runtime.
+// Otherwise fall back to the project's data directory (read‑only on Vercel).
 const storePath = process.env.TICKETING_STORE_PATH
   ? path.resolve(process.env.TICKETING_STORE_PATH)
-  : path.join(dataDir, 'ticketing-store.json');
+  : (process.env.VERCEL ? path.join('/tmp', 'ticketing-store.json') : path.join(dataDir, 'ticketing-store.json'));
+
 
 const defaultStore = {
   events: [
