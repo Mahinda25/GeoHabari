@@ -96,7 +96,6 @@
     "prisma": "^8.0.0-rc.27",
     "vite": "^6.4.1"
   },
-  
   "rewrites": [
     {
       "source": "/events",
@@ -107,5 +106,4 @@
       "destination": "/admin"
     }
   ]
-
 }
