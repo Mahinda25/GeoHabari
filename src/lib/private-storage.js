@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
-import { supabase } from './supabase.js';
+import { getSupabaseClient } from './supabase.js';
 
 const PRIVATE_DOCUMENT_BUCKET = process.env.SUPABASE_PRIVATE_DOCUMENT_BUCKET || 'student-documents';
+const PUBLIC_POSTER_BUCKET = process.env.SUPABASE_POSTER_BUCKET || 'event-posters';
 
 function normalizeDocumentKey(storageKey) {
   if (typeof storageKey !== 'string' || storageKey.includes('..') || storageKey.includes('\\')) {
@@ -25,14 +26,13 @@ export function calculateFileHash(buffer) {
  * Saves a file to private storage with a random UUID
  */
 export async function savePrivateFile(buffer, extension, mimeType) {
-  if (!supabase) {
-    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
+  const supabase = getSupabaseClient();
 
   const fileId = crypto.randomUUID();
   const cleanExt = extension.replace(/^\./, '').toLowerCase();
   const safeFilename = `${fileId}.${cleanExt}`;
   const storageKey = `student-ids/${safeFilename}`;
+  
   const { error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).upload(storageKey, buffer, {
     contentType: mimeType,
     upsert: false,
@@ -51,12 +51,33 @@ export async function savePrivateFile(buffer, extension, mimeType) {
 }
 
 /**
+ * Saves an event poster to the public 'event-posters' bucket
+ */
+export async function savePosterFile(buffer, extension, mimeType) {
+  const supabase = getSupabaseClient();
+
+  const fileId = crypto.randomUUID();
+  const cleanExt = extension.replace(/^\./, '').toLowerCase();
+  const safeFilename = `poster-${fileId}.${cleanExt}`;
+  
+  const { error } = await supabase.storage.from(PUBLIC_POSTER_BUCKET).upload(safeFilename, buffer, {
+    contentType: mimeType,
+    upsert: true,
+  });
+  
+  if (error) throw new Error(`Unable to upload poster: ${error.message}`);
+
+  // Get public URL for the poster
+  const { data: publicUrlData } = supabase.storage.from(PUBLIC_POSTER_BUCKET).getPublicUrl(safeFilename);
+
+  return publicUrlData.publicUrl;
+}
+
+/**
  * Reads a private file from storage
  */
 export async function readPrivateFile(storageKey) {
-  if (!supabase) {
-    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
+  const supabase = getSupabaseClient();
   const normalizedKey = normalizeDocumentKey(storageKey);
   const { data, error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).download(normalizedKey);
   if (error) {
@@ -72,9 +93,7 @@ export async function readPrivateFile(storageKey) {
  */
 export async function deletePrivateFile(storageKey) {
   if (!storageKey) return false;
-  if (!supabase) {
-    throw new Error('Private document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  }
+  const supabase = getSupabaseClient();
   const normalizedKey = normalizeDocumentKey(storageKey);
   const { error } = await supabase.storage.from(PRIVATE_DOCUMENT_BUCKET).remove([normalizedKey]);
   if (error) throw new Error(`Unable to delete private document: ${error.message}`);
