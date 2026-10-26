@@ -4,6 +4,10 @@ import { readStore, getTicketMetrics } from "../../lib/ticketing-store.js";
 
 const store = await readStore();
 const metrics = await getTicketMetrics();
+const ticketTypes = store.ticket_types as {
+  id: string | number;
+  name?: string | null;
+}[];
 
 // 1. Confirmed figures strictly derived from paid transactions
 const paidOrders = store.orders.filter(
@@ -42,10 +46,7 @@ const studentRevenue = paidOrders
       amount: string | number;
       quantity: number;
     }) => {
-      const t = store.ticket_types.find(
-        (tt: { id: string | number; name?: string | null }) =>
-          tt.id === o.ticket_type_id,
-      );
+      const t = ticketTypes.find((tt) => tt.id === o.ticket_type_id);
       return (
         t?.name?.toLowerCase().includes("student") ||
         Number(o.amount) / o.quantity === 600
@@ -65,10 +66,7 @@ const proRevenue = paidOrders
       amount: string | number;
       quantity: number;
     }) => {
-      const t = store.ticket_types.find(
-        (tt: { id: string | number; name?: string | null }) =>
-          tt.id === o.ticket_type_id,
-      );
+      const t = ticketTypes.find((tt) => tt.id === o.ticket_type_id);
       return (
         t?.name?.toLowerCase().includes("professional") ||
         Number(o.amount) / o.quantity === 1000
@@ -96,9 +94,8 @@ const recentPurchases = [...paidOrders]
       (t: { order_id: string | number; ticket_code: string }) =>
         t.order_id === order.id,
     );
-    const ticketType = store.ticket_types.find(
-      (tt: { id: string | number; name?: string | null }) =>
-        tt.id === order.ticket_type_id,
+    const ticketType = ticketTypes.find(
+      (tt) => tt.id === order.ticket_type_id,
     );
     return {
       ...order,
