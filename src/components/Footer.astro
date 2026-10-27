@@ -1,12 +1,11 @@
 ---
 import LogoImage from "../images/logo/geopod-green.svg";
 import platforms from "../data/platforms.json";
-import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
+import { getWordPressUrl } from "../utils/navigation.js";
 
 const homeUrl = getWordPressUrl("/");
 const aboutUrl = getWordPressUrl("/about");
 const episodesUrl = getWordPressUrl("/episodes");
-const eventsUrl = getTicketingUrl("/events");
 const contactUrl = getWordPressUrl("/contact");
 ---
 
@@ -98,7 +97,7 @@ const contactUrl = getWordPressUrl("/contact");
           <a href={homeUrl}>Home</a>
           <a href={aboutUrl}>About</a>
           <a href={episodesUrl}>Episodes</a>
-          <a href={eventsUrl}>Events</a>
+          <a href="/events">Events</a>
           <a href={contactUrl}>Contact</a>
         </div>
 
@@ -148,7 +147,7 @@ const contactUrl = getWordPressUrl("/contact");
       <div class="dev-credit">
         <p>
           <a
-            href="../admin/login.astro"
+            href="/admin/login"
             target="_blank"
             rel="noopener noreferrer">Adminstrator</a
           >

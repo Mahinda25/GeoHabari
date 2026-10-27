@@ -11,6 +11,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   site: 'https://geohabari.com', // Required for sitemap
+  trailingSlash: 'ignore',
   integrations: [
     react(),
     sitemap({

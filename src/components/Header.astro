@@ -4,7 +4,7 @@ import LogoImage from "../images/logo/geopod-dark.svg";
 import LogoLight from "../images/logo/geopod-green.svg";
 import Button from "./Button.astro";
 import Link from "./Link.astro";
-import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
+import { getWordPressUrl } from "../utils/navigation.js";
 
 interface Props {
   darkHero?: boolean;
@@ -20,7 +20,6 @@ function isActive(href: string): boolean {
 
 const homeUrl = getWordPressUrl("/");
 const aboutUrl = getWordPressUrl("/about");
-const eventsUrl = getTicketingUrl("/events");
 const contactUrl = getWordPressUrl("/contact");
 const episodesUrl = getWordPressUrl("/episodes");
 ---
@@ -151,7 +150,7 @@ const episodesUrl = getWordPressUrl("/episodes");
     </a>
     <a
       class={`nav-link ${isActive("/events") ? "active" : ""}`}
-      href={eventsUrl}
+      href="/events"
     >
       Events
     </a>
@@ -193,7 +192,7 @@ const episodesUrl = getWordPressUrl("/episodes");
       >
       <a
         class={`drawer-link ${isActive("/events") ? "active" : ""}`}
-        href={eventsUrl}>Events</a
+        href="/events">Events</a
       >
       <a
         class={`drawer-link ${isActive("/contact") ? "active" : ""}`}

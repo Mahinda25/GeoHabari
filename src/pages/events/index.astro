@@ -1,6 +1,6 @@
 ---
-import Layout from "../layout/Layout.astro";
-import { getPublishedEvents } from "../lib/ticketing.js";
+import Layout from "../../layout/Layout.astro";
+import { getPublishedEvents } from "../../lib/ticketing.js";
 
 const events = await getPublishedEvents();
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
@@ -51,7 +51,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 </Layout>
 
 <style lang="scss">
-  @use "../styles/partials/combined.scss" as *;
+  @use "../../styles/partials/combined.scss" as *;
 
   .events-page-shell {
     max-width: 1200px;
