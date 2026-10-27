@@ -185,6 +185,12 @@ export async function createOrderCheckout(eventId, requestPayload) {
   // ========================================================
   const isStudentTicket =
     ticketType.category_type === 'student' || ticketType.name.toLowerCase().includes('student');
+  const isProfessionalTicket =
+    ticketType.category_type === 'professional' || ticketType.name.toLowerCase().includes('professional');
+
+  if (isProfessionalTicket && (!validated.organization || !validated.role)) {
+    throw new Error('Professional organization and role are required for Professional tickets.');
+  }
 
   let verifiedStudentRecord = null;
 
@@ -242,8 +248,8 @@ export async function createOrderCheckout(eventId, requestPayload) {
     email: validated.email,
     quantity: validated.quantity,
     amount,
-    organization: null,
-    role: null,
+    organization: isProfessionalTicket ? validated.organization : null,
+    role: isProfessionalTicket ? validated.role : null,
     attendees: [],
     status: 'pending',
     payment_method: validated.payment_method,

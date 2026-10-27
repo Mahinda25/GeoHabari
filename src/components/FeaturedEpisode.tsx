@@ -1,12 +1,12 @@
 import { Play, Clock, Calendar, Headphones } from "lucide-react";
 import { motion } from "motion/react";
-import imgContainerImg from "figma:asset/161d8d24bd33143a1de51bee3873c99728e0dfc1.png";
-import imgImgProfile7 from "figma:asset/7949ac22e55b4a4a6c86d7bacc36ede8364f8783.png";
-import imgImgProfile4 from "figma:asset/1cbd7a12730b5265576540335d9be977c1c66004.png";
-import imgImgProfile5 from "figma:asset/fc4c587cbeabc13a27de43491d71361b66dfbd5e.png";
-import imgImgProfile6 from "figma:asset/7d5766d0548fe131f8a921b6919660eb2a02c3ec.png";
-import imgImgMap from "figma:asset/654fbbb19d54a2e3f2616b9e2cc089d0dad6552c.png";
-import imgImgMap1 from "figma:asset/0da2dba8a451cff7503cbc8d25297125ecc1249a.png";
+import imgContainerImg from "../assets/161d8d24bd33143a1de51bee3873c99728e0dfc1.png";
+import imgImgProfile7 from "../assets/7949ac22e55b4a4a6c86d7bacc36ede8364f8783.png";
+import imgImgProfile4 from "../assets/1cbd7a12730b5265576540335d9be977c1c66004.png";
+import imgImgProfile5 from "../assets/fc4c587cbeabc13a27de43491d71361b66dfbd5e.png";
+import imgImgProfile6 from "../assets/7d5766d0548fe131f8a921b6919660eb2a02c3ec.png";
+import imgImgMap from "../assets/654fbbb19d54a2e3f2616b9e2cc089d0dad6552c.png";
+import imgImgMap1 from "../assets/0da2dba8a451cff7503cbc8d25297125ecc1249a.png";
 
 export function FeaturedEpisode() {
   return (

@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = String(
+  process.env.SUPABASE_URL || import.meta.env?.SUPABASE_URL || ''
+).trim();
+const serviceRoleKey = String(
+  process.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
+).trim();
 
 export const supabase = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, {

@@ -6,7 +6,7 @@ const API_BASE_URL = 'https://api.paystack.co';
 
 function getServerEnv(name) {
   const viteEnv = import.meta.env || {};
-  return viteEnv[name] || process.env[name] || '';
+  return String(process.env[name] || viteEnv[name] || '').trim();
 }
 
 function getSecretKey() {
@@ -136,7 +136,7 @@ export async function verifyPaystackTransaction(reference) {
 
 export function verifyPaystackWebhookSignature(rawBody, signature) {
   const secretKey = getSecretKey();
-  if (!signature || typeof signature !== 'string') return false;
+  if (typeof signature !== 'string' || !/^[a-f\d]{128}$/i.test(signature)) return false;
 
   const expected = createHmac('sha512', secretKey).update(rawBody).digest();
   const actual = Buffer.from(signature, 'hex');

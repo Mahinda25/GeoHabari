@@ -4,7 +4,7 @@ import LogoImage from "../images/logo/geopod-dark.svg";
 import LogoLight from "../images/logo/geopod-green.svg";
 import Button from "./Button.astro";
 import Link from "./Link.astro";
-import { getWordPressUrl } from "../utils/navigation.js";
+import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
 
 interface Props {
   darkHero?: boolean;
@@ -20,12 +20,12 @@ function isActive(href: string): boolean {
 
 const homeUrl = getWordPressUrl("/");
 const aboutUrl = getWordPressUrl("/about");
+const eventsUrl = getTicketingUrl("/events");
 const contactUrl = getWordPressUrl("/contact");
 const episodesUrl = getWordPressUrl("/episodes");
 ---
 
 <script>
-  import { navigate } from "astro:transitions/client";
   const menuicon = document.querySelector("div.icon_menu");
   const closeicon = document.querySelector("div.close_icon");
   const toEpisode = document.querySelector("#to_episodes");
@@ -44,7 +44,7 @@ const episodesUrl = getWordPressUrl("/episodes");
   toEpisode?.addEventListener("click", () => {
     drawer?.classList.replace("open", "closed");
     document.body.style.overflow = "";
-    navigate("/episodes");
+    window.location.assign("/episodes");
   });
 
   // Close drawer on link click
@@ -136,21 +136,15 @@ const episodesUrl = getWordPressUrl("/episodes");
     <LogoLight class="logo-vector logo-light" width={140} height={48} />
   </a>
   <nav class="container_nav">
-    <a
-      class={`nav-link ${isActive("/") ? "active" : ""}`}
-      href={homeUrl}
-    >
+    <a class={`nav-link ${isActive("/") ? "active" : ""}`} href={homeUrl}>
       Home
     </a>
-    <a
-      class={`nav-link ${isActive("/about") ? "active" : ""}`}
-      href={aboutUrl}
-    >
+    <a class={`nav-link ${isActive("/about") ? "active" : ""}`} href={aboutUrl}>
       About
     </a>
     <a
       class={`nav-link ${isActive("/events") ? "active" : ""}`}
-      href="/events"
+      href={eventsUrl}
     >
       Events
     </a>
@@ -182,9 +176,8 @@ const episodesUrl = getWordPressUrl("/episodes");
       </div>
     </div>
     <nav class="drawer_nav">
-      <a
-        class={`drawer-link ${isActive("/") ? "active" : ""}`}
-        href={homeUrl}>Home</a
+      <a class={`drawer-link ${isActive("/") ? "active" : ""}`} href={homeUrl}
+        >Home</a
       >
       <a
         class={`drawer-link ${isActive("/about") ? "active" : ""}`}
@@ -192,15 +185,13 @@ const episodesUrl = getWordPressUrl("/episodes");
       >
       <a
         class={`drawer-link ${isActive("/events") ? "active" : ""}`}
-        href="/events">Events</a
+        href={eventsUrl}>Events</a
       >
       <a
         class={`drawer-link ${isActive("/contact") ? "active" : ""}`}
         href={contactUrl}>Contact</a
       >
-      <a class="drawer-cta" href={episodesUrl}
-        >Listen to Episodes</a
-      >
+      <a class="drawer-cta" href={episodesUrl}>Listen to Episodes</a>
     </nav>
     <div class="drawer_footer">
       <p>Amplifying African Tech Stories</p>

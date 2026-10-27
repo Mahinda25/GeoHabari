@@ -1,5 +1,4 @@
 ---
-import Image from "astro/components/Image.astro";
 import Layout from "../layout/Layout.astro";
 import team_members from "../data/team.json";
 
@@ -60,7 +59,7 @@ import "../styles/about.scss";
   <!-- Identity -->
   <section class="identity">
     <div class="identity-inner">
-      <Image
+      <img
         src="https://plus.unsplash.com/premium_photo-1679079456790-bf73ddd14964?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         alt="Identity Image"
         width={600}
@@ -135,7 +134,7 @@ import "../styles/about.scss";
           </div>
         </div>
       </div>
-      <Image
+      <img
         src="https://images.unsplash.com/photo-1642165870627-cd54c078a11f?q=80&w=685&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         alt="Mission and Vision"
         width={600}
@@ -158,7 +157,7 @@ import "../styles/about.scss";
       </p>
     </div>
     <div class="purpose-details">
-      <Image
+      <img
         src="https://plus.unsplash.com/premium_photo-1712254285216-26092c37cf8c?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         alt="Purpose Image"
         width={600}
@@ -475,8 +474,8 @@ import "../styles/about.scss";
       });
     });
 
-    teamCarousel.addEventListener("mouseenter", stopAutoPlay);
-    teamCarousel.addEventListener("mouseleave", startAutoPlay);
+    teamCarousel?.addEventListener("mouseenter", stopAutoPlay);
+    teamCarousel?.addEventListener("mouseleave", startAutoPlay);
 
     updateSpotlight(0, false);
 

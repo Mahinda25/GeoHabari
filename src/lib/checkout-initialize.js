@@ -1,4 +1,4 @@
-import { createOrderCheckout, verifyPaymentAndIssueTickets } from './ticketing.js';
+import { createOrderCheckout } from './ticketing.js';
 import { assertPaystackConfigured, initializePaystackTransaction } from './paystack.js';
 
 const JSON_HEADERS = {
@@ -15,8 +15,6 @@ function errorMessage(error) {
 }
 
 export async function initializeCheckout(request) {
-  let order;
-
   try {
     let body;
     try {
@@ -37,7 +35,7 @@ export async function initializeCheckout(request) {
 
     assertPaystackConfigured();
     const checkout = await createOrderCheckout(body.event_id, body);
-    order = checkout.order;
+    const order = checkout.order;
 
     const payment = await initializePaystackTransaction(order, checkout.event);
     if (!payment.authorizationUrl && !payment.accessCode) {
@@ -54,19 +52,6 @@ export async function initializeCheckout(request) {
     }, 200);
   } catch (error) {
     const message = errorMessage(error);
-    if (order) {
-      try {
-        await verifyPaymentAndIssueTickets({
-          orderReference: order.reference,
-          provider: 'paystack',
-          providerReference: order.reference,
-          status: 'failed',
-        });
-      } catch (recordError) {
-        console.error('[checkout] Failed to record Paystack initialization failure:', recordError);
-      }
-    }
-
     if (/not configured|PUBLIC_SITE_URL/i.test(message)) {
       return jsonResponse({
         error: 'Secure payment is temporarily unavailable. Please try again later or contact the event organizer.',

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Send, Mail, User, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
-import imgImgMap2 from "figma:asset/7e4deb782dae559953b69d86a10007bc367c937c.png";
+import imgImgMap2 from "../assets/7e4deb782dae559953b69d86a10007bc367c937c.png";
 
 export function Newsletter() {
   const [name, setName] = useState("");

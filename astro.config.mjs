@@ -1,7 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import vercel from '@astrojs/vercel';
+import node from '@astrojs/node';
 import sitemap from '@astrojs/sitemap';
 import playformCompress from '@playform/compress';
 import icon from 'astro-icon';
@@ -45,11 +45,7 @@ export default defineConfig({
     }),
   ],
   output: 'server',
-  adapter: vercel({
-    webAnalytics: {
-      enabled: true,
-    },
-  }),
+  adapter: node({ mode: 'standalone' }),
   build: {
     inlineStylesheets: 'auto',
   },

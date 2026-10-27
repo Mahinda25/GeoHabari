@@ -1,15 +1,15 @@
 import { Play, Sparkles, Globe, Zap } from "lucide-react";
 import { motion } from "motion/react";
-import imgImage from "figma:asset/1352f162da52bebf85330249593a4f24b0f7d037.png";
-import imgImage1 from "figma:asset/645be3125f3e5f631423a05a520c1cc8c295554b.png";
-import imgImage2 from "figma:asset/7f03fc01bccfb9da5887d4de41822988c444dd14.png";
-import imgImgProfile from "figma:asset/a5496bed0226780b21a0fda5e2b448a06b4b31f3.png";
-import imgImgProfile1 from "figma:asset/81a3cc16a07da8ccd7785c48ed72d98a474be138.png";
-import imgImgProfile2 from "figma:asset/e2550974c0fc18ecc04173968b5a7cdb4eacc065.png";
-import imgImgProfile3 from "figma:asset/82e8fad710caac30d5e66406d64fd868406ed518.png";
-import imgImgMap from "figma:asset/654fbbb19d54a2e3f2616b9e2cc089d0dad6552c.png";
-import imgImgMap1 from "figma:asset/0da2dba8a451cff7503cbc8d25297125ecc1249a.png";
-import imgImgMap2 from "figma:asset/7e4deb782dae559953b69d86a10007bc367c937c.png";
+import imgImage from "../assets/1352f162da52bebf85330249593a4f24b0f7d037.png";
+import imgImage1 from "../assets/645be3125f3e5f631423a05a520c1cc8c295554b.png";
+import imgImage2 from "../assets/7f03fc01bccfb9da5887d4de41822988c444dd14.png";
+import imgImgProfile from "../assets/a5496bed0226780b21a0fda5e2b448a06b4b31f3.png";
+import imgImgProfile1 from "../assets/81a3cc16a07da8ccd7785c48ed72d98a474be138.png";
+import imgImgProfile2 from "../assets/e2550974c0fc18ecc04173968b5a7cdb4eacc065.png";
+import imgImgProfile3 from "../assets/82e8fad710caac30d5e66406d64fd868406ed518.png";
+import imgImgMap from "../assets/654fbbb19d54a2e3f2616b9e2cc089d0dad6552c.png";
+import imgImgMap1 from "../assets/0da2dba8a451cff7503cbc8d25297125ecc1249a.png";
+import imgImgMap2 from "../assets/7e4deb782dae559953b69d86a10007bc367c937c.png";
 
 export function Hero() {
   return (

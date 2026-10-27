@@ -1,7 +1,7 @@
 ---
 import LogoImage from "../images/logo/geopod-green.svg";
 import platforms from "../data/platforms.json";
-import { getWordPressUrl } from "../utils/navigation.js";
+import { getWordPressUrl, getTicketingUrl } from "../utils/navigation.js";
 
 const homeUrl = getWordPressUrl("/");
 const aboutUrl = getWordPressUrl("/about");
@@ -22,7 +22,24 @@ const contactUrl = getWordPressUrl("/contact");
   <div class="footer-inner">
     <div class="footer-top">
       <div class="footer-brand">
-        <LogoImage class="logo-vector" width={140} height={48} />
+        <svg
+          class="logo-vector"
+          width="140"
+          height="48"
+          viewBox="0 0 140 48"
+          role="img"
+          aria-label="GeoHabari"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <text
+            x="0"
+            y="33"
+            fill="#7bc043"
+            font-family="Arial, sans-serif"
+            font-size="27"
+            font-weight="700">GeoHabari</text
+          >
+        </svg>
         <p class="footer-tagline">
           Amplifying African tech stories and elevating technical brilliance
           across the continent.
@@ -113,17 +130,19 @@ const contactUrl = getWordPressUrl("/contact");
           <h5 class="footer-col-title">Listen On</h5>
           <div class="footer-platforms">
             {
-              platforms.map((platform) => (
-                <a href={platform.url} target="_blank" class="platform-link">
-                  <img
-                    src={platform.icon}
-                    alt={platform.name}
-                    width="22"
-                    height="22"
-                  />
-                  <span>{platform.name}</span>
-                </a>
-              ))
+              platforms.map(
+                (platform: { url: string; icon: string; name: string }) => (
+                  <a href={platform.url} target="_blank" class="platform-link">
+                    <img
+                      src={platform.icon}
+                      alt={platform.name}
+                      width="22"
+                      height="22"
+                    />
+                    <span>{platform.name}</span>
+                  </a>
+                ),
+              )
             }
           </div>
         </div>
@@ -146,10 +165,8 @@ const contactUrl = getWordPressUrl("/contact");
       </button>
       <div class="dev-credit">
         <p>
-          <a
-            href="/admin/login"
-            target="_blank"
-            rel="noopener noreferrer">Adminstrator</a
+          <a href="/admin/login" target="_blank" rel="noopener noreferrer"
+            >Adminstrator</a
           >
         </p>
       </div>

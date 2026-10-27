@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Play, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import imgImgBanner from "figma:asset/2dfd1f6abbce08c727ac442f43fa5b25baee9b40.png";
+import imgImgBanner from "../assets/2dfd1f6abbce08c727ac442f43fa5b25baee9b40.png";
 
 const episodes = [
   {

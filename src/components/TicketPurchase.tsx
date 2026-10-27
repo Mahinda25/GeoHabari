@@ -113,6 +113,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   const [buyerName, setBuyerName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [role, setRole] = useState('');
   const [phoneCountryCode, setPhoneCountryCode] = useState('254');
   const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -133,7 +135,13 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; phone?: boolean }>({});
+  const [touched, setTouched] = useState<{
+    name?: boolean;
+    email?: boolean;
+    phone?: boolean;
+    organization?: boolean;
+    role?: boolean;
+  }>({});
 
   const selectedType = useMemo(
     () => event.ticket_types.find((ticket) => ticket.id === selectedTypeId) ?? defaultTicket,
@@ -143,6 +151,11 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   const isStudentSelected = useMemo(() => {
     if (!selectedType) return false;
     return selectedType.category_type === 'student' || selectedType.name.toLowerCase().includes('student');
+  }, [selectedType]);
+
+  const isProfessionalSelected = useMemo(() => {
+    if (!selectedType) return false;
+    return selectedType.category_type === 'professional' || selectedType.name.toLowerCase().includes('professional');
   }, [selectedType]);
 
   const activeIncentives = useMemo(() => {
@@ -208,6 +221,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     buyerName.trim().length >= 2 &&
     isEmailValid &&
     isPhoneValid &&
+    (!isProfessionalSelected || (organization.trim().length > 0 && role.trim().length > 0)) &&
     termsAccepted &&
     (!isStudentSelected || isStudentVerificationApproved) &&
     (paymentMethod !== 'mobile_money' || isSafaricomPhone)
@@ -388,6 +402,14 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
       setErrorMessage('Enter a valid phone number for the selected East African country.');
       return;
     }
+    if (isProfessionalSelected && !organization.trim()) {
+      setErrorMessage('Please enter your professional organization.');
+      return;
+    }
+    if (isProfessionalSelected && !role.trim()) {
+      setErrorMessage('Please enter your professional role.');
+      return;
+    }
     if (paymentMethod === 'mobile_money' && !isSafaricomPhone) {
       setErrorMessage('Paystack M-Pesa is available only for Safaricom Kenya numbers. Choose card to continue.');
       return;
@@ -411,6 +433,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
           buyer_name: buyerName.trim(),
           email: email.trim(),
           phone: fullPhone,
+          organization: isProfessionalSelected ? organization.trim() : null,
+          role: isProfessionalSelected ? role.trim() : null,
           payment_channel: paymentMethod,
           accept_terms: termsAccepted,
           student_verification_id: isStudentSelected ? verificationId : null,
@@ -486,7 +510,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   return (
     <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200/90 shadow-[0_20px_50px_rgba(15,23,42,0.08)] overflow-hidden">
       {/* Top Header */}
-      <div className="bg-gradient-to-r from-[#1A1A2E] via-[#241B4B] to-[#1A1A2E] px-6 sm:px-8 py-6 text-white border-b border-purple-900/30">
+      <div className="bg-linear-to-r from-[#1A1A2E] via-[#241B4B] to-[#1A1A2E] px-6 sm:px-8 py-6 text-white border-b border-purple-900/30">
         <div className="flex items-center justify-between gap-3 mb-1">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase bg-[#8DC63F]/20 text-[#8DC63F] border border-[#8DC63F]/30">
             <Sparkles className="w-3 h-3" /> Official Checkout
@@ -539,7 +563,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                     isSoldOut
                       ? 'border-slate-200 bg-slate-50/80 opacity-60 cursor-not-allowed'
                       : isSelected
-                      ? 'border-[#8DC63F] bg-gradient-to-br from-[#8DC63F]/8 via-white to-[#6C2BD9]/5 shadow-sm shadow-[#8DC63F]/20'
+                      ? 'border-[#8DC63F] bg-linear-to-br from-[#8DC63F]/8 via-white to-[#6C2BD9]/5 shadow-sm shadow-[#8DC63F]/20'
                       : 'border-slate-200 hover:border-slate-300 bg-slate-50/40 hover:bg-white'
                   }`}
                 >
@@ -554,7 +578,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                               : 'border-slate-300 bg-white'
                           }`}
                         >
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-3" />}
                         </div>
                       </div>
 
@@ -618,7 +642,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                             <Minus className="w-4 h-4" />
                           </button>
 
-                          <span className="min-w-[40px] text-center font-display font-extrabold text-base text-[#1A1A2E]">
+                          <span className="min-w-10 text-center font-display font-extrabold text-base text-[#1A1A2E]">
                             {quantity}
                           </span>
 
@@ -653,7 +677,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               {activeIncentives.map((offer) => (
                 <div
                   key={offer.id || offer.title}
-                  className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-emerald-50/50 border border-purple-200/80 shadow-sm flex flex-col gap-1.5"
+                  className="p-3.5 rounded-2xl bg-linear-to-r from-purple-50/80 via-white to-emerald-50/50 border border-purple-200/80 shadow-sm flex flex-col gap-1.5"
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-bold text-xs text-[#1A1A2E] flex items-center gap-1.5">
@@ -1060,6 +1084,64 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               )}
             </div>
 
+            {isProfessionalSelected && (
+              <>
+                <div>
+                  <label htmlFor="buyer-organization" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Professional organization <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="buyer-organization"
+                    type="text"
+                    value={organization}
+                    onChange={(e) => {
+                      setOrganization(e.target.value);
+                      setErrorMessage('');
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, organization: true }))}
+                    placeholder="e.g. GeoHabari"
+                    autoComplete="organization"
+                    required
+                    className={`w-full h-12 px-4 rounded-xl border bg-slate-50/50 text-[#1A1A2E] placeholder:text-slate-400 text-sm sm:text-base focus:bg-white transition outline-none ${
+                      touched.organization && !organization.trim()
+                        ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-[#8DC63F] focus:ring-3 focus:ring-[#8DC63F]/20'
+                    }`}
+                  />
+                  {touched.organization && !organization.trim() && (
+                    <p className="text-[11px] text-red-500 mt-1">Professional organization is required.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="buyer-role" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Professional role <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="buyer-role"
+                    type="text"
+                    value={role}
+                    onChange={(e) => {
+                      setRole(e.target.value);
+                      setErrorMessage('');
+                    }}
+                    onBlur={() => setTouched((p) => ({ ...p, role: true }))}
+                    placeholder="e.g. Software Engineer"
+                    autoComplete="organization-title"
+                    required
+                    className={`w-full h-12 px-4 rounded-xl border bg-slate-50/50 text-[#1A1A2E] placeholder:text-slate-400 text-sm sm:text-base focus:bg-white transition outline-none ${
+                      touched.role && !role.trim()
+                        ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-[#8DC63F] focus:ring-3 focus:ring-[#8DC63F]/20'
+                    }`}
+                  />
+                  {touched.role && !role.trim() && (
+                    <p className="text-[11px] text-red-500 mt-1">Professional role is required.</p>
+                  )}
+                </div>
+              </>
+            )}
+
             {/* Delivery Reassurance Note */}
             <div className="flex items-start gap-3 p-3.5 rounded-xl bg-purple-50/70 border border-purple-100 text-xs text-purple-950">
               <Mail className="w-4 h-4 text-[#6C2BD9] shrink-0 mt-0.5" />
@@ -1177,7 +1259,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
             type="button"
             onClick={() => handleSubmit()}
             disabled={submitting || !isFormValid}
-            className="w-full min-h-[54px] px-6 py-4 rounded-xl font-display font-bold text-base sm:text-lg text-white shadow-xl shadow-purple-950/10 transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-[#6C2BD9] via-[#783FC6] to-[#8DC63F] hover:from-[#5B21B6] hover:to-[#7CB334] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+            className="w-full min-h-[54px] px-6 py-4 rounded-xl font-display font-bold text-base sm:text-lg text-white shadow-xl shadow-purple-950/10 transition-all flex items-center justify-center gap-2 cursor-pointer bg-linear-to-r from-[#6C2BD9] via-[#783FC6] to-[#8DC63F] hover:from-[#5B21B6] hover:to-[#7CB334] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
           >
             {submitting ? (
               <>
@@ -1198,6 +1280,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
             <p className="text-center text-[11px] text-slate-400">
               {isStudentSelected && !isStudentVerificationApproved
                 ? 'Student verification (.ac.ke email or Student ID) is required before payment.'
+                : isProfessionalSelected && (!organization.trim() || !role.trim())
+                  ? 'Professional organization and role are required for Professional tickets.'
                 : 'Complete your name, valid email, phone, and accept terms to activate payment.'}
             </p>
           )}

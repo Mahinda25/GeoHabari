@@ -1,4 +1,4 @@
-import { reconcilePaystackPayment } from '../../../../lib/paystack.js';
+import { getOrderByReference } from '../../../../lib/ticketing-store.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -16,17 +16,21 @@ export async function POST({ request }) {
       });
     }
 
-    const result = await reconcilePaystackPayment(reference);
+    const order = await getOrderByReference(reference);
+    if (!order || order.payment_provider !== 'paystack') {
+      return new Response(JSON.stringify({ error: 'Paystack order could not be found.' }), {
+        status: 404,
+        headers: JSON_HEADERS,
+      });
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      status: result.status,
-      alreadyProcessed: result.alreadyProcessed,
+      status: order.status,
     }), { status: 200, headers: JSON_HEADERS });
   } catch (error) {
-    console.error('[paystack] Client-return verification failed:', error);
-    const status = /could not be matched/i.test(error.message) ? 404
-      : /amount or currency|channel does not match/i.test(error.message) ? 409
-        : /not configured/i.test(error.message) ? 503 : 502;
+    console.error('[paystack] Client status lookup failed:', error);
+    const status = /not configured/i.test(error.message) ? 503 : 502;
     return new Response(JSON.stringify({ error: error.message || 'Payment verification failed.' }), {
       status,
       headers: JSON_HEADERS,

@@ -1,9 +1,9 @@
 import { Users, Target, Lightbulb } from "lucide-react";
 import { motion } from "motion/react";
-import imgImgDescr from "figma:asset/270e84f2c6561b96d084945bb687de635934997a.png";
-import imgImgDescr1 from "figma:asset/7f87dc49ba985aa98948a8cbd411e7b7df260658.png";
-import imgImgDescr2 from "figma:asset/dd826f068906f7b8b5377d4cecef83cbef99ca99.png";
-import imgImgMap2 from "figma:asset/7e4deb782dae559953b69d86a10007bc367c937c.png";
+import imgImgDescr from "../assets/270e84f2c6561b96d084945bb687de635934997a.png";
+import imgImgDescr1 from "../assets/7f87dc49ba985aa98948a8cbd411e7b7df260658.png";
+import imgImgDescr2 from "../assets/dd826f068906f7b8b5377d4cecef83cbef99ca99.png";
+import imgImgMap2 from "../assets/7e4deb782dae559953b69d86a10007bc367c937c.png";
 
 const containerVariants = {
   hidden: { opacity: 0 },
