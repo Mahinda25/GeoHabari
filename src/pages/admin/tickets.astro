@@ -117,7 +117,7 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
           <select name="status" class="filter-select">
             <option value="all" selected={status === 'all'}>All Payment Statuses</option>
             <option value="paid" selected={status === 'paid'}>Paid & Confirmed</option>
-            <option value="failed" selected={status === 'failed'}>Failed</option>
+            <option value="cancelled" selected={status === 'cancelled'}>Cancelled</option>
           </select>
 
           <input

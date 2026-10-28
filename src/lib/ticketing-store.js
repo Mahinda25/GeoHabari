@@ -96,7 +96,6 @@ export async function writeStore(nextStore) {
   if (!nextStore || typeof nextStore !== 'object') {
     throw new Error('A ticketing store object is required.');
   }
-
   const deleteOrder = [
     'tickets',
     'payments',
@@ -144,23 +143,39 @@ export async function writeStore(nextStore) {
   return nextStore;
 }
 
-export async function createTicketOrderWithPayment(order, payment) {
+export async function fulfillPaystackTransaction({
+  order,
+  providerReference,
+  amount,
+  currency,
+  channel,
+  paidAt,
+  rawPayload,
+  status,
+}) {
+  const { data, error } = await database().rpc('fulfill_paystack_transaction', {
+    p_order: order,
+    p_provider_reference: providerReference,
+    p_amount: Number(amount),
+    p_currency: currency,
+    p_channel: channel,
+    p_paid_at: paidAt,
+    p_raw_payload: rawPayload,
+    p_status: status,
+  });
+  throwDatabaseError(error, 'fulfill Paystack transaction');
+  return data;
+}
+
+export async function createPendingPaystackCheckout({ order, payment }) {
   const { data, error } = await database().rpc('create_ticket_order_with_payment', {
     p_order: order,
     p_payment: payment,
   });
-  throwDatabaseError(error, 'create ticket order');
-  return data;
-}
-
-export async function confirmPaystackOrder({ orderReference, providerReference, amount, status }) {
-  const { data, error } = await database().rpc('confirm_paystack_ticket_order', {
-    p_order_reference: orderReference,
-    p_provider_reference: providerReference || '',
-    p_amount: amount === undefined ? null : Number(amount),
-    p_status: status,
-  });
-  throwDatabaseError(error, 'confirm Paystack order');
+  throwDatabaseError(error, 'reserve Paystack checkout');
+  if (!data?.order || !data?.payment) {
+    throw new Error('Ticketing database operation failed (reserve Paystack checkout): invalid response.');
+  }
   return data;
 }
 
@@ -392,7 +407,7 @@ export async function getTicketMetrics() {
     totalOrders: store.orders.length,
     totalRevenue: store.orders.filter((order) => order.status === 'paid')
       .reduce((sum, order) => sum + Number(order.amount || 0), 0),
-    openOrders: store.orders.filter((order) => order.status !== 'paid').length,
+    openOrders: store.orders.filter((order) => order.status === 'pending').length,
     totalTickets: store.tickets.length,
     totalVerifications: store.student_verifications.length,
     approvedVerifications: store.student_verifications.filter((verification) => verification.status === 'approved').length,
@@ -539,6 +554,7 @@ export async function queryTicketHolders({
 
   for (const ticket of store.tickets) {
     const order = orders.get(ticket.order_id);
+    if (!order || order.status !== 'paid') continue;
     const event = events.get(ticket.event_id);
     const payment = payments.get(ticket.order_id);
     const verification = order?.student_verification_id
@@ -563,7 +579,7 @@ export async function queryTicketHolders({
       order_quantity: order?.quantity || 1,
       order_amount: order?.amount || 0,
       payment_method: order?.payment_method || payment?.provider || 'N/A',
-      payment_status: order?.status || 'paid',
+      payment_status: order.status,
       payment_reference: payment?.provider_reference || 'N/A',
       created_at: ticket.created_at || order?.created_at || new Date().toISOString(),
       is_student_verified: Boolean(verification && verification.status === 'approved'),

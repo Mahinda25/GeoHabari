@@ -1,6 +1,6 @@
 # Ticketing Supabase runtime
 
-The Astro server uses the existing Supabase JS client for ticketing tables and Storage. Configure these server-side environment variables in local development and Vercel:
+The Astro server uses the existing Supabase JS client for ticketing tables and Storage. Configure these server-side environment variables in local development and the cPanel Node.js application:
 
 ```dotenv
 SUPABASE_URL=https://<project-ref>.supabase.co
@@ -11,7 +11,7 @@ SUPABASE_PRIVATE_DOCUMENT_BUCKET=student-documents
 
 `SUPABASE_SERVICE_ROLE_KEY` is privileged: never prefix it with `PUBLIC_`, put it in browser code, or expose it through a public API. The shared client in `src/lib/supabase.js` only reads the service-role key from the server environment.
 
-Apply the existing migrations in `supabase/migrations/` in timestamp order, including `20261026_supabase_ticketing_runtime.sql`. That migration adds runtime columns and `ticket_exports`, creates the public poster and private student-document buckets, and installs database RPCs for atomic order reservation and payment confirmation/ticket issuance. The RPCs require the Supabase `service_role`.
+Apply the existing migrations in `supabase/migrations/` in timestamp order, including `20261026_supabase_ticketing_runtime.sql` and `20261027211200_no_pending_checkout.sql`. The runtime migration adds application columns and `ticket_exports`, creates the public poster and private student-document buckets, and installs database RPCs. Paystack uses the `fulfill_paystack_transaction` RPC to create paid or cancelled order/payment records and, for paid transactions, tickets atomically. The RPC requires the Supabase `service_role`. Checkout does not persist order/payment rows while a buyer is still paying.
 
 Poster URLs are public through the `event-posters` bucket. Student ID documents are kept in the non-public `student-documents` bucket and are read/deleted only from authenticated server routes. No server-side local upload directory is used.
 

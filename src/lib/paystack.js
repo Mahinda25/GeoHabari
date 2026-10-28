@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getOrderByReference, getPaymentByReference } from './ticketing-store.js';
+import { getOrderByReference, getPaymentByReference, getTicketsByOrder } from './ticketing-store.js';
 import { verifyPaymentAndIssueTickets } from './ticketing.js';
 
 const API_BASE_URL = 'https://api.paystack.co';
@@ -108,8 +108,20 @@ export async function initializePaystackTransaction(order, event) {
       channels: ['mobile_money', 'card'],
       metadata: {
         order_reference: order.reference,
+        order_id: order.id,
+        event_id: order.event_id,
         event_title: event.title,
+        ticket_type_id: order.ticket_type_id,
+        buyer_name: order.buyer_name,
+        email: order.email,
         buyer_phone: order.phone,
+        quantity: order.quantity,
+        order_amount: order.amount,
+        payment_method: order.payment_method,
+        organization: order.organization || '',
+        role: order.role || '',
+        student_verification_id: order.student_verification_id || '',
+        accepted_terms: order.accepted_terms === true,
       },
     }),
   });
@@ -143,52 +155,141 @@ export function verifyPaystackWebhookSignature(rawBody, signature) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export async function reconcilePaystackPayment(reference) {
-  const order = await getOrderByReference(reference);
-  const payment = await getPaymentByReference(reference);
+export async function reconcilePaystackPayment(reference, webhookPayload = null, dependencies = {}) {
+  const loadOrder = dependencies.getOrderByReference || getOrderByReference;
+  const loadPayment = dependencies.getPaymentByReference || getPaymentByReference;
+  const verifyTransaction = dependencies.verifyTransaction || verifyPaystackTransaction;
+  const fulfillPayment = dependencies.fulfillPayment || verifyPaymentAndIssueTickets;
+  const order = await loadOrder(reference);
+  const payment = await loadPayment(reference);
+  const existingTickets = order?.status === 'paid' && payment?.status === 'paid'
+    ? await getTicketsByOrder(order.id)
+    : [];
   if (
-    !order ||
-    order.payment_provider !== 'paystack' ||
-    !payment ||
-    payment.order_id !== order.id ||
-    payment.provider !== 'paystack'
+    order?.status === 'paid' &&
+    payment?.status === 'paid' &&
+    existingTickets.length >= Number(order.quantity)
   ) {
+    return { order, status: 'paid', alreadyProcessed: true };
+  }
+  if (!order) {
     throw new Error('Paystack transaction could not be matched to a pending order.');
   }
+  if (order && order.payment_provider !== 'paystack') {
+    throw new Error('Paystack transaction could not be matched to a Paystack order.');
+  }
+  if (!['pending', 'paid', 'cancelled'].includes(order.status)) {
+    throw new Error('Paystack transaction order is not pending, paid, or cancelled.');
+  }
+  if (
+    payment &&
+    (payment.order_id !== order.id ||
+      payment.provider !== 'paystack' ||
+      payment.provider_reference !== reference)
+  ) {
+    throw new Error('Paystack transaction could not be matched to its order.');
+  }
+  if (!payment && order.status === 'pending') {
+    throw new Error('Paystack pending order is missing its payment record.');
+  }
 
-  const transaction = await verifyPaystackTransaction(reference);
-  if (transaction.reference !== order.reference) {
+  const transaction = await verifyTransaction(reference);
+  if (transaction.reference !== reference) {
     throw new Error('Paystack transaction reference does not match the order.');
   }
 
+  const orderData = order;
+  if (
+    orderData.reference !== reference ||
+    !orderData.id ||
+    !orderData.event_id ||
+    !orderData.ticket_type_id ||
+    !orderData.buyer_name ||
+    !orderData.email ||
+    !orderData.phone ||
+    !Number.isInteger(Number(orderData.quantity)) ||
+    Number(orderData.quantity) < 1 ||
+    Number(orderData.quantity) > 5 ||
+    !Number.isFinite(Number(orderData.amount)) ||
+    !['mobile_money', 'card'].includes(orderData.payment_method)
+  ) {
+    throw new Error('Paystack transaction is missing validated checkout metadata.');
+  }
+
   if (transaction.status === 'success') {
-    if (Number(transaction.amount) !== Number(order.amount) * 100 || transaction.currency !== 'KES') {
+    const expectedAmountKobo = Number(orderData.amount) * 100;
+    const receivedAmountKobo = Number(transaction.amount);
+    if (
+      !Number.isSafeInteger(expectedAmountKobo) ||
+      !Number.isSafeInteger(receivedAmountKobo) ||
+      receivedAmountKobo !== expectedAmountKobo ||
+      transaction.currency !== 'KES'
+    ) {
       throw new Error('Verified Paystack amount or currency does not match the order.');
     }
     if (!['mobile_money', 'card'].includes(transaction.channel)) {
       throw new Error('Verified Paystack payment channel is not enabled for this checkout.');
     }
+    if (
+      (transaction.metadata?.order_reference && transaction.metadata.order_reference !== order.reference) ||
+      (transaction.metadata?.order_id && transaction.metadata.order_id !== order.id)
+    ) {
+      throw new Error('Verified Paystack transaction metadata does not match the order.');
+    }
 
-    const result = await verifyPaymentAndIssueTickets({
+    const result = await fulfillPayment({
       orderReference: order.reference,
       provider: 'paystack',
       providerReference: reference,
       amount: Number(transaction.amount) / 100,
+      currency: transaction.currency,
+      channel: transaction.channel,
+      paidAt: transaction.paid_at || new Date().toISOString(),
+      rawPayload: webhookPayload || transaction,
+      orderData,
       status: 'paid',
     });
-    return { order: result.order, status: result.order.status, alreadyProcessed: result.alreadyProcessed };
+    return {
+      order: result.order,
+      status: result.order.status,
+      alreadyProcessed: result.alreadyProcessed,
+      emailSent: result.emailSent,
+    };
   }
 
-  if (transaction.status === 'failed' || transaction.status === 'abandoned' || transaction.status === 'cancelled') {
-    const paymentStatus = transaction.status === 'failed' ? 'failed' : 'cancelled';
-    const result = await verifyPaymentAndIssueTickets({
-      orderReference: order.reference,
+  const paymentExpiresAt = Date.parse(order.payment_expires_at || '');
+  const fallbackExpiresAt = Date.parse(order.created_at || '') + 20 * 60 * 1000;
+  const reservationExpired = Number.isFinite(paymentExpiresAt)
+    ? paymentExpiresAt <= Date.now()
+    : Number.isFinite(fallbackExpiresAt) && fallbackExpiresAt <= Date.now();
+  const terminalFailure = transaction.status === 'failed'
+    || (transaction.status === 'abandoned' && reservationExpired);
+  const webhookSuccessStillUnverified = webhookPayload?.event === 'charge.success';
+
+  if (
+    dependencies.persistCancellation &&
+    terminalFailure &&
+    !webhookSuccessStillUnverified &&
+    order.status !== 'cancelled'
+  ) {
+    const result = await fulfillPayment({
+      orderReference: reference,
       provider: 'paystack',
       providerReference: reference,
-      status: paymentStatus,
+      amount: Number(orderData.amount),
+      currency: transaction.currency || 'KES',
+      channel: transaction.channel || orderData.payment_method,
+      paidAt: null,
+      rawPayload: transaction,
+      orderData,
+      status: 'cancelled',
     });
-    return { order: result.order, status: result.order.status, alreadyProcessed: result.alreadyProcessed };
+    return { order: result.order, status: 'cancelled', alreadyProcessed: result.alreadyProcessed };
   }
 
-  return { order, status: 'pending', alreadyProcessed: false };
+  if (order.status === 'cancelled' && terminalFailure && !webhookSuccessStillUnverified) {
+    return { order, status: 'cancelled', alreadyProcessed: true };
+  }
+
+  return { order, status: 'processing', alreadyProcessed: false };
 }

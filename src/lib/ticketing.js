@@ -6,10 +6,10 @@ import {
   getOrderByReference,
   getTicketTypeById,
   getTicketTypesByEvent,
+  getTicketsByOrder,
   listEvents,
   readStore,
-  createTicketOrderWithPayment,
-  confirmPaystackOrder,
+  fulfillPaystackTransaction,
   saveExport,
   saveEvent,
   saveTicketType,
@@ -26,7 +26,6 @@ import crypto from 'node:crypto';
 
 const MAX_QUANTITY = 5;
 const MIN_QUANTITY = 1;
-const PENDING_ORDER_RESERVATION_MS = 20 * 60 * 1000;
 
 async function appendAuditLogBestEffort(entry, context) {
   try {
@@ -251,13 +250,13 @@ export async function createOrderCheckout(eventId, requestPayload) {
     organization: isProfessionalTicket ? validated.organization : null,
     role: isProfessionalTicket ? validated.role : null,
     attendees: [],
-    status: 'pending',
     payment_method: validated.payment_method,
     payment_provider: 'paystack',
+    status: 'pending',
     accepted_terms: true,
     student_verification_id: verifiedStudentRecord ? verifiedStudentRecord.id : null,
-    payment_expires_at: new Date(createdAt.getTime() + PENDING_ORDER_RESERVATION_MS).toISOString(),
     created_at: createdAt.toISOString(),
+    payment_expires_at: new Date(createdAt.getTime() + 20 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   };
 
@@ -268,39 +267,47 @@ export async function createOrderCheckout(eventId, requestPayload) {
     provider_reference: orderRef,
     amount,
     status: 'pending',
-    created_at: new Date().toISOString(),
+    created_at: createdAt.toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  const created = await createTicketOrderWithPayment(order, payment);
-
-  await appendAuditLogBestEffort({
-    action: 'order_created',
-    entity: 'order',
-    entity_id: created.order.id,
-    details: {
-      reference: created.order.reference,
-      payment_method: validated.payment_method,
-      payment_provider: 'paystack',
-      is_student: isStudentTicket,
-    },
-  }, 'Order creation');
-
-  return { order: created.order, payment: created.payment, ticketType, event };
+  return { order, payment, ticketType, event };
 }
 
-export async function verifyPaymentAndIssueTickets({ orderReference, provider, providerReference, amount, status = 'paid' }) {
+export async function verifyPaymentAndIssueTickets({
+  orderReference,
+  provider,
+  providerReference,
+  amount,
+  currency,
+  channel,
+  paidAt,
+  rawPayload,
+  orderData,
+  status = 'paid',
+}) {
   if (provider !== 'paystack') throw new Error('Payment provider does not match this order.');
-  if (!['paid', 'failed', 'cancelled'].includes(status)) {
+  if (!['paid', 'cancelled'].includes(status)) {
     throw new Error('Unsupported payment status.');
   }
-  if (status === 'paid' && !providerReference) {
+  if (!providerReference) {
     throw new Error('A verified provider payment reference is required.');
   }
-  if (status === 'paid' && amount === undefined) {
+  if (amount === undefined) {
     throw new Error('A verified payment amount is required.');
   }
-  const result = await confirmPaystackOrder({ orderReference, providerReference, amount, status });
+  const resolvedOrder = orderData || await getOrderByReference(orderReference);
+  if (!resolvedOrder) throw new Error('Order details were not available for Paystack fulfillment.');
+  const result = await fulfillPaystackTransaction({
+    order: resolvedOrder,
+    providerReference,
+    amount,
+    currency,
+    channel,
+    paidAt,
+    rawPayload,
+    status,
+  });
   const { order, payment, tickets, alreadyProcessed } = result;
 
   if (status === 'paid') {
@@ -322,10 +329,11 @@ export async function verifyPaymentAndIssueTickets({ orderReference, provider, p
   }
 
   if (status === 'paid' && !alreadyProcessed && tickets.length > 0) {
-    const event = await getEventById(order.event_id);
-    const ticketType = await getTicketTypeById(order.ticket_type_id);
-    if (event && ticketType) {
-      const ticketCodes = tickets.map((ticket) => ticket.ticket_code);
+    const emailDelivery = await sendOrderTicketConfirmation(order, tickets, payment.provider_reference);
+    try {
+      const event = await getEventById(order.event_id);
+      const ticketType = await getTicketTypeById(order.ticket_type_id);
+      if (!event || !ticketType) throw new Error('Ticket details are unavailable for WhatsApp delivery.');
       const delivery = {
         buyerName: order.buyer_name,
         eventTitle: event.title,
@@ -333,35 +341,71 @@ export async function verifyPaymentAndIssueTickets({ orderReference, provider, p
         startsAt: event.starts_at,
         ticketTypeName: ticketType.name,
         quantity: order.quantity,
-        ticketCodes,
+        ticketCodes: tickets.map((ticket) => ticket.ticket_code),
         paymentReference: payment.provider_reference,
       };
-      try {
-        await sendConfirmationEmail({ ...delivery, buyerEmail: order.email });
-      } catch (error) {
-        console.error('[ticketing] Ticket email delivery failed:', error);
-        await appendAuditLogBestEffort({
-          action: 'email_failed',
-          entity: 'order',
-          entity_id: order.id,
-          details: { message: error.message },
-        }, 'Email delivery failure');
-      }
-      try {
-        await sendWhatsAppTicketConfirmation({ ...delivery, buyerPhone: order.phone });
-      } catch (error) {
-        console.error('[ticketing] WhatsApp ticket delivery failed:', error);
-        await appendAuditLogBestEffort({
-          action: 'whatsapp_failed',
-          entity: 'order',
-          entity_id: order.id,
-          details: { message: error.message },
-        }, 'WhatsApp delivery failure');
-      }
+      await sendWhatsAppTicketConfirmation({ ...delivery, buyerPhone: order.phone });
+    } catch (error) {
+      console.error('[ticketing] WhatsApp ticket delivery failed:', error);
+      await appendAuditLogBestEffort({
+        action: 'whatsapp_failed',
+        entity: 'order',
+        entity_id: order.id,
+        details: { message: error.message },
+      }, 'WhatsApp delivery failure');
     }
+    return { order, payment, alreadyProcessed, emailSent: emailDelivery.emailSent };
   }
 
-  return { order, payment, alreadyProcessed };
+  return { order, payment, alreadyProcessed, emailSent: null };
+}
+
+export async function sendOrderTicketConfirmation(order, tickets = null, paymentReference = order?.reference) {
+  if (!order || order.status !== 'paid') {
+    throw new Error('Ticket email delivery is available only for paid orders.');
+  }
+
+  try {
+    const issuedTickets = tickets || await getTicketsByOrder(order.id);
+    if (issuedTickets.length < Number(order.quantity)) {
+      throw new Error('The paid order does not have all expected tickets.');
+    }
+
+    const event = await getEventById(order.event_id);
+    const ticketType = await getTicketTypeById(order.ticket_type_id);
+    if (!event || !ticketType) {
+      throw new Error('Ticket event or category details are unavailable.');
+    }
+
+    await sendConfirmationEmail({
+      buyerName: order.buyer_name,
+      buyerEmail: order.email,
+      eventTitle: event.title,
+      venue: event.venue,
+      startsAt: event.starts_at,
+      ticketTypeName: ticketType.name,
+      quantity: order.quantity,
+      ticketCodes: issuedTickets.map((ticket) => ticket.ticket_code),
+      paymentReference,
+    });
+  } catch (error) {
+    console.error('[ticketing] Ticket email delivery failed:', error);
+    await appendAuditLogBestEffort({
+      action: 'email_failed',
+      entity: 'order',
+      entity_id: order.id,
+      details: { message: error.message },
+    }, 'Email delivery failure');
+    return { emailSent: false };
+  }
+
+  await appendAuditLogBestEffort({
+    action: 'ticket_email_sent',
+    entity: 'order',
+    entity_id: order.id,
+    details: { reference: order.reference },
+  }, 'Ticket email success');
+  return { emailSent: true };
 }
 
 export async function sendConfirmationEmail({
@@ -410,12 +454,17 @@ export async function sendConfirmationEmail({
     `,
   };
 
+  const idempotencyKey = `ticket-confirmation-${crypto
+    .createHash('sha256')
+    .update(String(paymentReference || ticketCodes.join(':')))
+    .digest('hex')}`;
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify(payload),
   });

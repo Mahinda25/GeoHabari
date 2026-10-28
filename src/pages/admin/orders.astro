@@ -16,6 +16,7 @@ const allOrders = [...store.orders]
     return {
       id: order.id,
       reference: order.reference,
+      paymentProvider: order.payment_provider,
       buyerName: order.buyer_name,
       email: order.email,
       phone: order.phone,
@@ -31,6 +32,7 @@ const allOrders = [...store.orders]
       ticketsIssued: tickets.length,
       ticketCodes: tickets.map((t) => t.ticket_code),
       canResendTicketEmail: order.status === 'paid' && tickets.length > 0,
+      canVerifyOrResend: order.payment_provider === 'paystack' && ['pending', 'paid'].includes(order.status),
     };
   });
 ---
@@ -58,7 +60,7 @@ const allOrders = [...store.orders]
             <th>Created</th>
             <th>Confirmed</th>
             <th>Tickets</th>
-            <th>Email</th>
+            <th>Recovery</th>
           </tr>
         </thead>
         <tbody>
@@ -111,7 +113,18 @@ const allOrders = [...store.orders]
                   )}
                 </td>
                 <td>
-                  {order.canResendTicketEmail ? (
+                  {order.canVerifyOrResend ? (
+                    <>
+                      <button
+                        type="button"
+                        class="verify-paystack-payment"
+                        data-reference={order.reference}
+                      >
+                        Verify &amp; Resend Ticket
+                      </button>
+                      <span class="recovery-result" aria-live="polite"></span>
+                    </>
+                  ) : order.canResendTicketEmail ? (
                     <button
                       type="button"
                       class="resend-ticket-email"
@@ -133,6 +146,47 @@ const allOrders = [...store.orders]
 </AdminLayout>
 
 <script>
+  document.querySelectorAll<HTMLButtonElement>('.verify-paystack-payment').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const resultMessage = button.parentElement?.querySelector<HTMLElement>('.recovery-result');
+      button.disabled = true;
+      button.textContent = 'Verifying...';
+      if (resultMessage) resultMessage.textContent = '';
+
+      try {
+        const response = await fetch('/api/admin/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference: button.dataset.reference }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Payment could not be verified.');
+
+        if (resultMessage) {
+          resultMessage.textContent = result.message || (
+            result.status === 'pending'
+              ? 'Payment is still pending. No tickets were issued.'
+              : 'Payment verification finished.'
+          );
+        }
+
+        if (result.status === 'paid' || result.status === 'cancelled') {
+          window.setTimeout(() => window.location.reload(), 2500);
+          return;
+        }
+      } catch (error) {
+        if (resultMessage) {
+          resultMessage.textContent = error instanceof Error
+            ? error.message
+            : 'Payment could not be verified.';
+        }
+      }
+
+      button.disabled = false;
+      button.textContent = 'Verify & Resend Ticket';
+    });
+  });
+
   document.querySelectorAll<HTMLButtonElement>('.resend-ticket-email').forEach((button) => {
     button.addEventListener('click', async () => {
       const originalText = button.textContent;
@@ -209,6 +263,30 @@ const allOrders = [...store.orders]
       cursor: wait;
       opacity: 0.7;
     }
+  }
+
+  .verify-paystack-payment {
+    max-width: 12rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid rgba(141, 198, 63, 0.4);
+    border-radius: 0.5rem;
+    background: rgba(141, 198, 63, 0.12);
+    color: #bef264;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+  }
+
+  .recovery-result {
+    display: block;
+    max-width: 14rem;
+    margin-top: 0.4rem;
+    color: #d1d5db;
+    font-size: 0.72rem;
+    line-height: 1.4;
   }
 
   .orders-table {

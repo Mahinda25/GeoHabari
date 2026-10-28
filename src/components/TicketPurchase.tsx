@@ -477,7 +477,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   };
 
   const monitorPayment = async (reference: string) => {
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 24; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 2500));
       try {
         const response = await fetch('/api/payments/paystack/verify', {
@@ -494,9 +494,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         }
         if (result.status === 'failed' || result.status === 'cancelled') {
           setSuccessMessage('');
-          setErrorMessage(result.status === 'cancelled'
-            ? 'Payment was cancelled. Your card was not charged; you can try again.'
-            : 'Payment was not successful. Please try another payment method.');
+          setErrorMessage('Paystack did not complete the payment. No tickets were issued; you can try again.');
           return;
         }
       } catch {

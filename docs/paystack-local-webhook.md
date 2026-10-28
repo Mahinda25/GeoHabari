@@ -1,6 +1,6 @@
 # Testing Paystack webhooks locally
 
-The local webhook endpoint is `/api/payments/paystack`. To receive Paystack test
+The canonical local webhook endpoint is `/api/paystack/webhook`. To receive Paystack test
 notifications while Astro is running on port `4321`:
 
 1. Start the app with `npm run dev`.
@@ -10,7 +10,7 @@ notifications while Astro is running on port `4321`:
 3. In a separate terminal, run `ngrok http 4321`.
 4. Copy the HTTPS forwarding address shown by ngrok and configure the Paystack
    test webhook URL as
-   `https://<ngrok-host>/api/payments/paystack`.
+   `https://<ngrok-host>/api/paystack/webhook`.
 5. Trigger a test payment or webhook from Paystack. The route validates
    `x-paystack-signature` using the server-side `PAYSTACK_SECRET_KEY` and then
    independently verifies the transaction with Paystack before fulfillment.

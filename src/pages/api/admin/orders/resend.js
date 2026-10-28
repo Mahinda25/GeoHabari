@@ -1,6 +1,6 @@
 import { getAdminFromRequest } from '../../../../lib/auth.js';
-import { readStore, appendAuditLog } from '../../../../lib/ticketing-store.js';
-import { sendConfirmationEmail } from '../../../../lib/ticketing.js';
+import { appendAuditLog, getOrderByReference, getPaymentByReference } from '../../../../lib/ticketing-store.js';
+import { sendOrderTicketConfirmation } from '../../../../lib/ticketing.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -8,17 +8,39 @@ const JSON_HEADERS = {
 };
 
 export async function POST({ request, cookies }) {
-  if (!await getAdminFromRequest(request, cookies)) {
+  let admin;
+  try {
+    admin = await getAdminFromRequest(request, cookies);
+  } catch (error) {
+    console.error('[admin] Ticket email resend authentication failed:', error);
+    return new Response(JSON.stringify({ error: 'Unable to verify administrator access right now.' }), {
+      status: 500,
+      headers: JSON_HEADERS,
+    });
+  }
+  if (!admin) {
     return new Response(JSON.stringify({ error: 'Unauthorized. Admin session required.' }), {
       status: 401,
       headers: JSON_HEADERS,
     });
   }
+  if (!['admin', 'superadmin'].includes(admin.user?.role)) {
+    return new Response(JSON.stringify({ error: 'Your administrator role cannot resend ticket emails.' }), {
+      status: 403,
+      headers: JSON_HEADERS,
+    });
+  }
 
   try {
-    const { reference } = await request.json();
-    const store = await readStore();
-    const order = store.orders.find((entry) => entry.reference === String(reference || '').trim());
+    const body = await request.json();
+    const reference = typeof body?.reference === 'string' ? body.reference.trim() : '';
+    if (!/^[A-Za-z0-9.=-]{1,100}$/.test(reference)) {
+      return new Response(JSON.stringify({ error: 'A valid order reference is required.' }), {
+        status: 400,
+        headers: JSON_HEADERS,
+      });
+    }
+    const order = await getOrderByReference(reference);
     if (!order || order.status !== 'paid') {
       return new Response(JSON.stringify({ error: 'Only paid orders can receive ticket emails.' }), {
         status: 404,
@@ -26,27 +48,18 @@ export async function POST({ request, cookies }) {
       });
     }
 
-    const event = store.events.find((entry) => entry.id === order.event_id);
-    const ticketType = store.ticket_types.find((entry) => entry.id === order.ticket_type_id);
-    const tickets = store.tickets.filter((ticket) => ticket.order_id === order.id);
-    if (!event || !ticketType || tickets.length === 0) {
-      return new Response(JSON.stringify({ error: 'This paid order is missing ticket delivery details.' }), {
-        status: 409,
+    const payment = await getPaymentByReference(reference);
+    const result = await sendOrderTicketConfirmation(
+      order,
+      null,
+      payment?.provider_reference || order.reference,
+    );
+    if (!result.emailSent) {
+      return new Response(JSON.stringify({ error: 'Ticket email could not be sent. Retry after checking email configuration.' }), {
+        status: 502,
         headers: JSON_HEADERS,
       });
     }
-
-    await sendConfirmationEmail({
-      buyerName: order.buyer_name,
-      buyerEmail: order.email,
-      eventTitle: event.title,
-      venue: event.venue,
-      startsAt: event.starts_at,
-      ticketTypeName: ticketType.name,
-      quantity: order.quantity,
-      ticketCodes: tickets.map((ticket) => ticket.ticket_code),
-      paymentReference: store.payments.find((payment) => payment.order_id === order.id)?.provider_reference || order.reference,
-    });
 
     await appendAuditLog({
       action: 'email_resent',
