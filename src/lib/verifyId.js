@@ -42,27 +42,39 @@ function findExpiryMatch(rawText) {
   return null;
 }
 
-/**
- * Verifies an uploaded student ID image against the buyer's full name.
- * The image can be a filesystem path or a Node.js Buffer.
- */
-export async function verifyExactWordStudentId(imagePath, buyerDetails) {
+export function validateStudentIdOcrText(text) {
+  const rawText = typeof text === 'string' ? text : '';
+  const alphanumericCharacterCount = rawText.match(/[A-Z0-9]/gi)?.length ?? 0;
+  if (alphanumericCharacterCount < 5) {
+    return { success: false, reason: 'LOW_IMAGE_QUALITY' };
+  }
+
+  const expiryMatch = findExpiryMatch(rawText);
+  if (expiryMatch) {
+    const expired = isExpired(expiryMatch[1]);
+    if (expired === true) {
+      return { success: false, reason: 'EXPIRED_ID' };
+    }
+    if (expired === null) {
+      return { success: false, reason: 'INVALID_EXPIRY_DATE' };
+    }
+  }
+
+  return { success: true, text: rawText };
+}
+
+export async function processStudentIdOcr(image) {
   let worker = null;
 
   try {
     if (
-      !(typeof imagePath === 'string' && imagePath.trim()) &&
-      !Buffer.isBuffer(imagePath)
+      !(typeof image === 'string' && image.trim()) &&
+      !Buffer.isBuffer(image)
     ) {
-      return { verified: false, reason: 'PROCESSING_ERROR' };
+      return { success: false, reason: 'PROCESSING_ERROR' };
     }
 
-    const targetName = normalizeName(buyerDetails?.name);
-    if (!targetName) {
-      return { verified: false, reason: 'NAME_MISMATCH' };
-    }
-
-    const cleanCardBuffer = await sharp(imagePath)
+    const cleanCardBuffer = await sharp(image)
       .resize({ width: 1000 })
       .greyscale()
       .threshold(120)
@@ -72,36 +84,10 @@ export async function verifyExactWordStudentId(imagePath, buyerDetails) {
     await worker.setParameters({ tessedit_pageseg_mode: '6' });
 
     const { data } = await worker.recognize(cleanCardBuffer);
-    const rawText = typeof data?.text === 'string' ? data.text : '';
-    const alphanumericCharacterCount = rawText.match(/[A-Z0-9]/gi)?.length ?? 0;
-    if (alphanumericCharacterCount < 5) {
-      return { verified: false, reason: 'LOW_IMAGE_QUALITY' };
-    }
-
-    const expiryMatch = findExpiryMatch(rawText);
-    if (expiryMatch) {
-      const expired = isExpired(expiryMatch[1]);
-      if (expired === true) {
-        return { verified: false, reason: 'EXPIRED_ID' };
-      }
-      if (expired === null) {
-        return { verified: false, reason: 'INVALID_EXPIRY_DATE' };
-      }
-    }
-
-    const nameMatched = rawText
-      .split(/\r\n?|\n/)
-      .map(normalizeName)
-      .some((line) => line === targetName);
-
-    if (!nameMatched) {
-      return { verified: false, reason: 'NAME_MISMATCH' };
-    }
-
-    return { verified: true, reason: 'VERIFIED' };
+    return validateStudentIdOcrText(data?.text);
   } catch (error) {
     console.error('Student ID OCR processing failed:', error);
-    return { verified: false, reason: 'PROCESSING_ERROR' };
+    return { success: false, reason: 'PROCESSING_ERROR' };
   } finally {
     if (worker) {
       try {
@@ -111,4 +97,29 @@ export async function verifyExactWordStudentId(imagePath, buyerDetails) {
       }
     }
   }
+}
+
+/**
+ * Verifies an uploaded student ID image against the buyer's full name.
+ * The image can be a filesystem path or a Node.js Buffer.
+ */
+export async function verifyExactWordStudentId(imagePath, buyerDetails) {
+  const targetName = normalizeName(buyerDetails?.name);
+  if (!targetName) {
+    return { verified: false, reason: 'NAME_MISMATCH' };
+  }
+
+  const ocrResult = await processStudentIdOcr(imagePath);
+  if (!ocrResult.success) {
+    return { verified: false, reason: ocrResult.reason };
+  }
+
+  const nameMatched = ocrResult.text
+    .split(/\r\n?|\n/)
+    .map(normalizeName)
+    .some((line) => line === targetName);
+
+  return nameMatched
+    ? { verified: true, reason: 'VERIFIED' }
+    : { verified: false, reason: 'NAME_MISMATCH' };
 }

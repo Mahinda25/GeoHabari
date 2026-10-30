@@ -308,7 +308,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     setVerificationSuccess('');
 
     if (!buyerName.trim()) {
-      setVerificationError('Please enter your full buyer name above so our automated system can match the name on your Student ID.');
+      setVerificationError('Please enter your full name above as it appears on your Student ID.');
       return;
     }
 
@@ -335,7 +335,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         setVerificationStatus('approved');
         setVerificationId(data.verification_id);
         setVerificationToken(data.verification_token);
-        setVerificationSuccess(data.message || 'Student ID name match verified! Student ticket rate unlocked.');
+        setVerificationSuccess(data.message || 'Student eligibility verified! Student ticket rate unlocked.');
       } else {
         setVerificationStatus('failed');
         setVerificationError(data.reason || data.error || 'Could not verify student ID. Please try university email or upload a clearer card.');
@@ -725,7 +725,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                     Verify Your Student Ticket Eligibility
                   </h4>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Discounted rate: <strong>KES 600</strong> (Standard rate: KES 1,000)
+                    Discounted rate for verified students only.
                   </p>
                 </div>
               </div>
@@ -743,8 +743,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
             {/* Explanation Copy */}
             <p className="text-xs text-slate-600 leading-relaxed">
-              Verify access to your Kenyan university email ending in <strong>.ac.ke</strong> with a single-use code, or upload your Student ID for name matching.
-              
+              Verify using your Kenyan university email ending in <strong>.ac.ke</strong> with a single-use code, or submit a Student ID for eligibility review.
             </p>
 
             {/* If Approved, show clear confirmation */}
@@ -893,7 +892,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                         Student ID Document (PDF, PNG, JPG, WEBP - Max 5 MB)
                       </span>
                       <p className="text-xs text-slate-500 mb-2">
-                        Upload a clear image or PDF of your Student ID.
+                        Upload a clear, current student ID issued by your university or college, with the full card and details visible. Enter your full name above exactly as printed on the ID.
                       </p>
 
                       <div className="border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-xl p-4 text-center cursor-pointer transition relative bg-slate-50/50">
@@ -924,16 +923,16 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                       >
                         {verificationStatus === 'uploading' ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin" /> Running automated name check...
+                            <Loader2 className="w-4 h-4 animate-spin" /> Reviewing document...
                           </>
                         ) : (
-                          'Perform Automated Name Check'
+                          'Submit Student ID'
                         )}
                       </button>
                     )}
 
                     <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-500">
-                      <strong>Privacy notice:</strong> Uploaded IDs are stored in private encrypted storage solely to verify name consistency for this order and are automatically deleted per our retention policy.
+                      <strong>Privacy notice:</strong> Uploaded IDs are stored privately for student eligibility review and are automatically deleted according to our retention policy.
                     </div>
                   </div>
                 )}
@@ -1142,7 +1141,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               <Mail className="w-4 h-4 text-[#6C2BD9] shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold block text-[#6C2BD9]">Digital Ticket Delivery:</span>
-                Your order confirmation and ticket codes will be sent to your email and, when configured, WhatsApp after verified payment.
+                Your order confirmation and ticket codes will be sent to your email after verified payment.
               </div>
             </div>
           </div>

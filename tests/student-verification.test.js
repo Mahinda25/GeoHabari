@@ -17,8 +17,8 @@ import {
 
 import {
   matchStudentName,
-  normalizeText,
 } from '../src/lib/ocr-service.js';
+import { validateStudentIdOcrText } from '../src/lib/verifyId.js';
 
 import {
   calculateFileHash,
@@ -122,35 +122,54 @@ describe('Document Upload Validation & Magic Bytes Check', () => {
 });
 
 describe('Automated OCR Name Matching Policy', () => {
-  test('Clearly matching name passes with high confidence', () => {
+  test('Matches all name words in embedded, reordered text with spacing variations', () => {
     const buyer = 'Jane Wanjiru';
-    const ocrText = 'UNIVERSITY OF NAIROBI STUDENT IDENTITY CARD NAME: JANE WANJIRU ADM: F17/2026';
+    const ocrText = 'UNIVERSITY OF NAIROBI\nNAME: WANJIRU,   JANE\nADM: F17/2026';
     const match = matchStudentName(buyer, ocrText);
     assert.equal(match.isMatch, true);
-    assert.ok(match.confidence >= 0.85);
+    assert.equal(match.confidence, 100);
   });
 
-  test('Handles inverted name ordering (Last First vs First Last)', () => {
-    const buyer = 'Jane Wanjiru';
-    const ocrText = 'KENYATTA UNIVERSITY ID CARD WANJIRU, JANE ADMISSION NUMBER E45/1020/2024';
-    const match = matchStudentName(buyer, ocrText);
-    assert.equal(match.isMatch, true);
-    assert.ok(match.confidence >= 0.85);
+  test('Allows limited OCR typos while requiring every name component', () => {
+    assert.equal(matchStudentName('John Doe', 'NAME: J0HN DOE').isMatch, true);
+    assert.equal(matchStudentName('John Wanjiru', 'JOHN UNKNOWN').confidence, 50);
   });
 
-  test('Tolerates minor OCR character variations', () => {
-    const buyer = 'Stephen Shaphan';
-    const ocrText = 'STUDENT ID STEPHEN SHAPHAN REG 2026';
-    const match = matchStudentName(buyer, ocrText);
-    assert.equal(match.isMatch, true);
+  test('Does not match substrings or reuse an OCR token for multiple name words', () => {
+    assert.equal(matchStudentName('Ann', 'JOANNA').isMatch, false);
+    assert.equal(matchStudentName('John John', 'JOHN').isMatch, false);
   });
 
-  test('Ambiguous or missing names do not automatically approve', () => {
+  test('Missing or mismatched names do not approve', () => {
     const buyer = 'Kevin Otieno';
-    const ocrText = 'STUDENT ID CARD BRIAN KAMAU ADM 9999';
+    const ocrText = 'BRIAN KAMAU';
     const match = matchStudentName(buyer, ocrText);
     assert.equal(match.isMatch, false);
-    assert.equal(match.confidence < 0.5, true);
+    assert.equal(match.confidence, 0);
+  });
+});
+
+describe('Student ID OCR text quality and expiration checks', () => {
+  test('Rejects OCR output with fewer than five alphanumeric characters', () => {
+    assert.deepEqual(validateStudentIdOcrText('ID 12'), {
+      success: false,
+      reason: 'LOW_IMAGE_QUALITY',
+    });
+  });
+
+  test('Rejects an expired card and accepts a future expiration date', () => {
+    assert.deepEqual(validateStudentIdOcrText('STUDENT ID\nEXP 01/20'), {
+      success: false,
+      reason: 'EXPIRED_ID',
+    });
+    assert.equal(validateStudentIdOcrText('STUDENT ID\nEXP 12/35').success, true);
+  });
+
+  test('Rejects malformed expiration dates', () => {
+    assert.deepEqual(validateStudentIdOcrText('STUDENT ID\nEXP 13/2030'), {
+      success: false,
+      reason: 'INVALID_EXPIRY_DATE',
+    });
   });
 });
 

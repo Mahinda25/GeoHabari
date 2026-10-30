@@ -43,7 +43,7 @@ export async function POST({ request }) {
 
     if (!buyerName || buyerName.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'Full buyer name is required to match against your Student ID.' }),
+        JSON.stringify({ error: 'Full buyer name is required for student eligibility review.' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -175,7 +175,7 @@ export async function POST({ request }) {
           verification_token: token,
           token_expires_at: expiresAt,
           confidence: matchResult.confidence,
-          message: 'Student ID name check successful! Student ticket rate unlocked.',
+          message: 'Student eligibility verified! Student ticket rate unlocked.',
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
@@ -200,7 +200,7 @@ export async function POST({ request }) {
       JSON.stringify({
         success: false,
         status: 'retry_required',
-        reason: matchResult.reason,
+        reason: 'We could not confirm student eligibility from this document. Check that your full name above matches the name printed on your current university or college Student ID, including first, middle, and family names. Make sure the full card is clear and readable, then try again or use your university email.',
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
