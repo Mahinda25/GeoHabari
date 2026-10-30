@@ -2,6 +2,44 @@
 import Layout from "../../layout/Layout.astro";
 import { getPublishedEvents } from "../../lib/ticketing.js";
 
+const EXCERPT_MAX = 300; // <- change to any number you like
+
+// Splits the description into paragraphs, strips markdown, stops at `max`
+// characters (counted across all paragraphs) and adds "…" where it is cut.
+const excerptParagraphs = (md = "", max = EXCERPT_MAX) => {
+  const paragraphs = md
+    .split(/\n\s*\n/)
+    .map((p) =>
+      p
+        .replace(/^#{1,6}\s*/gm, "")
+        .replace(/^\s*[-*+]\s+/gm, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/[*_`]/g, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean);
+
+  const out: string[] = [];
+  let used = 0;
+  for (const p of paragraphs) {
+    const left = max - used;
+    if (p.length <= left) {
+      out.push(p);
+      used += p.length;
+      continue;
+    }
+    const cut = p
+      .slice(0, Math.max(left, 0))
+      .replace(/\s+\S*$/, "")
+      .trimEnd();
+    if (cut) out.push(cut + "…");
+    else if (out.length) out[out.length - 1] += "…";
+    break;
+  }
+  return out;
+};
+
 const events = await getPublishedEvents();
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 ---
@@ -25,23 +63,38 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
       {
         events.map((event) => (
           <article class="event-card">
-            <img src={event.poster} alt={event.title} loading="lazy" />
+            <div
+              class="card-media"
+              style={event.poster ? `--poster: url("${event.poster}")` : ""}
+            >
+              {(event.card_image?.trim() || event.poster) && (
+                <img
+                  src={event.card_image?.trim() || event.poster}
+                  alt={event.title}
+                  loading="lazy"
+                />
+              )}
+            </div>
             <div class="card-body">
               <div class="event-meta">
-                <span>
+                <span class="event-date">
                   {new Date(event.starts_at).toLocaleDateString("en-KE", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   })}
                 </span>
-                <span>{event.venue}</span>
+                <span class="event-venue">{event.venue}</span>
+                <a href={`/events/${event.slug}`} class="primary-btn">
+                  Get Tickets
+                </a>
               </div>
               <h2>{event.title}</h2>
-              <p>{event.description}</p>
-              <a href={`/events/${event.slug}`} class="primary-btn">
-                Get Tickets
-              </a>
+              <div class="card-excerpt">
+                {excerptParagraphs(event.description ?? "").map((p) => (
+                  <p>{p}</p>
+                ))}
+              </div>
             </div>
           </article>
         ))
@@ -54,7 +107,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
   @use "../../styles/partials/combined.scss" as *;
 
   .events-page-shell {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 7rem 1.25rem 4rem;
   }
@@ -80,7 +133,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
     }
 
     p {
-      max-width: 720px;
+      max-width: 800px;
       margin: 0 auto;
       color: rgba(15, 23, 42, 0.72);
       font-size: 1.05rem;
@@ -88,50 +141,110 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
     }
   }
 
+  /* ---------- Card dimensions (change these to resize) ---------- */
   .events-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    --card-width: 900px;
+    --media-height: 320px; // image area
+    --body-height: 230px; // description area  (330 + 230 = 560 total)
+    --media-width: 800px; // the poster itself, centered
+    --body-pad-x: 50px; // left / right spacing for the description
+
+    display: flex;
+    flex-direction: column;
+    align-items: center; // every card centered (one or many)
     gap: 1.5rem;
   }
 
   .event-card {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+    width: min(100%, var(--card-width));
+    height: calc(var(--media-height) + var(--body-height));
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid rgba(19, 54, 40, 0.08);
     border-radius: 24px;
     overflow: hidden;
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 20px 45px rgba(26, 71, 38, 0.06);
+  }
+
+  /* ---------- Image area (60%) ---------- */
+  .card-media {
+    position: relative;
+    flex: 0 0 var(--media-height);
+    height: var(--media-height);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    background: #fff; // fallback while the image loads
+
+    // Blurred, enlarged copy of the poster: its colors extend past the poster
+    // on both sides, so the sides look like a natural continuation of the image.
+    // &::before {
+    // content: "";
+    // position: absolute;
+    //  inset: -40px;
+    //background: var(--poster) center / cover no-repeat;
+    //   filter: blur(40px) saturate(1.2) brightness(0.8);
+    // }
 
     img {
+      position: relative; // sits above the blurred layer
+      z-index: 1;
       display: block;
-      width: 100%;
-      height: 260px;
-      object-fit: cover;
+      width: var(--media-width);
+      max-width: 100%;
+      height: 100%;
+      object-fit: contain; // whole poster visible. Use "cover" to fill 800 x 330 exactly
     }
   }
 
+  /* ---------- Description area (40%) ---------- */
   .card-body {
-    padding: 1.25rem;
+    flex: 0 0 var(--body-height);
+    height: var(--body-height);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem var(--body-pad-x);
+    overflow: hidden;
 
     .event-meta {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: center;
       gap: 0.75rem;
-      flex-wrap: wrap;
       font-size: 0.8rem;
       color: rgba(15, 23, 42, 0.75);
-      margin-bottom: 0.8rem;
+      margin-bottom: 0.5rem;
+
+      .event-date {
+        text-align: left;
+      }
+
+      .event-venue {
+        text-align: center;
+        transform: translateX(-16px);
+      }
     }
 
     h2 {
-      font-size: 1.5rem;
-      margin: 0 0 0.75rem;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      margin: 0 0 0.4rem;
     }
+  }
+
+  .card-excerpt {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
 
     p {
-      font-size: 0.96rem;
-      line-height: 1.7;
-      color: rgba(15, 23, 42, 0.7);
-      margin-bottom: 1rem;
+      font-size: 0.62em;
+      line-height: 1.35;
+      color: rgba(3, 3, 3, 0.7);
+      margin: 0 0 0.2em;
     }
   }
 
@@ -139,12 +252,38 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 46px;
-    padding: 0.8rem 1.15rem;
+    min-height: 36px;
+    padding: 0.35rem 0.9rem;
     border-radius: 999px;
     background: linear-gradient(135deg, $purple, $green);
     color: $white-pure;
     text-decoration: none;
     font-weight: 700;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    transition: transform 0.2s ease;
+    justify-self: end;
+  }
+
+  /* ---------- Smaller screens: let the card fit the screen ---------- */
+  @media (max-width: 800px) {
+    .events-grid {
+      --media-height: 260px;
+      --body-pad-x: 1.25rem;
+    }
+
+    .event-card {
+      height: auto;
+    }
+
+    .card-body {
+      height: auto;
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+
+    .card-excerpt {
+      flex: 0 0 auto;
+    }
   }
 </style>

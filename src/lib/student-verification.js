@@ -5,7 +5,22 @@ export const CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 export const VERIFICATION_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const MAX_VERIFICATION_ATTEMPTS = 5;
 export const MAX_RESEND_ATTEMPTS = 3;
-export const RETENTION_DAYS = Number(process.env.STUDENT_ID_RETENTION_DAYS || 30);
+export const RETENTION_DAYS = Number(import.meta.env?.STUDENT_ID_RETENTION_DAYS || 30);
+
+function getTokenSigningSecret() {
+  return [
+    import.meta.env?.TOKEN_SIGNING_KEY,
+    import.meta.env?.JWT_SECRET,
+    import.meta.env?.APP_SECRET,
+    import.meta.env?.VERIFICATION_TOKEN_SECRET,
+  ]
+    .map((secret) => secret?.trim())
+    .find(Boolean);
+}
+
+export function isVerificationTokenSigningConfigured() {
+  return Boolean(getTokenSigningSecret());
+}
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -153,9 +168,9 @@ export function validateUploadedDocument(buffer, declaredMime, filename) {
  * Generates an HMAC-signed student verification token
  */
 export function generateVerificationToken(verificationId, buyerName, method) {
-  const secret = process.env.VERIFICATION_TOKEN_SECRET;
+  const secret = getTokenSigningSecret();
   if (!secret) {
-    throw new Error('Student verification token signing is not configured. Set VERIFICATION_TOKEN_SECRET.');
+    throw new Error('Student verification token signing is not configured. Set TOKEN_SIGNING_KEY, JWT_SECRET, APP_SECRET, or VERIFICATION_TOKEN_SECRET.');
   }
   const expiresAt = Date.now() + VERIFICATION_TOKEN_EXPIRY_MS;
   const payload = `${verificationId}:${buyerName.trim().toLowerCase()}:${method}:${expiresAt}`;
@@ -187,7 +202,7 @@ export function verifyVerificationToken(tokenStr, buyerName) {
     return { isValid: false, error: 'Verification token has expired.' };
   }
 
-  const secret = process.env.VERIFICATION_TOKEN_SECRET;
+  const secret = getTokenSigningSecret();
   if (!secret) {
     return { isValid: false, error: 'Student verification token signing is not configured.' };
   }

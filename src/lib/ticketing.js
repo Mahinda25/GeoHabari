@@ -15,6 +15,7 @@ import {
   saveTicketType,
   saveEventWithTickets,
   getStudentVerificationById,
+  getVerifiedStudentEmailOtpByVerificationId,
 } from './ticketing-store.js';
 import { verifyVerificationToken } from './student-verification.js';
 import {
@@ -108,6 +109,7 @@ export function ensureOrderRequestValid(payload) {
   const acceptedTerms = Boolean(payload.accept_terms ?? payload.acceptTerms ?? payload.terms_accepted);
   const studentVerificationId = sanitizeText(payload.student_verification_id || '');
   const studentVerificationToken = sanitizeText(payload.student_verification_token || '');
+  const studentVerifiedEmail = sanitizeText(payload.student_verified_email || '').toLowerCase();
   const organization = sanitizeText(payload.organization || payload.buyer_org || '');
   const role = sanitizeText(payload.role || payload.buyer_role || '');
   const attendees = Array.isArray(payload.attendees)
@@ -161,6 +163,7 @@ export function ensureOrderRequestValid(payload) {
     accepted_terms: true,
     student_verification_id: studentVerificationId,
     student_verification_token: studentVerificationToken,
+    student_verified_email: studentVerifiedEmail,
     organization,
     role,
     attendees: [],
@@ -214,13 +217,23 @@ export async function createOrderCheckout(eventId, requestPayload) {
       );
     }
 
-    // Token verification
-    if (!verificationToken) {
-      throw new Error('A signed student verification token is required. Please verify your student details again.');
-    }
-    const tokenResult = verifyVerificationToken(verificationToken, validated.buyer_name);
-    if (!tokenResult.isValid || tokenResult.verificationId !== verifiedStudentRecord.id) {
-      throw new Error(`Student verification token invalid or expired: ${tokenResult.error || 'verification ID mismatch'}`);
+    if (verifiedStudentRecord.method === 'university_email') {
+      const emailOtp = await getVerifiedStudentEmailOtpByVerificationId(verificationId);
+      if (
+        !emailOtp ||
+        !validated.student_verified_email ||
+        emailOtp.email !== validated.student_verified_email
+      ) {
+        throw new Error('University email verification could not be confirmed. Please verify your email again.');
+      }
+    } else {
+      if (!verificationToken) {
+        throw new Error('A signed student verification token is required. Please verify your student details again.');
+      }
+      const tokenResult = verifyVerificationToken(verificationToken, validated.buyer_name);
+      if (!tokenResult.isValid || tokenResult.verificationId !== verifiedStudentRecord.id) {
+        throw new Error(`Student verification token invalid or expired: ${tokenResult.error || 'verification ID mismatch'}`);
+      }
     }
 
     // Reuse prevention check
@@ -536,17 +549,25 @@ export async function sendWhatsAppTicketConfirmation({
 /**
  * Dispatches one-time verification code to .ac.ke university email
  */
-export async function sendUniversityVerificationEmail({ email, buyerName, code }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromAddress = process.env.RESEND_FROM || 'noreply@geohabari.com';
-
+export async function sendUniversityVerificationEmail({
+  email,
+  buyerName,
+  code,
+  apiKey,
+  fromAddress = 'GeoHabari Tickets <tickets@tickets.geohabari.com>',
+}) {
+  apiKey = String(apiKey ?? '').trim();
+  const normalizedFromAddress = String(fromAddress ?? '').trim();
   if (!apiKey) {
     throw new Error('Student email verification is not configured. Set RESEND_API_KEY to send verification codes.');
   }
+  if (!normalizedFromAddress) {
+    throw new Error('Student email verification sender address is not configured.');
+  }
 
   const payload = {
-    from: fromAddress,
-    to: [email],
+    from: normalizedFromAddress,
+    to: [String(email ?? '').trim()],
     subject: `Your GeoHabari Student Verification Code: ${code}`,
     html: `
       <h2>GeoHabari Student Ticket Verification</h2>
@@ -555,7 +576,7 @@ export async function sendUniversityVerificationEmail({ email, buyerName, code }
       <div style="font-size: 28px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #f3f4f6; border-radius: 8px; display: inline-block; margin: 16px 0;">
         ${code}
       </div>
-      <p>This code expires in 15 minutes and can only be used once.</p>
+      <p>This code expires in 10 minutes and can only be used once.</p>
       <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">
         Important notice: Verification confirms access to this academic mailbox and does not independently prove current institutional enrollment.
       </p>
@@ -572,7 +593,15 @@ export async function sendUniversityVerificationEmail({ email, buyerName, code }
   });
 
   if (!response.ok) {
-    throw new Error(`Verification email failed: ${response.status}`);
+    const responseBody = await response.json().catch(() => null);
+    const providerMessage =
+      responseBody?.message ||
+      responseBody?.error?.message ||
+      responseBody?.name ||
+      'No provider error details returned.';
+    throw new Error(
+      `Verification email failed (${response.status}): ${providerMessage}`,
+    );
   }
 
   return { success: true, mocked: false };

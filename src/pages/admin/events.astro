@@ -1,37 +1,61 @@
 ---
-import AdminLayout from '../../layouts/AdminLayout.astro';
-import { listEvents, getTicketTypesByEvent, readStore } from '../../lib/ticketing-store.js';
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import {
+  listEvents,
+  getTicketTypesByEvent,
+  readStore,
+} from "../../lib/ticketing-store.js";
 
 const rawEvents = await listEvents();
 const store = await readStore();
 
-const events = await Promise.all(rawEvents.map(async (event) => {
-  const tickets = await getTicketTypesByEvent(event.id);
-  const totalAllocation = tickets.reduce((sum, t) => sum + Number(t.allocation || 0), 0);
-  const totalSold = tickets.reduce((sum, t) => sum + Number(t.sold_count || 0), 0);
-  const ticketHolderCount = (store.tickets as Array<{ event_id: unknown }>).filter((ticket) => ticket.event_id === event.id).length;
-  return {
-    ...event,
-    ticket_types: tickets,
-    totalAllocation,
-    totalSold,
-    ticketHolderCount,
-  };
-})).then((results) => results.sort((a, b) => {
-  const now = Date.now();
-  const getGroup = (event: { status?: string; archived_at?: string | null; starts_at: string | Date; ends_at: string | Date }) => {
-    if (event.status === 'archived' || event.archived_at) return 3;
-    if (new Date(event.starts_at).getTime() > now) return 0;
-    if (new Date(event.ends_at).getTime() >= now) return 1;
-    return 2;
-  };
-  const groupDifference = getGroup(a) - getGroup(b);
-  if (groupDifference !== 0) return groupDifference;
-  const dateDifference = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
-  return getGroup(a) === 2 ? -dateDifference : dateDifference;
-}));
+const events = await Promise.all(
+  rawEvents.map(async (event) => {
+    const tickets = await getTicketTypesByEvent(event.id);
+    const totalAllocation = tickets.reduce(
+      (sum, t) => sum + Number(t.allocation || 0),
+      0,
+    );
+    const totalSold = tickets.reduce(
+      (sum, t) => sum + Number(t.sold_count || 0),
+      0,
+    );
+    const ticketHolderCount = (
+      store.tickets as Array<{ event_id: unknown }>
+    ).filter((ticket) => ticket.event_id === event.id).length;
+    return {
+      ...event,
+      ticket_types: tickets,
+      totalAllocation,
+      totalSold,
+      ticketHolderCount,
+    };
+  }),
+).then((results) =>
+  results.sort((a, b) => {
+    const now = Date.now();
+    const getGroup = (event: {
+      status?: string;
+      archived_at?: string | null;
+      starts_at: string | Date;
+      ends_at: string | Date;
+    }) => {
+      if (event.status === "archived" || event.archived_at) return 3;
+      if (new Date(event.starts_at).getTime() > now) return 0;
+      if (new Date(event.ends_at).getTime() >= now) return 1;
+      return 2;
+    };
+    const groupDifference = getGroup(a) - getGroup(b);
+    if (groupDifference !== 0) return groupDifference;
+    const dateDifference =
+      new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+    return getGroup(a) === 2 ? -dateDifference : dateDifference;
+  }),
+);
 
-const totalPublished = events.filter((e) => e.status === 'published' && !e.archived_at).length;
+const totalPublished = events.filter(
+  (e) => e.status === "published" && !e.archived_at,
+).length;
 const totalCapacity = events.reduce((sum, e) => sum + e.totalAllocation, 0);
 const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 ---
@@ -43,11 +67,17 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       <div class="metric-card">
         <div class="metric-header">
           <span class="metric-label">Total Events</span>
-          <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-            <line x1="16" x2="16" y1="2" y2="6"/>
-            <line x1="8" x2="8" y1="2" y2="6"/>
-            <line x1="3" x2="21" y1="10" y2="10"/>
+          <svg
+            class="metric-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+            <line x1="16" x2="16" y1="2" y2="6"></line>
+            <line x1="8" x2="8" y1="2" y2="6"></line>
+            <line x1="3" x2="21" y1="10" y2="10"></line>
           </svg>
         </div>
         <div class="metric-value">{events.length}</div>
@@ -70,8 +100,16 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       <div class="metric-card">
         <div class="metric-header">
           <span class="metric-label">Total Ticket Capacity</span>
-          <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+          <svg
+            class="metric-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"
+            ></path>
           </svg>
         </div>
         <div class="metric-value">{totalCapacity.toLocaleString()}</div>
@@ -96,13 +134,21 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     <div class="action-bar-card">
       <div class="action-bar-left">
         <h2 class="section-title">Events Catalog</h2>
-        <p class="section-sub">Create, edit, and manage public event listings and ticket categories.</p>
+        <p class="section-sub">
+          Create, edit, and manage public event listings and ticket categories.
+        </p>
       </div>
       <div class="action-bar-right">
         <button type="button" class="create-event-btn" id="openCreateModalBtn">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" x2="12" y1="5" y2="19"/>
-            <line x1="5" x2="19" y1="12" y2="12"/>
+          <svg
+            class="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <line x1="12" x2="12" y1="5" y2="19"></line>
+            <line x1="5" x2="19" y1="12" y2="12"></line>
           </svg>
           <span>Create New Event</span>
         </button>
@@ -126,103 +172,143 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
             </tr>
           </thead>
           <tbody>
-            {events.length === 0 ? (
-              <tr>
-                <td colspan="8" class="empty-state">No events found. Click "Create New Event" to add your first event.</td>
-              </tr>
-            ) : (
-              events.map((event) => {
-                const startDate = new Date(event.starts_at);
-                const dateStr = !isNaN(startDate.getTime())
-                  ? startDate.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
-                  : 'N/A';
-                const timeStr = !isNaN(startDate.getTime())
-                  ? startDate.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })
-                  : '';
+            {
+              events.length === 0 ? (
+                <tr>
+                  <td colspan="8" class="empty-state">
+                    No events found. Click "Create New Event" to add your first
+                    event.
+                  </td>
+                </tr>
+              ) : (
+                events.map((event) => {
+                  const startDate = new Date(event.starts_at);
+                  const dateStr = !isNaN(startDate.getTime())
+                    ? startDate.toLocaleDateString("en-KE", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "N/A";
+                  const timeStr = !isNaN(startDate.getTime())
+                    ? startDate.toLocaleTimeString("en-KE", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "";
 
-                return (
-                  <tr>
-                    <td>
-                      <div class="event-cell">
-                        {event.poster ? (
-                          <img src={event.poster} alt={event.title} class="event-thumb" loading="lazy" />
-                        ) : (
-                          <div class="event-thumb-placeholder">GH</div>
-                        )}
-                        <div>
-                          <div class="event-title-text">{event.title}</div>
-                          <div class="event-slug-text">/{event.slug}</div>
+                  return (
+                    <tr>
+                      <td>
+                        <div class="event-cell">
+                          {event.poster ? (
+                            <img
+                              src={event.poster}
+                              alt={event.title}
+                              class="event-thumb"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div class="event-thumb-placeholder">GH</div>
+                          )}
+                          <div>
+                            <div class="event-title-text">{event.title}</div>
+                            <div class="event-slug-text">/{event.slug}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="venue-text">{event.venue}</span>
-                    </td>
-                    <td>
-                      <div class="date-text">{dateStr}</div>
-                      <div class="time-text text-muted">{timeStr}</div>
-                    </td>
-                    <td>
-                      <span class={`status-badge ${event.status === 'published' ? 'published-badge' : event.status === 'draft' ? 'draft-badge' : 'archived-badge'}`}>
-                        {event.status || 'published'}
-                      </span>
-                    </td>
-                    <td>
-                      <div class="tickets-pill-list">
-                        {event.ticket_types.length === 0 ? (
-                          <span class="text-xs text-muted">No tiers</span>
-                        ) : (
-                          event.ticket_types.map((t: { name: string; price: number | string }) => (
-                            <span class="ticket-tag">
-                              <strong>{t.name}</strong>: KES {Number(t.price).toLocaleString()}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div class="capacity-stat">
-                        <span class="font-bold">{event.totalSold}</span>
-                        <span class="text-muted"> / {event.totalAllocation}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <a class="view-btn" href={`/admin/tickets?eventId=${encodeURIComponent(event.id)}`}>
-                        {event.ticketHolderCount} records
-                      </a>
-                    </td>
-                    <td>
-                      <div class="action-buttons">
-                        <button
-                          type="button"
-                          class="edit-btn"
-                          data-event={JSON.stringify(event)}
-                          title="Edit Event"
+                      </td>
+                      <td>
+                        <span class="venue-text">{event.venue}</span>
+                      </td>
+                      <td>
+                        <div class="date-text">{dateStr}</div>
+                        <div class="time-text text-muted">{timeStr}</div>
+                      </td>
+                      <td>
+                        <span
+                          class={`status-badge ${event.status === "published" ? "published-badge" : event.status === "draft" ? "draft-badge" : "archived-badge"}`}
                         >
-                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                          </svg>
-                          <span>Edit</span>
-                        </button>
+                          {event.status || "published"}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="tickets-pill-list">
+                          {event.ticket_types.length === 0 ? (
+                            <span class="text-xs text-muted">No tiers</span>
+                          ) : (
+                            event.ticket_types.map(
+                              (t: { name: string; price: number | string }) => (
+                                <span class="ticket-tag">
+                                  <strong>{t.name}</strong>: KES{" "}
+                                  {Number(t.price).toLocaleString()}
+                                </span>
+                              ),
+                            )
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div class="capacity-stat">
+                          <span class="font-bold">{event.totalSold}</span>
+                          <span class="text-muted">
+                            {" "}
+                            / {event.totalAllocation}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
                         <a
-                          href={`/events/${event.slug}`}
-                          target="_blank"
                           class="view-btn"
-                          title="View Public Page"
+                          href={`/admin/tickets?eventId=${encodeURIComponent(event.id)}`}
                         >
-                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                            <polyline points="15 3 21 3 21 9"/>
-                            <line x1="10" x2="21" y1="14" y2="3"/>
-                          </svg>
+                          {event.ticketHolderCount} records
                         </a>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                      </td>
+                      <td>
+                        <div class="action-buttons">
+                          <button
+                            type="button"
+                            class="edit-btn"
+                            data-event={JSON.stringify(event)}
+                            title="Edit Event"
+                          >
+                            <svg
+                              class="w-3.5 h-3.5"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                            </svg>
+                            <span>Edit</span>
+                          </button>
+                          <a
+                            href={`/events/${event.slug}`}
+                            target="_blank"
+                            class="view-btn"
+                            title="View Public Page"
+                          >
+                            <svg
+                              class="w-3.5 h-3.5"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                              <polyline points="15 3 21 3 21 9" />
+                              <line x1="10" x2="21" y1="14" y2="3" />
+                            </svg>
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )
+            }
           </tbody>
         </table>
       </div>
@@ -235,11 +321,24 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       <div class="modal-header">
         <div>
           <h3 id="modalTitle" class="modal-title">Create New Event</h3>
-          <p class="modal-subtitle">Configure event logistics, description, and ticket tiers.</p>
+          <p class="modal-subtitle">
+            Configure event logistics, description, and ticket tiers.
+          </p>
         </div>
-        <button type="button" id="closeModalBtn" class="modal-close-btn" aria-label="Close modal">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6 6 18M6 6l12 12"/>
+        <button
+          type="button"
+          id="closeModalBtn"
+          class="modal-close-btn"
+          aria-label="Close modal"
+        >
+          <svg
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 6 6 18M6 6l12 12"></path>
           </svg>
         </button>
       </div>
@@ -253,7 +352,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
           <div class="form-row grid-2">
             <div class="form-group">
-              <label for="eventTitle" class="form-label">Event Name <span class="required">*</span></label>
+              <label for="eventTitle" class="form-label"
+                >Event Name <span class="required">*</span></label
+              >
               <input
                 type="text"
                 id="eventTitle"
@@ -277,20 +378,35 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           </div>
 
           <div class="form-group">
-            <label for="eventDescription" class="form-label">Description <span class="required">*</span></label>
+            <label for="eventDescription" class="form-label"
+              >Description <span class="required">*</span></label
+            >
             <textarea
               id="eventDescription"
               name="description"
               required
               rows="3"
               placeholder="Detailed description of the event, keynote topics, target audience..."
-              class="form-textarea"
-            ></textarea>
+              class="form-textarea"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="eventHighlights" class="form-label"
+              >What to Expect (Highlights)</label
+            >
+            <textarea
+              id="eventHighlights"
+              name="highlights"
+              rows="4"
+              placeholder="Enter each bullet point on a new line."
+              class="form-textarea"></textarea>
           </div>
 
           <div class="form-row grid-2">
             <div class="form-group">
-              <label for="eventVenue" class="form-label">Venue / Location <span class="required">*</span></label>
+              <label for="eventVenue" class="form-label"
+                >Venue / Location <span class="required">*</span></label
+              >
               <input
                 type="text"
                 id="eventVenue"
@@ -302,7 +418,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
             </div>
 
             <div class="form-group">
-              <label for="eventStatus" class="form-label">Publication Status</label>
+              <label for="eventStatus" class="form-label"
+                >Publication Status</label
+              >
               <select id="eventStatus" name="status" class="form-select">
                 <option value="published">Published (Live & Visible)</option>
                 <option value="draft">Draft (Hidden from Public)</option>
@@ -312,7 +430,136 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           </div>
 
           <div class="form-group">
-            <label class="form-label">Poster / Cover Image <span class="required">*</span></label>
+            <label for="eventCardImageFile" class="form-label"
+              >Event Card Image</label
+            >
+            <input
+              type="hidden"
+              id="eventCardImage"
+              name="card_image"
+              value=""
+            />
+            <input
+              type="file"
+              id="eventCardImageFile"
+              accept="image/png,image/jpeg,image/webp"
+              class="poster-file-input"
+            />
+
+            <div id="cardImageDropzone" class="poster-dropzone">
+              <div class="dropzone-inner">
+                <div class="dropzone-icon-circle">
+                  <svg
+                    class="w-6 h-6 text-purple-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                    <circle cx="9" cy="9" r="2"></circle>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                  </svg>
+                </div>
+                <div class="dropzone-text">
+                  <p class="dropzone-primary-text">
+                    <button
+                      type="button"
+                      id="browseCardImageBtn"
+                      class="browse-link-btn">Select an image</button
+                    >
+                    <span> or drag and drop</span>
+                  </p>
+                  <p class="dropzone-hint">
+                    PNG, JPG, or WebP up to 5MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="cardImagePreviewContainer"
+              class="poster-preview-card hidden"
+            >
+              <div class="poster-preview-media">
+                <img
+                  id="cardImagePreviewImg"
+                  src=""
+                  alt="Event card image preview"
+                  class="poster-preview-thumb"
+                />
+                <div
+                  id="cardImageUploadProgress"
+                  class="poster-upload-overlay hidden"
+                >
+                  <div class="spinner"></div>
+                  <span class="upload-status-text">Uploading image...</span>
+                </div>
+              </div>
+              <div class="poster-preview-info">
+                <div class="preview-filename-row">
+                  <span id="cardImageFilename" class="preview-filename"
+                    >card-image.jpg</span
+                  >
+                  <span
+                    id="cardImageUploadBadge"
+                    class="upload-badge success-badge">Ready</span
+                  >
+                </div>
+                <p id="cardImageDetails" class="preview-meta">
+                  Image saved and ready
+                </p>
+                <div class="preview-actions">
+                  <button
+                    type="button"
+                    id="replaceCardImageBtn"
+                    class="action-btn replace-btn"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" x2="12" y1="3" y2="15"></line>
+                    </svg>
+                    <span>Replace Image</span>
+                  </button>
+                  <button
+                    type="button"
+                    id="removeCardImageBtn"
+                    class="action-btn remove-btn"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <line x1="18" x2="6" y1="6" y2="18"></line>
+                      <line x1="6" x2="18" y1="6" y2="18"></line>
+                    </svg>
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="cardImageUploadError"
+              class="poster-upload-error hidden"
+              aria-live="polite"
+            ></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"
+              >Poster / Cover Image <span class="required">*</span></label
+            >
             <input type="hidden" id="eventPoster" name="poster" value="" />
             <input
               type="file"
@@ -325,18 +572,31 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
             <div id="posterDropzone" class="poster-dropzone">
               <div class="dropzone-inner">
                 <div class="dropzone-icon-circle">
-                  <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                    <circle cx="9" cy="9" r="2"/>
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  <svg
+                    class="w-6 h-6 text-purple-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"
+                    ></rect>
+                    <circle cx="9" cy="9" r="2"></circle>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
                   </svg>
                 </div>
                 <div class="dropzone-text">
                   <p class="dropzone-primary-text">
-                    <button type="button" id="browsePosterBtn" class="browse-link-btn">Select an image</button>
+                    <button
+                      type="button"
+                      id="browsePosterBtn"
+                      class="browse-link-btn">Select an image</button
+                    >
                     <span> or drag and drop</span>
                   </p>
-                  <p class="dropzone-hint">PNG, JPG, or WebP up to 5MB (phone photo gallery supported)</p>
+                  <p class="dropzone-hint">
+                    PNG, JPG, or WebP up to 5MB (phone photo gallery supported)
+                  </p>
                 </div>
               </div>
             </div>
@@ -344,31 +604,67 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
             <!-- Poster Preview Area (shown when an image is selected/existing) -->
             <div id="posterPreviewContainer" class="poster-preview-card hidden">
               <div class="poster-preview-media">
-                <img id="posterPreviewImg" src="" alt="Event Poster Preview" class="poster-preview-thumb" />
-                <div id="posterUploadProgress" class="poster-upload-overlay hidden">
+                <img
+                  id="posterPreviewImg"
+                  src=""
+                  alt="Event Poster Preview"
+                  class="poster-preview-thumb"
+                />
+                <div
+                  id="posterUploadProgress"
+                  class="poster-upload-overlay hidden"
+                >
                   <div class="spinner"></div>
                   <span class="upload-status-text">Uploading image...</span>
                 </div>
               </div>
               <div class="poster-preview-info">
                 <div class="preview-filename-row">
-                  <span id="posterFilename" class="preview-filename">poster.jpg</span>
-                  <span id="posterUploadBadge" class="upload-badge success-badge">Ready</span>
+                  <span id="posterFilename" class="preview-filename"
+                    >poster.jpg</span
+                  >
+                  <span
+                    id="posterUploadBadge"
+                    class="upload-badge success-badge">Ready</span
+                  >
                 </div>
-                <p id="posterDetails" class="preview-meta">Image saved and ready</p>
+                <p id="posterDetails" class="preview-meta">
+                  Image saved and ready
+                </p>
                 <div class="preview-actions">
-                  <button type="button" id="replacePosterBtn" class="action-btn replace-btn">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" x2="12" y1="3" y2="15"/>
+                  <button
+                    type="button"
+                    id="replacePosterBtn"
+                    class="action-btn replace-btn"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                      ></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" x2="12" y1="3" y2="15"></line>
                     </svg>
                     <span>Replace Image</span>
                   </button>
-                  <button type="button" id="removePosterBtn" class="action-btn remove-btn">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" x2="6" y1="6" y2="18"/>
-                      <line x1="6" x2="18" y1="6" y2="18"/>
+                  <button
+                    type="button"
+                    id="removePosterBtn"
+                    class="action-btn remove-btn"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <line x1="18" x2="6" y1="6" y2="18"></line>
+                      <line x1="6" x2="18" y1="6" y2="18"></line>
                     </svg>
                     <span>Remove</span>
                   </button>
@@ -377,7 +673,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
             </div>
 
             <!-- Inline upload error alert -->
-            <div id="posterUploadError" class="poster-upload-error hidden"></div>
+            <div id="posterUploadError" class="poster-upload-error hidden">
+            </div>
           </div>
         </div>
 
@@ -387,18 +684,33 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
           <div class="form-row grid-3">
             <div class="form-group">
-              <label for="eventDate" class="form-label">Event Date <span class="required">*</span></label>
+              <label for="eventDate" class="form-label"
+                >Event Date <span class="required">*</span></label
+              >
               <input type="date" id="eventDate" required class="form-input" />
             </div>
 
             <div class="form-group">
-              <label for="startTime" class="form-label">Start Time <span class="required">*</span></label>
-              <input type="time" id="startTime" required value="09:00" class="form-input" />
+              <label for="startTime" class="form-label"
+                >Start Time <span class="required">*</span></label
+              >
+              <input
+                type="time"
+                id="startTime"
+                required
+                value="09:00"
+                class="form-input"
+              />
             </div>
 
             <div class="form-group">
               <label for="endTime" class="form-label">End Time</label>
-              <input type="time" id="endTime" value="17:00" class="form-input" />
+              <input
+                type="time"
+                id="endTime"
+                value="17:00"
+                class="form-input"
+              />
             </div>
           </div>
         </div>
@@ -408,12 +720,21 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           <div class="section-title-with-btn">
             <div>
               <h4 class="form-section-heading">Ticket Categories & Pricing</h4>
-              <p class="form-section-sub">Define tiers like Student, Regular, Professional, VIP with prices in KES.</p>
+              <p class="form-section-sub">
+                Define tiers like Student, Regular, Professional, VIP with
+                prices in KES.
+              </p>
             </div>
             <button type="button" id="addTicketCategoryBtn" class="add-sub-btn">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" x2="12" y1="5" y2="19"/>
-                <line x1="5" x2="19" y1="12" y2="12"/>
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" x2="12" y1="5" y2="19"></line>
+                <line x1="5" x2="19" y1="12" y2="12"></line>
               </svg>
               <span>Add Category</span>
             </button>
@@ -428,13 +749,24 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         <div class="form-section">
           <div class="section-title-with-btn">
             <div>
-              <h4 class="form-section-heading">Event Incentives / Special Offers</h4>
-              <p class="form-section-sub">Define customer offers (Early Bird discount, Group booking, Returning attendee offer, etc.).</p>
+              <h4 class="form-section-heading">
+                Event Incentives / Special Offers
+              </h4>
+              <p class="form-section-sub">
+                Define customer offers (Early Bird discount, Group booking,
+                Returning attendee offer, etc.).
+              </p>
             </div>
             <button type="button" id="addIncentiveBtn" class="add-sub-btn">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" x2="12" y1="5" y2="19"/>
-                <line x1="5" x2="19" y1="12" y2="12"/>
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <line x1="12" x2="12" y1="5" y2="19"></line>
+                <line x1="5" x2="19" y1="12" y2="12"></line>
               </svg>
               <span>Add Incentive</span>
             </button>
@@ -453,11 +785,19 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           </summary>
           <div class="details-body">
             <div class="section-title-with-btn">
-              <p class="form-section-sub">Showcase keynotes and panelists on the public event page.</p>
+              <p class="form-section-sub">
+                Showcase keynotes and panelists on the public event page.
+              </p>
               <button type="button" id="addSpeakerBtn" class="add-sub-btn">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" x2="12" y1="5" y2="19"/>
-                  <line x1="5" x2="19" y1="12" y2="12"/>
+                <svg
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <line x1="12" x2="12" y1="5" y2="19"></line>
+                  <line x1="5" x2="19" y1="12" y2="12"></line>
                 </svg>
                 <span>Add Speaker</span>
               </button>
@@ -476,11 +816,19 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           </summary>
           <div class="details-body">
             <div class="section-title-with-btn">
-              <p class="form-section-sub">Display logos of collaborating organizations.</p>
+              <p class="form-section-sub">
+                Display logos of collaborating organizations.
+              </p>
               <button type="button" id="addPartnerBtn" class="add-sub-btn">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" x2="12" y1="5" y2="19"/>
-                  <line x1="5" x2="19" y1="12" y2="12"/>
+                <svg
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <line x1="12" x2="12" y1="5" y2="19"></line>
+                  <line x1="5" x2="19" y1="12" y2="12"></line>
                 </svg>
                 <span>Add Partner</span>
               </button>
@@ -494,7 +842,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         <div id="formErrorMessage" class="form-error-banner hidden"></div>
 
         <div class="modal-footer">
-          <button type="button" id="cancelModalBtn" class="cancel-btn">Cancel</button>
+          <button type="button" id="cancelModalBtn" class="cancel-btn"
+            >Cancel</button
+          >
           <button type="submit" id="submitEventBtn" class="save-btn">
             <span class="btn-text">Save Event</span>
             <span class="btn-spinner hidden">Saving...</span>
@@ -508,66 +858,261 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 <script>
   let editingEventId: string | null = null;
   let isUploadingPoster = false;
+  let isUploadingCardImage = false;
   let posterPreviewObjectUrl: string | null = null;
-  const eventDraftKey = 'geohabari-admin-event-draft';
+  let cardImagePreviewObjectUrl: string | null = null;
+  const eventDraftKey = "geohabari-admin-event-draft";
 
-  const modal = document.getElementById('eventModal');
-  const modalTitle = document.getElementById('modalTitle');
-  const form = document.getElementById('eventForm') as HTMLFormElement | null;
-  const openCreateBtn = document.getElementById('openCreateModalBtn');
-  const closeBtn = document.getElementById('closeModalBtn');
-  const cancelBtn = document.getElementById('cancelModalBtn');
-  const errorBanner = document.getElementById('formErrorMessage');
-  const submitBtn = document.getElementById('submitEventBtn');
-  const categoriesContainer = document.getElementById('ticketCategoriesList');
-  const addCategoryBtn = document.getElementById('addTicketCategoryBtn');
-  const incentivesContainer = document.getElementById('incentivesList');
-  const addIncentiveBtn = document.getElementById('addIncentiveBtn');
-  const speakersContainer = document.getElementById('speakersList');
-  const addSpeakerBtn = document.getElementById('addSpeakerBtn');
-  const partnersContainer = document.getElementById('partnersList');
-  const addPartnerBtn = document.getElementById('addPartnerBtn');
+  const modal = document.getElementById("eventModal");
+  const modalTitle = document.getElementById("modalTitle");
+  const form = document.getElementById("eventForm") as HTMLFormElement | null;
+  const openCreateBtn = document.getElementById("openCreateModalBtn");
+  const closeBtn = document.getElementById("closeModalBtn");
+  const cancelBtn = document.getElementById("cancelModalBtn");
+  const errorBanner = document.getElementById("formErrorMessage");
+  const submitBtn = document.getElementById("submitEventBtn");
+  const categoriesContainer = document.getElementById("ticketCategoriesList");
+  const addCategoryBtn = document.getElementById("addTicketCategoryBtn");
+  const incentivesContainer = document.getElementById("incentivesList");
+  const addIncentiveBtn = document.getElementById("addIncentiveBtn");
+  const speakersContainer = document.getElementById("speakersList");
+  const addSpeakerBtn = document.getElementById("addSpeakerBtn");
+  const partnersContainer = document.getElementById("partnersList");
+  const addPartnerBtn = document.getElementById("addPartnerBtn");
 
   // Poster upload elements
-  const posterInput = document.getElementById('eventPoster') as HTMLInputElement;
-  const posterFileInput = document.getElementById('eventPosterFile') as HTMLInputElement;
-  const posterDropzone = document.getElementById('posterDropzone');
-  const browsePosterBtn = document.getElementById('browsePosterBtn');
-  const posterPreviewContainer = document.getElementById('posterPreviewContainer');
-  const posterPreviewImg = document.getElementById('posterPreviewImg') as HTMLImageElement;
-  const posterFilename = document.getElementById('posterFilename');
-  const posterDetails = document.getElementById('posterDetails');
-  const posterUploadBadge = document.getElementById('posterUploadBadge');
-  const posterUploadOverlay = document.getElementById('posterUploadProgress');
-  const replacePosterBtn = document.getElementById('replacePosterBtn');
-  const removePosterBtn = document.getElementById('removePosterBtn');
-  const posterUploadError = document.getElementById('posterUploadError');
+  const posterInput = document.getElementById(
+    "eventPoster",
+  ) as HTMLInputElement;
+  const posterFileInput = document.getElementById(
+    "eventPosterFile",
+  ) as HTMLInputElement;
+  const posterDropzone = document.getElementById("posterDropzone");
+  const browsePosterBtn = document.getElementById("browsePosterBtn");
+  const posterPreviewContainer = document.getElementById(
+    "posterPreviewContainer",
+  );
+  const posterPreviewImg = document.getElementById(
+    "posterPreviewImg",
+  ) as HTMLImageElement;
+  const posterFilename = document.getElementById("posterFilename");
+  const posterDetails = document.getElementById("posterDetails");
+  const posterUploadBadge = document.getElementById("posterUploadBadge");
+  const posterUploadOverlay = document.getElementById("posterUploadProgress");
+  const replacePosterBtn = document.getElementById("replacePosterBtn");
+  const removePosterBtn = document.getElementById("removePosterBtn");
+  const posterUploadError = document.getElementById("posterUploadError");
+  const cardImageInput = document.getElementById(
+    "eventCardImage",
+  ) as HTMLInputElement;
+  const cardImageFileInput = document.getElementById(
+    "eventCardImageFile",
+  ) as HTMLInputElement;
+  const cardImageDropzone = document.getElementById("cardImageDropzone");
+  const browseCardImageBtn = document.getElementById("browseCardImageBtn");
+  const cardImagePreviewContainer = document.getElementById(
+    "cardImagePreviewContainer",
+  );
+  const cardImagePreviewImg = document.getElementById(
+    "cardImagePreviewImg",
+  ) as HTMLImageElement | null;
+  const cardImageFilename = document.getElementById("cardImageFilename");
+  const cardImageDetails = document.getElementById("cardImageDetails");
+  const cardImageUploadBadge = document.getElementById("cardImageUploadBadge");
+  const cardImageUploadOverlay = document.getElementById(
+    "cardImageUploadProgress",
+  );
+  const replaceCardImageBtn = document.getElementById("replaceCardImageBtn");
+  const removeCardImageBtn = document.getElementById("removeCardImageBtn");
+  const cardImageUploadError = document.getElementById("cardImageUploadError");
+
+  function showCardImageError(message: string) {
+    if (!cardImageUploadError) return;
+    cardImageUploadError.textContent = message;
+    cardImageUploadError.classList.remove("hidden");
+  }
+
+  function clearCardImageError() {
+    if (!cardImageUploadError) return;
+    cardImageUploadError.textContent = "";
+    cardImageUploadError.classList.add("hidden");
+  }
+
+  function displayCardImage(
+    url: string,
+    name = "Card Image",
+    meta = "Stored image",
+  ) {
+    if (
+      !cardImagePreviewContainer ||
+      !cardImagePreviewImg ||
+      !cardImageDropzone
+    )
+      return;
+    clearCardImageError();
+    cardImagePreviewImg.src = url;
+    if (cardImageFilename) cardImageFilename.textContent = name;
+    if (cardImageDetails) cardImageDetails.textContent = meta;
+    if (cardImageUploadBadge) {
+      cardImageUploadBadge.textContent = "Ready";
+      cardImageUploadBadge.className = "upload-badge success-badge";
+    }
+    cardImageUploadOverlay?.classList.add("hidden");
+    cardImageDropzone.classList.add("hidden");
+    cardImagePreviewContainer.classList.remove("hidden");
+    cardImageInput.value = url;
+  }
+
+  function resetCardImageUpload() {
+    clearCardImageError();
+    if (cardImagePreviewObjectUrl)
+      URL.revokeObjectURL(cardImagePreviewObjectUrl);
+    cardImagePreviewObjectUrl = null;
+    cardImageInput.value = "";
+    cardImageFileInput.value = "";
+    if (cardImagePreviewImg) cardImagePreviewImg.src = "";
+    cardImagePreviewContainer?.classList.add("hidden");
+    cardImageDropzone?.classList.remove("hidden");
+    cardImageUploadOverlay?.classList.add("hidden");
+    isUploadingCardImage = false;
+  }
+
+  async function handleCardImageFileSelect(file: File) {
+    clearCardImageError();
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      showCardImageError(
+        "Unsupported image format. Please select a PNG, JPG, or WebP image.",
+      );
+      if (cardImageFileInput) cardImageFileInput.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      showCardImageError(
+        `Selected file is too large (${sizeMb}MB). Maximum allowed size is 5MB.`,
+      );
+      if (cardImageFileInput) cardImageFileInput.value = "";
+      return;
+    }
+
+    if (cardImagePreviewObjectUrl)
+      URL.revokeObjectURL(cardImagePreviewObjectUrl);
+    cardImagePreviewObjectUrl = URL.createObjectURL(file);
+    displayCardImage(
+      cardImagePreviewObjectUrl,
+      file.name,
+      `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`,
+    );
+    cardImageInput.value = "";
+    if (cardImageUploadBadge) {
+      cardImageUploadBadge.textContent = "Uploading...";
+      cardImageUploadBadge.className = "upload-badge uploading-badge";
+    }
+    cardImageUploadOverlay?.classList.remove("hidden");
+    isUploadingCardImage = true;
+    persistEventDraft();
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/upload-poster", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success || !data.url) {
+        throw new Error(data.error || "Failed to upload card image.");
+      }
+
+      if (cardImagePreviewObjectUrl)
+        URL.revokeObjectURL(cardImagePreviewObjectUrl);
+      cardImagePreviewObjectUrl = null;
+      displayCardImage(
+        data.url,
+        file.name,
+        `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`,
+      );
+      if (cardImageUploadBadge) {
+        cardImageUploadBadge.textContent = "Saved";
+        cardImageUploadBadge.className = "upload-badge success-badge";
+      }
+      persistEventDraft();
+    } catch (error) {
+      showCardImageError(
+        error instanceof Error
+          ? error.message
+          : "Error uploading card image. Please try again.",
+      );
+      if (cardImageUploadBadge) {
+        cardImageUploadBadge.textContent = "Failed";
+        cardImageUploadBadge.className = "upload-badge error-badge";
+      }
+    } finally {
+      isUploadingCardImage = false;
+      cardImageUploadOverlay?.classList.add("hidden");
+      if (cardImageFileInput) cardImageFileInput.value = "";
+    }
+  }
+
+  browseCardImageBtn?.addEventListener("click", () =>
+    cardImageFileInput?.click(),
+  );
+  replaceCardImageBtn?.addEventListener("click", () =>
+    cardImageFileInput?.click(),
+  );
+  removeCardImageBtn?.addEventListener("click", () => {
+    resetCardImageUpload();
+    persistEventDraft();
+  });
+  cardImageFileInput?.addEventListener("change", () => {
+    const file = cardImageFileInput.files?.[0];
+    if (file) handleCardImageFileSelect(file);
+  });
+  cardImageDropzone?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    cardImageDropzone.classList.add("drag-over");
+  });
+  cardImageDropzone?.addEventListener("dragleave", () => {
+    cardImageDropzone.classList.remove("drag-over");
+  });
+  cardImageDropzone?.addEventListener("drop", (event) => {
+    event.preventDefault();
+    cardImageDropzone.classList.remove("drag-over");
+    const file = event.dataTransfer?.files?.[0];
+    if (file) handleCardImageFileSelect(file);
+  });
 
   function showPosterError(msg: string) {
     if (!posterUploadError) return;
     posterUploadError.textContent = msg;
-    posterUploadError.classList.remove('hidden');
+    posterUploadError.classList.remove("hidden");
   }
 
   function clearPosterError() {
     if (!posterUploadError) return;
-    posterUploadError.textContent = '';
-    posterUploadError.classList.add('hidden');
+    posterUploadError.textContent = "";
+    posterUploadError.classList.add("hidden");
   }
 
-  function displayPoster(url: string, name = 'Poster Image', meta = 'Stored image') {
+  function displayPoster(
+    url: string,
+    name = "Poster Image",
+    meta = "Stored image",
+  ) {
     if (!posterPreviewContainer || !posterPreviewImg || !posterDropzone) return;
     clearPosterError();
     posterPreviewImg.src = url;
     if (posterFilename) posterFilename.textContent = name;
     if (posterDetails) posterDetails.textContent = meta;
     if (posterUploadBadge) {
-      posterUploadBadge.textContent = 'Ready';
-      posterUploadBadge.className = 'upload-badge success-badge';
+      posterUploadBadge.textContent = "Ready";
+      posterUploadBadge.className = "upload-badge success-badge";
     }
-    if (posterUploadOverlay) posterUploadOverlay.classList.add('hidden');
-    posterDropzone.classList.add('hidden');
-    posterPreviewContainer.classList.remove('hidden');
+    if (posterUploadOverlay) posterUploadOverlay.classList.add("hidden");
+    posterDropzone.classList.add("hidden");
+    posterPreviewContainer.classList.remove("hidden");
     if (posterInput) posterInput.value = url;
   }
 
@@ -575,12 +1120,12 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     clearPosterError();
     if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
     posterPreviewObjectUrl = null;
-    if (posterInput) posterInput.value = '';
-    if (posterFileInput) posterFileInput.value = '';
-    if (posterPreviewImg) posterPreviewImg.src = '';
-    if (posterPreviewContainer) posterPreviewContainer.classList.add('hidden');
-    if (posterDropzone) posterDropzone.classList.remove('hidden');
-    if (posterUploadOverlay) posterUploadOverlay.classList.add('hidden');
+    if (posterInput) posterInput.value = "";
+    if (posterFileInput) posterFileInput.value = "";
+    if (posterPreviewImg) posterPreviewImg.src = "";
+    if (posterPreviewContainer) posterPreviewContainer.classList.add("hidden");
+    if (posterDropzone) posterDropzone.classList.remove("hidden");
+    if (posterUploadOverlay) posterUploadOverlay.classList.add("hidden");
     isUploadingPoster = false;
   }
 
@@ -589,10 +1134,12 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     if (!file) return;
 
     // Validate type: PNG, JPG/JPEG, WebP
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type.toLowerCase())) {
-      showPosterError('Unsupported image format. Please select a PNG, JPG, or WebP image.');
-      if (posterFileInput) posterFileInput.value = '';
+      showPosterError(
+        "Unsupported image format. Please select a PNG, JPG, or WebP image.",
+      );
+      if (posterFileInput) posterFileInput.value = "";
       return;
     }
 
@@ -600,23 +1147,29 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     const maxBytes = 5 * 1024 * 1024;
     if (file.size > maxBytes) {
       const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-      showPosterError(`Selected file is too large (${sizeMb}MB). Maximum allowed size is 5MB.`);
-      if (posterFileInput) posterFileInput.value = '';
+      showPosterError(
+        `Selected file is too large (${sizeMb}MB). Maximum allowed size is 5MB.`,
+      );
+      if (posterFileInput) posterFileInput.value = "";
       return;
     }
 
     // Instant local preview
     if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
     posterPreviewObjectUrl = URL.createObjectURL(file);
-    displayPoster(posterPreviewObjectUrl, file.name, `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`);
-    if (posterInput) posterInput.value = '';
+    displayPoster(
+      posterPreviewObjectUrl,
+      file.name,
+      `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`,
+    );
+    if (posterInput) posterInput.value = "";
 
     if (posterUploadBadge) {
-      posterUploadBadge.textContent = 'Uploading...';
-      posterUploadBadge.className = 'upload-badge uploading-badge';
+      posterUploadBadge.textContent = "Uploading...";
+      posterUploadBadge.className = "upload-badge uploading-badge";
     }
     if (posterUploadOverlay) {
-      posterUploadOverlay.classList.remove('hidden');
+      posterUploadOverlay.classList.remove("hidden");
     }
 
     isUploadingPoster = true;
@@ -624,131 +1177,151 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const res = await fetch('/api/admin/upload-poster', {
-        method: 'POST',
+      const res = await fetch("/api/admin/upload-poster", {
+        method: "POST",
         body: formData,
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.success || !data.url) {
-        throw new Error(data.error || 'Failed to upload poster image.');
+        throw new Error(data.error || "Failed to upload poster image.");
       }
 
       if (posterPreviewObjectUrl) URL.revokeObjectURL(posterPreviewObjectUrl);
       posterPreviewObjectUrl = null;
-      displayPoster(data.url, file.name, `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`);
+      displayPoster(
+        data.url,
+        file.name,
+        `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`,
+      );
       if (posterDetails) {
         posterDetails.textContent = `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`;
       }
       if (posterUploadBadge) {
-        posterUploadBadge.textContent = 'Saved';
-        posterUploadBadge.className = 'upload-badge success-badge';
+        posterUploadBadge.textContent = "Saved";
+        posterUploadBadge.className = "upload-badge success-badge";
       }
       persistEventDraft();
     } catch (err: any) {
-      if (posterInput) posterInput.value = '';
-      showPosterError(err.message || 'Error uploading image. Please try again.');
+      if (posterInput) posterInput.value = "";
+      showPosterError(
+        err.message || "Error uploading image. Please try again.",
+      );
       if (posterUploadBadge) {
-        posterUploadBadge.textContent = 'Failed';
-        posterUploadBadge.className = 'upload-badge error-badge';
+        posterUploadBadge.textContent = "Failed";
+        posterUploadBadge.className = "upload-badge error-badge";
       }
     } finally {
       isUploadingPoster = false;
       if (posterUploadOverlay) {
-        posterUploadOverlay.classList.add('hidden');
+        posterUploadOverlay.classList.add("hidden");
       }
     }
   }
 
-  browsePosterBtn?.addEventListener('click', () => posterFileInput?.click());
-  replacePosterBtn?.addEventListener('click', () => posterFileInput?.click());
-  removePosterBtn?.addEventListener('click', resetPosterUpload);
+  browsePosterBtn?.addEventListener("click", () => posterFileInput?.click());
+  replacePosterBtn?.addEventListener("click", () => posterFileInput?.click());
+  removePosterBtn?.addEventListener("click", resetPosterUpload);
 
-  posterFileInput?.addEventListener('change', () => {
+  posterFileInput?.addEventListener("change", () => {
     const file = posterFileInput.files?.[0];
     if (file) handlePosterFileSelect(file);
   });
 
   // Drag and drop handlers
-  posterDropzone?.addEventListener('dragover', (e) => {
+  posterDropzone?.addEventListener("dragover", (e) => {
     e.preventDefault();
-    posterDropzone.classList.add('drag-over');
+    posterDropzone.classList.add("drag-over");
   });
-  posterDropzone?.addEventListener('dragleave', () => {
-    posterDropzone.classList.remove('drag-over');
+  posterDropzone?.addEventListener("dragleave", () => {
+    posterDropzone.classList.remove("drag-over");
   });
-  posterDropzone?.addEventListener('drop', (e) => {
+  posterDropzone?.addEventListener("drop", (e) => {
     e.preventDefault();
-    posterDropzone.classList.remove('drag-over');
+    posterDropzone.classList.remove("drag-over");
     const file = e.dataTransfer?.files?.[0];
     if (file) handlePosterFileSelect(file);
   });
 
   // Auto-slugify helper
-  const titleInput = document.getElementById('eventTitle') as HTMLInputElement;
-  const slugInput = document.getElementById('eventSlug') as HTMLInputElement;
+  const titleInput = document.getElementById("eventTitle") as HTMLInputElement;
+  const slugInput = document.getElementById("eventSlug") as HTMLInputElement;
 
-  titleInput?.addEventListener('input', () => {
+  titleInput?.addEventListener("input", () => {
     if (!editingEventId && slugInput) {
       slugInput.value = titleInput.value
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
     }
   });
 
   function showModal() {
-    modal?.classList.remove('hidden');
-    modal?.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    modal?.classList.remove("hidden");
+    modal?.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
   }
 
   function hideModal() {
-    modal?.classList.add('hidden');
-    modal?.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
+    modal?.classList.add("hidden");
+    modal?.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
     form?.reset();
     resetPosterUpload();
+    resetCardImageUpload();
     editingEventId = null;
     try {
       sessionStorage.removeItem(eventDraftKey);
     } catch (error) {
-      console.warn('Could not clear the saved event draft.', error);
+      console.warn("Could not clear the saved event draft.", error);
     }
     if (errorBanner) {
-      errorBanner.classList.add('hidden');
-      errorBanner.textContent = '';
+      errorBanner.classList.add("hidden");
+      errorBanner.textContent = "";
     }
   }
 
-  openCreateBtn?.addEventListener('click', () => {
+  openCreateBtn?.addEventListener("click", () => {
     try {
       sessionStorage.removeItem(eventDraftKey);
     } catch (error) {
-      console.warn('Could not clear the previous event draft.', error);
+      console.warn("Could not clear the previous event draft.", error);
     }
     editingEventId = null;
-    if (modalTitle) modalTitle.textContent = 'Create New Event';
-    (document.getElementById('eventId') as HTMLInputElement).value = '';
+    if (modalTitle) modalTitle.textContent = "Create New Event";
+    (document.getElementById("eventId") as HTMLInputElement).value = "";
     form?.reset();
     resetPosterUpload();
+    resetCardImageUpload();
 
     // Set default date to 30 days from now
     const future = new Date();
     future.setDate(future.getDate() + 30);
     const dateStr = future.toISOString().slice(0, 10);
-    (document.getElementById('eventDate') as HTMLInputElement).value = dateStr;
-    (document.getElementById('startTime') as HTMLInputElement).value = '09:00';
-    (document.getElementById('endTime') as HTMLInputElement).value = '17:00';
+    (document.getElementById("eventDate") as HTMLInputElement).value = dateStr;
+    (document.getElementById("startTime") as HTMLInputElement).value = "09:00";
+    (document.getElementById("endTime") as HTMLInputElement).value = "17:00";
 
     // Populate default ticket categories
     renderTicketCategories([
-      { name: 'Student', category_type: 'student', price: 600, allocation: 50, description: 'Student admission • Automated .ac.ke email check' },
-      { name: 'Professional', category_type: 'professional', price: 1000, allocation: 100, description: 'Full summit access • Keynotes, panels & networking' },
+      {
+        name: "Student",
+        category_type: "student",
+        price: 600,
+        allocation: 50,
+        description: "Student admission • Automated .ac.ke email check",
+      },
+      {
+        name: "Professional",
+        category_type: "professional",
+        price: 1000,
+        allocation: 100,
+        description: "Full summit access • Keynotes, panels & networking",
+      },
     ]);
 
     renderIncentives([]);
@@ -759,47 +1332,75 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     persistEventDraft();
   });
 
-  closeBtn?.addEventListener('click', hideModal);
-  cancelBtn?.addEventListener('click', hideModal);
+  closeBtn?.addEventListener("click", hideModal);
+  cancelBtn?.addEventListener("click", hideModal);
 
   // Close on backdrop click
-  modal?.addEventListener('click', (e) => {
+  modal?.addEventListener("click", (e) => {
     if (e.target === modal) hideModal();
   });
 
   // Ticket Categories UI generator
-  function renderTicketCategories(categories: Array<{ id?: string; name: string; category_type?: string; price: number; allocation: number; description?: string }>) {
+  function renderTicketCategories(
+    categories: Array<{
+      id?: string;
+      name: string;
+      category_type?: string;
+      price: number;
+      allocation: number;
+      description?: string;
+    }>,
+  ) {
     if (!categoriesContainer) return;
-    categoriesContainer.innerHTML = '';
+    categoriesContainer.innerHTML = "";
 
     categories.forEach((cat, index) => {
       addCategoryRow(cat);
     });
 
     if (categories.length === 0) {
-      addCategoryRow({ name: 'Standard', category_type: 'standard', price: 1000, allocation: 100, description: '' });
+      addCategoryRow({
+        name: "Standard",
+        category_type: "standard",
+        price: 1000,
+        allocation: 100,
+        description: "",
+      });
     }
   }
 
-  function addCategoryRow(cat: { id?: string; name: string; category_type?: string; price: number; allocation: number; description?: string }) {
+  function addCategoryRow(cat: {
+    id?: string;
+    name: string;
+    category_type?: string;
+    price: number;
+    allocation: number;
+    description?: string;
+  }) {
     if (!categoriesContainer) return;
 
-    const row = document.createElement('div');
-    row.className = 'ticket-category-row';
-    const catType = cat.category_type || (cat.name?.toLowerCase().includes('professional') ? 'professional' : cat.name?.toLowerCase().includes('student') ? 'student' : 'standard');
+    const row = document.createElement("div");
+    row.className = "ticket-category-row";
+    const catType =
+      cat.category_type ||
+      (cat.name?.toLowerCase().includes("professional")
+        ? "professional"
+        : cat.name?.toLowerCase().includes("student")
+          ? "student"
+          : "standard");
 
     row.innerHTML = `
-      <input type="hidden" class="cat-id" value="${cat.id || ''}" />
+      <input type="hidden" class="cat-id" value="${cat.id || ""}" />
       <div class="cat-col-name">
         <label class="form-sublabel">Category Name</label>
-        <input type="text" class="form-input cat-name" placeholder="e.g. Student, VIP" value="${cat.name || ''}" required />
+        <input type="text" class="form-input cat-name" placeholder="e.g. Student, VIP" value="${cat.name || ""}" required />
       </div>
       <div class="cat-col-type">
         <label class="form-sublabel">Category Type</label>
         <select class="form-select cat-type">
-          <option value="standard" ${catType === 'standard' ? 'selected' : ''}>Standard / General</option>
-          <option value="professional" ${catType === 'professional' ? 'selected' : ''}>Professional (Auto Org/Role)</option>
-          <option value="student" ${catType === 'student' ? 'selected' : ''}>Student (Verification)</option>
+          <option value="standard" ${catType === "standard" ? "selected" : ""}>Standard / General</option>
+          <option value="professional" ${catType === "professional" ? "selected" : ""}>Professional (Auto Org/Role)</option>
+          <option value="student" ${catType === "student" ? "selected" : ""}>Student (Verification)</option>
         </select>
       </div>
       <div class="cat-col-price">
@@ -812,7 +1413,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </div>
       <div class="cat-col-desc">
         <label class="form-sublabel">Perks / Description</label>
-        <input type="text" class="form-input cat-desc" placeholder="Brief ticket description..." value="${cat.description || ''}" />
+        <input type="text" class="form-input cat-desc" placeholder="Brief ticket description..." value="${cat.description || ""}" />
       </div>
       <button type="button" class="remove-cat-btn" title="Remove Category">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -822,36 +1423,44 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </button>
     `;
 
-    const removeBtn = row.querySelector('.remove-cat-btn');
-    removeBtn?.addEventListener('click', () => {
+    const removeBtn = row.querySelector(".remove-cat-btn");
+    removeBtn?.addEventListener("click", () => {
       if (categoriesContainer.children.length > 1) {
         row.remove();
       } else {
-        alert('You must provide at least one ticket category for the event.');
+        alert("You must provide at least one ticket category for the event.");
       }
     });
 
     categoriesContainer.appendChild(row);
   }
 
-  addCategoryBtn?.addEventListener('click', () => {
-    addCategoryRow({ name: '', category_type: 'standard', price: 1000, allocation: 50, description: '' });
+  addCategoryBtn?.addEventListener("click", () => {
+    addCategoryRow({
+      name: "",
+      category_type: "standard",
+      price: 1000,
+      allocation: 50,
+      description: "",
+    });
   });
 
   // Event Incentives UI generator
-  function renderIncentives(incentives: Array<{
-    id?: string;
-    title: string;
-    description: string;
-    discount_type?: string;
-    discount_value?: number;
-    eligibility?: string;
-    start_date?: string;
-    end_date?: string;
-    is_active?: boolean;
-  }>) {
+  function renderIncentives(
+    incentives: Array<{
+      id?: string;
+      title: string;
+      description: string;
+      discount_type?: string;
+      discount_value?: number;
+      eligibility?: string;
+      start_date?: string;
+      end_date?: string;
+      is_active?: boolean;
+    }>,
+  ) {
     if (!incentivesContainer) return;
-    incentivesContainer.innerHTML = '';
+    incentivesContainer.innerHTML = "";
     incentives.forEach((inc) => addIncentiveRow(inc));
   }
 
@@ -868,37 +1477,41 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }) {
     if (!incentivesContainer) return;
 
-    const row = document.createElement('div');
-    row.className = 'incentive-row';
-    const startDateVal = inc.start_date ? new Date(inc.start_date).toISOString().slice(0, 10) : '';
-    const endDateVal = inc.end_date ? new Date(inc.end_date).toISOString().slice(0, 10) : '';
+    const row = document.createElement("div");
+    row.className = "incentive-row";
+    const startDateVal = inc.start_date
+      ? new Date(inc.start_date).toISOString().slice(0, 10)
+      : "";
+    const endDateVal = inc.end_date
+      ? new Date(inc.end_date).toISOString().slice(0, 10)
+      : "";
     const isActive = inc.is_active !== false;
 
     row.innerHTML = `
-      <input type="hidden" class="inc-id" value="${inc.id || ''}" />
+      <input type="hidden" class="inc-id" value="${inc.id || ""}" />
       <div class="form-row grid-2">
         <div>
           <label class="form-sublabel">Incentive Title <span class="required">*</span></label>
-          <input type="text" class="form-input inc-title" placeholder="e.g. Early Bird Offer, Group Discount" value="${inc.title || ''}" required />
+          <input type="text" class="form-input inc-title" placeholder="e.g. Early Bird Offer, Group Discount" value="${inc.title || ""}" required />
         </div>
         <div>
           <label class="form-sublabel">Eligibility Condition</label>
-          <input type="text" class="form-input inc-eligibility" placeholder="e.g. Book 2+ tickets, First 50 buyers" value="${inc.eligibility || ''}" />
+          <input type="text" class="form-input inc-eligibility" placeholder="e.g. Book 2+ tickets, First 50 buyers" value="${inc.eligibility || ""}" />
         </div>
       </div>
       <div class="form-row mt-2">
         <div>
           <label class="form-sublabel">Description</label>
-          <input type="text" class="form-input inc-desc" placeholder="e.g. Book early to save 20% on summit admission." value="${inc.description || ''}" />
+          <input type="text" class="form-input inc-desc" placeholder="e.g. Book early to save 20% on summit admission." value="${inc.description || ""}" />
         </div>
       </div>
       <div class="form-row grid-4 mt-2">
         <div>
           <label class="form-sublabel">Discount Type</label>
           <select class="form-select inc-discount-type">
-            <option value="none" ${inc.discount_type === 'none' || !inc.discount_type ? 'selected' : ''}>Informational / Value Offer</option>
-            <option value="percentage" ${inc.discount_type === 'percentage' ? 'selected' : ''}>Percentage (%)</option>
-            <option value="fixed" ${inc.discount_type === 'fixed' ? 'selected' : ''}>Fixed Amount (KES)</option>
+            <option value="none" ${inc.discount_type === "none" || !inc.discount_type ? "selected" : ""}>Informational / Value Offer</option>
+            <option value="percentage" ${inc.discount_type === "percentage" ? "selected" : ""}>Percentage (%)</option>
+            <option value="fixed" ${inc.discount_type === "fixed" ? "selected" : ""}>Fixed Amount (KES)</option>
           </select>
         </div>
         <div>
@@ -924,51 +1537,72 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </div>
       <div class="mt-2 flex items-center gap-2">
         <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-300">
-          <input type="checkbox" class="inc-active form-checkbox" ${isActive ? 'checked' : ''} />
+          <input type="checkbox" class="inc-active form-checkbox" ${isActive ? "checked" : ""} />
           <span>Enable this incentive on public checkout</span>
         </label>
       </div>
     `;
 
-    row.querySelector('.remove-inc-btn')?.addEventListener('click', () => row.remove());
+    row
+      .querySelector(".remove-inc-btn")
+      ?.addEventListener("click", () => row.remove());
     incentivesContainer.appendChild(row);
   }
 
-  addIncentiveBtn?.addEventListener('click', () => {
-    addIncentiveRow({ title: '', description: '', discount_type: 'none', discount_value: 0, eligibility: '', is_active: true });
+  addIncentiveBtn?.addEventListener("click", () => {
+    addIncentiveRow({
+      title: "",
+      description: "",
+      discount_type: "none",
+      discount_value: 0,
+      eligibility: "",
+      is_active: true,
+    });
   });
 
   // Speakers UI generator
-  function renderSpeakers(speakers: Array<{ name: string; role?: string; company?: string; photo?: string }>) {
+  function renderSpeakers(
+    speakers: Array<{
+      name: string;
+      role?: string;
+      company?: string;
+      photo?: string;
+    }>,
+  ) {
     if (!speakersContainer) return;
-    speakersContainer.innerHTML = '';
+    speakersContainer.innerHTML = "";
     speakers.forEach((s) => addSpeakerRow(s));
   }
 
-  function addSpeakerRow(s: { name: string; role?: string; company?: string; photo?: string }) {
+  function addSpeakerRow(s: {
+    name: string;
+    role?: string;
+    company?: string;
+    photo?: string;
+  }) {
     if (!speakersContainer) return;
-    const row = document.createElement('div');
-    row.className = 'speaker-row';
+    const row = document.createElement("div");
+    row.className = "speaker-row";
     row.innerHTML = `
       <div class="form-row grid-2">
         <div>
           <label class="form-sublabel">Speaker Name</label>
-          <input type="text" class="form-input spk-name" placeholder="Full Name" value="${s.name || ''}" />
+          <input type="text" class="form-input spk-name" placeholder="Full Name" value="${s.name || ""}" />
         </div>
         <div>
           <label class="form-sublabel">Role / Title</label>
-          <input type="text" class="form-input spk-role" placeholder="e.g. Lead Geospatial Scientist" value="${s.role || ''}" />
+          <input type="text" class="form-input spk-role" placeholder="e.g. Lead Geospatial Scientist" value="${s.role || ""}" />
         </div>
       </div>
       <div class="form-row grid-2 mt-2">
         <div>
           <label class="form-sublabel">Company / Affiliation</label>
-          <input type="text" class="form-input spk-company" placeholder="e.g. Africa Tech Foundation" value="${s.company || ''}" />
+          <input type="text" class="form-input spk-company" placeholder="e.g. Africa Tech Foundation" value="${s.company || ""}" />
         </div>
         <div class="flex-with-remove">
           <div class="flex-1">
             <label class="form-sublabel">Photo URL</label>
-            <input type="url" class="form-input spk-photo" placeholder="https://..." value="${s.photo || ''}" />
+            <input type="url" class="form-input spk-photo" placeholder="https://..." value="${s.photo || ""}" />
           </div>
           <button type="button" class="remove-spk-btn" title="Remove Speaker">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -980,33 +1614,35 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </div>
     `;
 
-    row.querySelector('.remove-spk-btn')?.addEventListener('click', () => row.remove());
+    row
+      .querySelector(".remove-spk-btn")
+      ?.addEventListener("click", () => row.remove());
     speakersContainer.appendChild(row);
   }
 
-  addSpeakerBtn?.addEventListener('click', () => {
-    addSpeakerRow({ name: '', role: '', company: '', photo: '' });
+  addSpeakerBtn?.addEventListener("click", () => {
+    addSpeakerRow({ name: "", role: "", company: "", photo: "" });
   });
 
   // Partners UI generator
   function renderPartners(partners: Array<{ name: string; logo?: string }>) {
     if (!partnersContainer) return;
-    partnersContainer.innerHTML = '';
+    partnersContainer.innerHTML = "";
     partners.forEach((p) => addPartnerRow(p));
   }
 
   function addPartnerRow(p: { name: string; logo?: string }) {
     if (!partnersContainer) return;
-    const row = document.createElement('div');
-    row.className = 'partner-row';
+    const row = document.createElement("div");
+    row.className = "partner-row";
     row.innerHTML = `
       <div class="flex-1">
         <label class="form-sublabel">Partner / Sponsor Name</label>
-        <input type="text" class="form-input ptn-name" placeholder="Organization Name" value="${p.name || ''}" />
+        <input type="text" class="form-input ptn-name" placeholder="Organization Name" value="${p.name || ""}" />
       </div>
       <div class="flex-1">
         <label class="form-sublabel">Logo URL</label>
-        <input type="url" class="form-input ptn-logo" placeholder="https://..." value="${p.logo || ''}" />
+        <input type="url" class="form-input ptn-logo" placeholder="https://..." value="${p.logo || ""}" />
       </div>
       <button type="button" class="remove-ptn-btn" title="Remove Partner">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1016,37 +1652,55 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </button>
     `;
 
-    row.querySelector('.remove-ptn-btn')?.addEventListener('click', () => row.remove());
+    row
+      .querySelector(".remove-ptn-btn")
+      ?.addEventListener("click", () => row.remove());
     partnersContainer.appendChild(row);
   }
 
-  addPartnerBtn?.addEventListener('click', () => {
-    addPartnerRow({ name: '', logo: '' });
+  addPartnerBtn?.addEventListener("click", () => {
+    addPartnerRow({ name: "", logo: "" });
   });
 
   function persistEventDraft() {
-    if (!form || modal?.classList.contains('hidden')) return;
+    if (!form || modal?.classList.contains("hidden")) return;
 
     const fields: Record<string, { value: string; checked?: boolean }> = {};
-    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-      'input[id], textarea[id], select[id]',
-    ).forEach((control) => {
-      if (control instanceof HTMLInputElement && control.type === 'file') return;
-      fields[control.id] = {
-        value: control.value,
-        ...(control instanceof HTMLInputElement && control.type === 'checkbox' ? { checked: control.checked } : {}),
-      };
-    });
+    form
+      .querySelectorAll<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >("input[id], textarea[id], select[id]")
+      .forEach((control) => {
+        if (control instanceof HTMLInputElement && control.type === "file")
+          return;
+        fields[control.id] = {
+          value: control.value,
+          ...(control instanceof HTMLInputElement && control.type === "checkbox"
+            ? { checked: control.checked }
+            : {}),
+        };
+      });
 
-    const rows = (container: HTMLElement | null, rowSelector: string, selectors: Record<string, string>) =>
-      Array.from(container?.querySelectorAll<HTMLElement>(rowSelector) || []).map((row) => {
+    const rows = (
+      container: HTMLElement | null,
+      rowSelector: string,
+      selectors: Record<string, string>,
+    ) =>
+      Array.from(
+        container?.querySelectorAll<HTMLElement>(rowSelector) || [],
+      ).map((row) => {
         const values: Record<string, string | boolean> = {};
         for (const [key, selector] of Object.entries(selectors)) {
-          const control = row.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
-          if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+          const control = row.querySelector<
+            HTMLInputElement | HTMLSelectElement
+          >(selector);
+          if (
+            control instanceof HTMLInputElement &&
+            control.type === "checkbox"
+          ) {
             values[key] = control.checked;
           } else {
-            values[key] = control?.value || '';
+            values[key] = control?.value || "";
           }
         }
         return values;
@@ -1055,42 +1709,47 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     const draft = {
       editingEventId,
       fields,
-      ticketCategories: rows(categoriesContainer, '.ticket-category-row', {
-        id: '.cat-id',
-        name: '.cat-name',
-        category_type: '.cat-type',
-        price: '.cat-price',
-        allocation: '.cat-allocation',
-        description: '.cat-desc',
+      ticketCategories: rows(categoriesContainer, ".ticket-category-row", {
+        id: ".cat-id",
+        name: ".cat-name",
+        category_type: ".cat-type",
+        price: ".cat-price",
+        allocation: ".cat-allocation",
+        description: ".cat-desc",
       }),
-      incentives: rows(incentivesContainer, '.incentive-row', {
-        id: '.inc-id',
-        title: '.inc-title',
-        eligibility: '.inc-eligibility',
-        description: '.inc-desc',
-        discount_type: '.inc-discount-type',
-        discount_value: '.inc-discount-value',
-        start_date: '.inc-start-date',
-        end_date: '.inc-end-date',
-        is_active: '.inc-active',
+      incentives: rows(incentivesContainer, ".incentive-row", {
+        id: ".inc-id",
+        title: ".inc-title",
+        eligibility: ".inc-eligibility",
+        description: ".inc-desc",
+        discount_type: ".inc-discount-type",
+        discount_value: ".inc-discount-value",
+        start_date: ".inc-start-date",
+        end_date: ".inc-end-date",
+        is_active: ".inc-active",
       }),
-      speakers: rows(speakersContainer, '.speaker-row', {
-        name: '.spk-name',
-        role: '.spk-role',
-        company: '.spk-company',
-        photo: '.spk-photo',
+      speakers: rows(speakersContainer, ".speaker-row", {
+        name: ".spk-name",
+        role: ".spk-role",
+        company: ".spk-company",
+        photo: ".spk-photo",
       }),
-      partners: rows(partnersContainer, '.partner-row', {
-        name: '.ptn-name',
-        logo: '.ptn-logo',
+      partners: rows(partnersContainer, ".partner-row", {
+        name: ".ptn-name",
+        logo: ".ptn-logo",
       }),
-      detailsOpen: Array.from(form.querySelectorAll<HTMLDetailsElement>('details')).map((details) => details.open),
+      detailsOpen: Array.from(
+        form.querySelectorAll<HTMLDetailsElement>("details"),
+      ).map((details) => details.open),
     };
 
     try {
       sessionStorage.setItem(eventDraftKey, JSON.stringify(draft));
     } catch (error) {
-      console.warn('Could not save the event draft in this browser session.', error);
+      console.warn(
+        "Could not save the event draft in this browser session.",
+        error,
+      );
     }
   }
 
@@ -1103,47 +1762,63 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       if (!savedDraft) return;
       draft = JSON.parse(savedDraft);
     } catch (error) {
-      console.warn('Could not restore the saved event draft.', error);
+      console.warn("Could not restore the saved event draft.", error);
       return;
     }
 
     editingEventId = draft.editingEventId || null;
     for (const [id, state] of Object.entries(draft.fields || {})) {
-      const control = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-      if (!control || typeof state !== 'object' || state === null) continue;
-      control.value = String((state as { value?: string }).value || '');
-      if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+      const control = document.getElementById(id) as
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+      if (!control || typeof state !== "object" || state === null) continue;
+      control.value = String((state as { value?: string }).value || "");
+      if (control instanceof HTMLInputElement && control.type === "checkbox") {
         control.checked = Boolean((state as { checked?: boolean }).checked);
       }
     }
 
-    if (Array.isArray(draft.ticketCategories)) renderTicketCategories(draft.ticketCategories);
+    if (Array.isArray(draft.ticketCategories))
+      renderTicketCategories(draft.ticketCategories);
     if (Array.isArray(draft.incentives)) renderIncentives(draft.incentives);
     if (Array.isArray(draft.speakers)) renderSpeakers(draft.speakers);
     if (Array.isArray(draft.partners)) renderPartners(draft.partners);
 
-    form.querySelectorAll<HTMLDetailsElement>('details').forEach((details, index) => {
-      details.open = Boolean(draft.detailsOpen?.[index]);
-    });
+    form
+      .querySelectorAll<HTMLDetailsElement>("details")
+      .forEach((details, index) => {
+        details.open = Boolean(draft.detailsOpen?.[index]);
+      });
 
-    const posterUrl = (document.getElementById('eventPoster') as HTMLInputElement | null)?.value;
-    if (posterUrl && !posterUrl.startsWith('blob:')) displayPoster(posterUrl);
-    if (modalTitle) {
-      modalTitle.textContent = editingEventId ? 'Edit Event' : 'Create New Event';
+    const posterUrl = (
+      document.getElementById("eventPoster") as HTMLInputElement | null
+    )?.value;
+    if (posterUrl && !posterUrl.startsWith("blob:")) displayPoster(posterUrl);
+    const cardImageUrl = (
+      document.getElementById("eventCardImage") as HTMLInputElement | null
+    )?.value;
+    if (cardImageUrl && !cardImageUrl.startsWith("blob:")) {
+      displayCardImage(cardImageUrl);
     }
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    if (modalTitle) {
+      modalTitle.textContent = editingEventId
+        ? "Edit Event"
+        : "Create New Event";
+    }
+    modal.classList.remove("hidden");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
   }
 
-  form?.addEventListener('input', persistEventDraft);
-  form?.addEventListener('change', persistEventDraft);
-  form?.addEventListener('click', () => window.setTimeout(persistEventDraft, 0));
+  form?.addEventListener("input", persistEventDraft);
+  form?.addEventListener("change", persistEventDraft);
+  form?.addEventListener("click", () =>
+    window.setTimeout(persistEventDraft, 0),
+  );
   restoreEventDraft();
 
   // Edit Event Button Click Handler
-  document.querySelectorAll('.edit-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+  document.querySelectorAll(".edit-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       const raw = (btn as HTMLElement).dataset.event;
       if (!raw) return;
 
@@ -1153,31 +1828,62 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         editingEventId = event.id;
         if (modalTitle) modalTitle.textContent = `Edit Event: ${event.title}`;
 
-        (document.getElementById('eventId') as HTMLInputElement).value = event.id;
-        (document.getElementById('eventTitle') as HTMLInputElement).value = event.title || '';
-        (document.getElementById('eventSlug') as HTMLInputElement).value = event.slug || '';
-        (document.getElementById('eventDescription') as HTMLTextAreaElement).value = event.description || '';
-        (document.getElementById('eventVenue') as HTMLInputElement).value = event.venue || '';
-        (document.getElementById('eventPoster') as HTMLInputElement).value = event.poster || '';
+        (document.getElementById("eventId") as HTMLInputElement).value =
+          event.id;
+        (document.getElementById("eventTitle") as HTMLInputElement).value =
+          event.title || "";
+        (document.getElementById("eventSlug") as HTMLInputElement).value =
+          event.slug || "";
+        (
+          document.getElementById("eventDescription") as HTMLTextAreaElement
+        ).value = event.description || "";
+        (
+          document.getElementById("eventHighlights") as HTMLTextAreaElement
+        ).value = event.highlights || "";
+        cardImageInput.value = event.card_image || "";
+        if (event.card_image) {
+          displayCardImage(
+            event.card_image,
+            `${event.title || "Event"} Card Image`,
+            "Saved event card image",
+          );
+        } else {
+          resetCardImageUpload();
+        }
+        (document.getElementById("eventVenue") as HTMLInputElement).value =
+          event.venue || "";
+        (document.getElementById("eventPoster") as HTMLInputElement).value =
+          event.poster || "";
         if (event.poster) {
-          displayPoster(event.poster, `${event.title} Poster`, 'Saved event cover image');
+          displayPoster(
+            event.poster,
+            `${event.title} Poster`,
+            "Saved event cover image",
+          );
         } else {
           resetPosterUpload();
         }
-        (document.getElementById('eventStatus') as HTMLSelectElement).value = event.status || 'published';
+        (document.getElementById("eventStatus") as HTMLSelectElement).value =
+          event.status || "published";
 
         if (event.starts_at) {
           const d = new Date(event.starts_at);
           if (!isNaN(d.getTime())) {
-            (document.getElementById('eventDate') as HTMLInputElement).value = d.toISOString().slice(0, 10);
-            (document.getElementById('startTime') as HTMLInputElement).value = d.toTimeString().slice(0, 5);
+            (document.getElementById("eventDate") as HTMLInputElement).value = d
+              .toISOString()
+              .slice(0, 10);
+            (document.getElementById("startTime") as HTMLInputElement).value = d
+              .toTimeString()
+              .slice(0, 5);
           }
         }
 
         if (event.ends_at) {
           const d = new Date(event.ends_at);
           if (!isNaN(d.getTime())) {
-            (document.getElementById('endTime') as HTMLInputElement).value = d.toTimeString().slice(0, 5);
+            (document.getElementById("endTime") as HTMLInputElement).value = d
+              .toTimeString()
+              .slice(0, 5);
           }
         }
 
@@ -1189,51 +1895,77 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         showModal();
         persistEventDraft();
       } catch (err) {
-        console.error('Error loading event for editing:', err);
+        console.error("Error loading event for editing:", err);
       }
     });
   });
 
   // Form Submit Handler
-  form?.addEventListener('submit', async (e) => {
+  form?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     if (errorBanner) {
-      errorBanner.classList.add('hidden');
-      errorBanner.textContent = '';
+      errorBanner.classList.add("hidden");
+      errorBanner.textContent = "";
     }
 
-    if (isUploadingPoster) {
+    if (isUploadingPoster || isUploadingCardImage) {
       if (errorBanner) {
-        errorBanner.textContent = 'Poster image upload is in progress. Please wait a moment.';
-        errorBanner.classList.remove('hidden');
+        errorBanner.textContent =
+          "An image upload is in progress. Please wait a moment.";
+        errorBanner.classList.remove("hidden");
       }
       return;
     }
 
-    const title = (document.getElementById('eventTitle') as HTMLInputElement).value.trim();
-    const slug = (document.getElementById('eventSlug') as HTMLInputElement).value.trim();
-    const description = (document.getElementById('eventDescription') as HTMLTextAreaElement).value.trim();
-    const venue = (document.getElementById('eventVenue') as HTMLInputElement).value.trim();
-    const poster = (document.getElementById('eventPoster') as HTMLInputElement).value.trim();
-    const status = (document.getElementById('eventStatus') as HTMLSelectElement).value;
-    const datePart = (document.getElementById('eventDate') as HTMLInputElement).value;
-    const startTimePart = (document.getElementById('startTime') as HTMLInputElement).value || '09:00';
-    const endTimePart = (document.getElementById('endTime') as HTMLInputElement).value || '17:00';
-    const eventId = (document.getElementById('eventId') as HTMLInputElement).value;
+    const title = (
+      document.getElementById("eventTitle") as HTMLInputElement
+    ).value.trim();
+    const slug = (
+      document.getElementById("eventSlug") as HTMLInputElement
+    ).value.trim();
+    const description = (
+      document.getElementById("eventDescription") as HTMLTextAreaElement
+    ).value.trim();
+    const highlights = (
+      document.getElementById("eventHighlights") as HTMLTextAreaElement
+    ).value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n");
+    const card_image = cardImageInput.value.trim();
+    const venue = (
+      document.getElementById("eventVenue") as HTMLInputElement
+    ).value.trim();
+    const poster = (
+      document.getElementById("eventPoster") as HTMLInputElement
+    ).value.trim();
+    const status = (document.getElementById("eventStatus") as HTMLSelectElement)
+      .value;
+    const datePart = (document.getElementById("eventDate") as HTMLInputElement)
+      .value;
+    const startTimePart =
+      (document.getElementById("startTime") as HTMLInputElement).value ||
+      "09:00";
+    const endTimePart =
+      (document.getElementById("endTime") as HTMLInputElement).value || "17:00";
+    const eventId = (document.getElementById("eventId") as HTMLInputElement)
+      .value;
 
     if (!title || !venue || !datePart) {
       if (errorBanner) {
-        errorBanner.textContent = 'Please provide event name, venue, and date.';
-        errorBanner.classList.remove('hidden');
+        errorBanner.textContent = "Please provide event name, venue, and date.";
+        errorBanner.classList.remove("hidden");
       }
       return;
     }
 
     if (!poster) {
       if (errorBanner) {
-        errorBanner.textContent = 'Please select and upload a poster image for the event.';
-        errorBanner.classList.remove('hidden');
+        errorBanner.textContent =
+          "Please select and upload a poster image for the event.";
+        errorBanner.classList.remove("hidden");
       }
       return;
     }
@@ -1243,15 +1975,30 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     const endsAt = new Date(`${datePart}T${endTimePart}:00`).toISOString();
 
     // Collect ticket categories
-    const ticketRows = categoriesContainer?.querySelectorAll('.ticket-category-row') || [];
+    const ticketRows =
+      categoriesContainer?.querySelectorAll(".ticket-category-row") || [];
     const ticket_types: any[] = [];
     ticketRows.forEach((row) => {
-      const id = (row.querySelector('.cat-id') as HTMLInputElement)?.value;
-      const name = (row.querySelector('.cat-name') as HTMLInputElement)?.value.trim();
-      const category_type = (row.querySelector('.cat-type') as HTMLSelectElement)?.value || (name.toLowerCase().includes('professional') ? 'professional' : name.toLowerCase().includes('student') ? 'student' : 'standard');
-      const price = Number((row.querySelector('.cat-price') as HTMLInputElement)?.value ?? 0);
-      const allocation = Number((row.querySelector('.cat-allocation') as HTMLInputElement)?.value ?? 50);
-      const desc = (row.querySelector('.cat-desc') as HTMLInputElement)?.value.trim();
+      const id = (row.querySelector(".cat-id") as HTMLInputElement)?.value;
+      const name = (
+        row.querySelector(".cat-name") as HTMLInputElement
+      )?.value.trim();
+      const category_type =
+        (row.querySelector(".cat-type") as HTMLSelectElement)?.value ||
+        (name.toLowerCase().includes("professional")
+          ? "professional"
+          : name.toLowerCase().includes("student")
+            ? "student"
+            : "standard");
+      const price = Number(
+        (row.querySelector(".cat-price") as HTMLInputElement)?.value ?? 0,
+      );
+      const allocation = Number(
+        (row.querySelector(".cat-allocation") as HTMLInputElement)?.value ?? 50,
+      );
+      const desc = (
+        row.querySelector(".cat-desc") as HTMLInputElement
+      )?.value.trim();
 
       if (name) {
         ticket_types.push({
@@ -1267,25 +2014,42 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
     if (ticket_types.length === 0) {
       if (errorBanner) {
-        errorBanner.textContent = 'Please add at least one ticket category (e.g. Regular, Student).';
-        errorBanner.classList.remove('hidden');
+        errorBanner.textContent =
+          "Please add at least one ticket category (e.g. Regular, Student).";
+        errorBanner.classList.remove("hidden");
       }
       return;
     }
 
     // Collect incentives
-    const incentiveRows = incentivesContainer?.querySelectorAll('.incentive-row') || [];
+    const incentiveRows =
+      incentivesContainer?.querySelectorAll(".incentive-row") || [];
     const incentives: any[] = [];
     incentiveRows.forEach((row) => {
-      const id = (row.querySelector('.inc-id') as HTMLInputElement)?.value;
-      const title = (row.querySelector('.inc-title') as HTMLInputElement)?.value.trim();
-      const eligibility = (row.querySelector('.inc-eligibility') as HTMLInputElement)?.value.trim();
-      const description = (row.querySelector('.inc-desc') as HTMLInputElement)?.value.trim();
-      const discount_type = (row.querySelector('.inc-discount-type') as HTMLSelectElement)?.value || 'none';
-      const discount_value = Number((row.querySelector('.inc-discount-value') as HTMLInputElement)?.value || 0);
-      const start_date = (row.querySelector('.inc-start-date') as HTMLInputElement)?.value || null;
-      const end_date = (row.querySelector('.inc-end-date') as HTMLInputElement)?.value || null;
-      const is_active = (row.querySelector('.inc-active') as HTMLInputElement)?.checked ?? true;
+      const id = (row.querySelector(".inc-id") as HTMLInputElement)?.value;
+      const title = (
+        row.querySelector(".inc-title") as HTMLInputElement
+      )?.value.trim();
+      const eligibility = (
+        row.querySelector(".inc-eligibility") as HTMLInputElement
+      )?.value.trim();
+      const description = (
+        row.querySelector(".inc-desc") as HTMLInputElement
+      )?.value.trim();
+      const discount_type =
+        (row.querySelector(".inc-discount-type") as HTMLSelectElement)?.value ||
+        "none";
+      const discount_value = Number(
+        (row.querySelector(".inc-discount-value") as HTMLInputElement)?.value ||
+          0,
+      );
+      const start_date =
+        (row.querySelector(".inc-start-date") as HTMLInputElement)?.value ||
+        null;
+      const end_date =
+        (row.querySelector(".inc-end-date") as HTMLInputElement)?.value || null;
+      const is_active =
+        (row.querySelector(".inc-active") as HTMLInputElement)?.checked ?? true;
 
       if (title) {
         incentives.push({
@@ -1303,47 +2067,63 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     });
 
     // Collect speakers
-    const speakerRows = speakersContainer?.querySelectorAll('.speaker-row') || [];
+    const speakerRows =
+      speakersContainer?.querySelectorAll(".speaker-row") || [];
     const speakers: any[] = [];
     speakerRows.forEach((row) => {
-      const name = (row.querySelector('.spk-name') as HTMLInputElement)?.value.trim();
-      const role = (row.querySelector('.spk-role') as HTMLInputElement)?.value.trim();
-      const company = (row.querySelector('.spk-company') as HTMLInputElement)?.value.trim();
-      const photo = (row.querySelector('.spk-photo') as HTMLInputElement)?.value.trim();
+      const name = (
+        row.querySelector(".spk-name") as HTMLInputElement
+      )?.value.trim();
+      const role = (
+        row.querySelector(".spk-role") as HTMLInputElement
+      )?.value.trim();
+      const company = (
+        row.querySelector(".spk-company") as HTMLInputElement
+      )?.value.trim();
+      const photo = (
+        row.querySelector(".spk-photo") as HTMLInputElement
+      )?.value.trim();
       if (name) {
         speakers.push({ name, role, company, photo });
       }
     });
 
     // Collect partners
-    const partnerRows = partnersContainer?.querySelectorAll('.partner-row') || [];
+    const partnerRows =
+      partnersContainer?.querySelectorAll(".partner-row") || [];
     const partners: any[] = [];
     partnerRows.forEach((row) => {
-      const name = (row.querySelector('.ptn-name') as HTMLInputElement)?.value.trim();
-      const logo = (row.querySelector('.ptn-logo') as HTMLInputElement)?.value.trim();
+      const name = (
+        row.querySelector(".ptn-name") as HTMLInputElement
+      )?.value.trim();
+      const logo = (
+        row.querySelector(".ptn-logo") as HTMLInputElement
+      )?.value.trim();
       if (name) {
         partners.push({ name, logo });
       }
     });
 
     // Show loading state
-    const btnText = submitBtn?.querySelector('.btn-text');
-    const btnSpinner = submitBtn?.querySelector('.btn-spinner');
-    if (btnText) btnText.classList.add('hidden');
-    if (btnSpinner) btnSpinner.classList.remove('hidden');
+    const btnText = submitBtn?.querySelector(".btn-text");
+    const btnSpinner = submitBtn?.querySelector(".btn-spinner");
+    if (btnText) btnText.classList.add("hidden");
+    if (btnSpinner) btnSpinner.classList.remove("hidden");
     if (submitBtn) (submitBtn as HTMLButtonElement).disabled = true;
 
     try {
-      const res = await fetch('/api/admin/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: eventId || undefined,
           title,
           slug: slug || undefined,
           description,
+          highlights,
           venue,
           poster,
+          card_image,
           status,
           starts_at: startsAt,
           ends_at: endsAt,
@@ -1356,23 +2136,27 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to save event.');
+        throw new Error(data.error || "Failed to save event.");
       }
 
       // Reload page to reflect changes
       try {
         sessionStorage.removeItem(eventDraftKey);
       } catch (storageError) {
-        console.warn('Could not clear the saved event draft after saving.', storageError);
+        console.warn(
+          "Could not clear the saved event draft after saving.",
+          storageError,
+        );
       }
       window.location.reload();
     } catch (err: any) {
       if (errorBanner) {
-        errorBanner.textContent = err.message || 'Error saving event. Please try again.';
-        errorBanner.classList.remove('hidden');
+        errorBanner.textContent =
+          err.message || "Error saving event. Please try again.";
+        errorBanner.classList.remove("hidden");
       }
-      if (btnText) btnText.classList.remove('hidden');
-      if (btnSpinner) btnSpinner.classList.add('hidden');
+      if (btnText) btnText.classList.remove("hidden");
+      if (btnSpinner) btnSpinner.classList.add("hidden");
       if (submitBtn) (submitBtn as HTMLButtonElement).disabled = false;
     }
   });
@@ -1423,7 +2207,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   .metric-value {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 2rem;
     font-weight: 800;
     color: #ffffff;
@@ -1455,8 +2239,12 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     font-weight: 700;
   }
 
-  .text-green { color: #a3e635; }
-  .text-muted { color: #9ca3af; }
+  .text-green {
+    color: #a3e635;
+  }
+  .text-muted {
+    color: #9ca3af;
+  }
 
   /* ACTION BAR */
   .action-bar-card {
@@ -1472,7 +2260,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   .section-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 1.35rem;
     font-weight: 700;
     margin: 0 0 0.35rem;
@@ -1497,7 +2285,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border-radius: 10px;
     border: none;
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
 
     &:hover {
       transform: translateY(-2px);
@@ -1755,7 +2545,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   .modal-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 1.35rem;
     font-weight: 700;
     color: #ffffff;
@@ -1803,7 +2593,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   .form-section-heading {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 1rem;
     font-weight: 700;
     color: #ffffff;
@@ -1882,7 +2672,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     font-size: 0.88rem;
     outline: none;
     box-sizing: border-box;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
 
     &:focus {
       border-color: $green;
@@ -1993,7 +2785,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     padding: 1rem;
 
     .details-summary {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: "Space Grotesk", sans-serif;
       font-weight: 600;
       color: #e5e7eb;
       font-size: 0.95rem;
@@ -2048,8 +2840,12 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     gap: 0.5rem;
   }
 
-  .mt-2 { margin-top: 0.5rem; }
-  .flex-1 { flex: 1; }
+  .mt-2 {
+    margin-top: 0.5rem;
+  }
+  .flex-1 {
+    flex: 1;
+  }
 
   .form-error-banner {
     background: rgba(239, 68, 68, 0.15);
@@ -2059,7 +2855,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border-radius: 8px;
     font-size: 0.85rem;
 
-    &.hidden { display: none; }
+    &.hidden {
+      display: none;
+    }
   }
 
   .modal-footer {
@@ -2123,7 +2921,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     cursor: pointer;
     transition: all 0.2s ease;
 
-    &:hover, &.drag-over {
+    &:hover,
+    &.drag-over {
       border-color: $green;
       background: rgba(141, 198, 63, 0.05);
     }
@@ -2239,7 +3038,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .poster-preview-info {
@@ -2350,5 +3151,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
   }
 
-  .hidden { display: none !important; }
+  .hidden {
+    display: none !important;
+  }
 </style>

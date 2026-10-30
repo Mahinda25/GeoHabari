@@ -2,6 +2,8 @@
 import Layout from "../../layout/Layout.astro";
 import TicketPurchase from "../../components/TicketPurchase";
 import { getEventDetail } from "../../lib/ticketing.js";
+import { marked } from "marked";
+import sanitizeHtml from "sanitize-html";
 
 const { slug } = Astro.params;
 const event = await getEventDetail(slug);
@@ -10,6 +12,36 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
 if (!event) {
   throw new Error("Event not found");
 }
+const socialImage = [event.poster_image, event.poster, event.card_image].find(
+  (image) => typeof image === "string" && image.trim(),
+);
+const socialImageUrl = socialImage
+  ? new URL(socialImage.trim(), Astro.url.origin).toString()
+  : undefined;
+const highlights = String(event.highlights ?? "")
+  .split("\n")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const descriptionHtml = sanitizeHtml(
+  marked.parse(event.description ?? "", { async: false, breaks: true }),
+  {
+    allowedTags: [
+      "p",
+      "h2",
+      "h3",
+      "h4",
+      "ul",
+      "ol",
+      "li",
+      "strong",
+      "em",
+      "a",
+      "br",
+    ],
+    allowedAttributes: { a: ["href", "target", "rel"] },
+  },
+);
 
 const startDate = new Date(event.starts_at);
 const endDate = new Date(event.ends_at);
@@ -42,7 +74,12 @@ const speakers = (event as any).speakers || (event as any).lineup || [];
 const partners = (event as any).partners || (event as any).sponsors || [];
 ---
 
-<Layout title={`${event.title} — Ticketing`} description={event.description} url={canonicalUrl}>
+<Layout
+  title={`${event.title} — Ticketing`}
+  description={event.description}
+  url={canonicalUrl}
+  image={socialImageUrl}
+>
   <div class="event-detail-shell">
     <!-- Breadcrumb / Back to Events -->
     <nav class="breadcrumb-nav mb-6" aria-label="Breadcrumb">
@@ -68,17 +105,18 @@ const partners = (event as any).partners || (event as any).sponsors || [];
       <div class="event-left-column">
         <!-- 1. POSTER -->
         <div class="poster-container">
-          <div class="poster-frame">
+          <div class="poster-frame" style={`--poster: url("${event.poster}")`}>
             <img
               src={event.poster}
               alt={event.title}
               loading="eager"
               class="poster-image"
             />
+
             <div class="poster-badge">
               <span class="status-dot"></span>
               <span>Registration Open</span>
-            </div>
+            </div>s
           </div>
         </div>
 
@@ -195,88 +233,34 @@ const partners = (event as any).partners || (event as any).sponsors || [];
           </div>
 
           <div class="overview-body">
-            <p>{event.description}</p>
-            <p>
-              Experience an engaging day of keynote sessions, technical
-              demonstrations, and networking with fellow geospatial innovators,
-              developers, students, and founders shaping Africa's technological
-              landscape.
-            </p>
+            <div class="overview-body" set:html={descriptionHtml} />
           </div>
 
-          <div class="highlights-container">
-            <h3 class="highlights-heading">What to Expect</h3>
-            <ul class="highlights-list">
-              <li>
-                <svg
-                  class="w-4 h-4 check-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span
-                  >Industry keynotes from leading African geospatial and tech
-                  pioneers</span
-                >
-              </li>
-              <li>
-                <svg
-                  class="w-4 h-4 check-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span
-                  >Interactive panels covering satellite tech, AI spatial
-                  models, and open data</span
-                >
-              </li>
-              <li>
-                <svg
-                  class="w-4 h-4 check-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span
-                  >Dedicated networking sessions with founders, students, and
-                  employers</span
-                >
-              </li>
-              <li>
-                <svg
-                  class="w-4 h-4 check-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span
-                  >Digital certificate of attendance and post-event resource
-                  pack</span
-                >
-              </li>
-            </ul>
-          </div>
+          {
+            highlights.length > 0 && (
+              <div class="highlights-container">
+                <h3 class="highlights-heading">What to Expect</h3>
+                <ul class="highlights-list">
+                  {highlights.map((item) => (
+                    <li>
+                      <svg
+                        class="w-4 h-4 check-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          }
         </section>
 
         <!-- 5. LINEUP / SPEAKERS & PRESENTERS -->
@@ -287,7 +271,7 @@ const partners = (event as any).partners || (event as any).sponsors || [];
           <div class="section-header">
             <span class="section-tag">People</span>
             <h2 id="heading-lineup" class="section-title">
-              Speakers & Presenters
+              Lineup Announcements Coming Soon
             </h2>
           </div>
 
@@ -334,17 +318,22 @@ const partners = (event as any).partners || (event as any).sponsors || [];
                   </svg>
                 </div>
                 <div class="announcement-content">
-                  <div class="announcement-pill">
-                    Lineup Announcements Coming Soon
-                  </div>
-                  <h3 class="announcement-title">
-                    Featured Speakers & Panelists
-                  </h3>
-                  <p class="announcement-text">
-                    Keynote speakers, guest founders, and workshop leaders are
-                    being finalized. Registered ticket holders will receive
-                    first notification as speaker sessions and keynote topics
-                    are published.
+                  <h3 class="announcement-title">Featured Demos</h3>
+                  <p style="announcement-text whitespace-pre-line">
+                    GeoAI, digital twins, drone technology, analytics, edge
+                    computing — the geospatial and wider tech landscape keeps
+                    evolving. But what does it actually make possible in our
+                    contexts? At The Wind Down: GEO 2026 WRAPPED, we're bringing
+                    technology into the room through real-world success stories
+                    and live demos. On the agenda: - What changed? The tech
+                    breakthroughs that shaped 2026. - What worked? Success
+                    stories and live demos showing what's possible in practice.
+                    - What's next? A glimpse of what's coming in 2027. Plus,
+                    food, drinks, good conversations and plenty of laughs. We're
+                    lining up the companies, people and technologies bringing
+                    the demos to life. *Registered ticket holders will be
+                    notified as demos are confirmed. Stay tuned for the
+                    reveals!*
                   </p>
                 </div>
               </div>
@@ -442,6 +431,21 @@ const partners = (event as any).partners || (event as any).sponsors || [];
     }
   }
 
+  .overview-body :global(p) {
+    margin: 0 0 1rem;
+  }
+  .overview-body :global(h2),
+  .overview-body :global(h3) {
+    margin: 1.5rem 0 0.5rem;
+    font-weight: 700;
+  }
+
+  .overview-body :global(ul) {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin: 0 0 1rem;
+  }
+
   .event-left-column {
     display: flex;
     flex-direction: column;
@@ -507,6 +511,34 @@ const partners = (event as any).partners || (event as any).sponsors || [];
       box-shadow: 0 0 10px $green;
     }
   }
+
+  /* ===== 2. poster CARD ===== */
+  .poster-frame {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #111;
+  }
+
+  .poster-frame::before {
+    content: "";
+    position: absolute;
+    inset: -24px;
+    background: var(--poster) center / cover;
+    filter: blur(24px) brightness(0.6);
+  }
+
+  .poster-image {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .poster-badge {
+    z-index: 2;
+  } /* keep your existing positioning */
 
   /* ===== 2. HEADER CARD ===== */
   .event-header-card {

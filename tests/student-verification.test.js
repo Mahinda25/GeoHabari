@@ -12,6 +12,7 @@ import {
   verifyCodeHash,
   generateVerificationToken,
   verifyVerificationToken,
+  isVerificationTokenSigningConfigured,
 } from '../src/lib/student-verification.js';
 
 import {
@@ -171,6 +172,38 @@ describe('OTP & Verification Tokens', () => {
     // Rejects token if buyer name does not match
     const wrongBuyer = verifyVerificationToken(token, 'Different Buyer');
     assert.equal(wrongBuyer.isValid, false);
+  });
+
+  test('Uses the configured signing key aliases consistently', () => {
+    const original = {
+      TOKEN_SIGNING_KEY: process.env.TOKEN_SIGNING_KEY,
+      JWT_SECRET: process.env.JWT_SECRET,
+      APP_SECRET: process.env.APP_SECRET,
+      VERIFICATION_TOKEN_SECRET: process.env.VERIFICATION_TOKEN_SECRET,
+    };
+
+    try {
+      process.env.TOKEN_SIGNING_KEY = 'test-token-signing-key';
+      process.env.JWT_SECRET = 'test-jwt-secret';
+      process.env.APP_SECRET = 'test-app-secret';
+      process.env.VERIFICATION_TOKEN_SECRET = 'test-legacy-secret';
+
+      assert.equal(isVerificationTokenSigningConfigured(), true);
+      const { token } = generateVerificationToken(
+        'ver-alias',
+        'Jane Wanjiru',
+        'university_email'
+      );
+      assert.equal(
+        verifyVerificationToken(token, 'Jane Wanjiru').isValid,
+        true
+      );
+    } finally {
+      for (const [key, value] of Object.entries(original)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 });
 

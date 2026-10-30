@@ -1,132 +1,114 @@
 import {
   isValidUniversityEmail,
   generateVerificationCode,
-  hashVerificationCode,
-  CODE_EXPIRY_MS,
   MAX_RESEND_ATTEMPTS,
-  RETENTION_DAYS,
 } from '../../../../lib/student-verification.js';
 import {
-  getStudentVerificationById,
-  saveStudentVerification,
-  listStudentVerifications,
-  appendAuditLog,
+  getStudentEmailOtpByEmail,
+  saveStudentEmailOtp,
+  updateStudentEmailOtp,
 } from '../../../../lib/ticketing-store.js';
 import { sendUniversityVerificationEmail } from '../../../../lib/ticketing.js';
 
-export async function POST({ request }) {
-  if (!process.env.VERIFICATION_TOKEN_SECRET) {
-    return new Response(JSON.stringify({
-      error: 'Student verification is unavailable because token signing is not configured.',
-    }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+const OTP_LIFETIME_MS = 10 * 60 * 1000;
+const SEND_WINDOW_MS = 10 * 60 * 1000;
 
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export async function POST({ request, clientAddress }) {
   try {
+    const apiKey = String(
+      process.env.RESEND_API_KEY ||
+      import.meta.env?.RESEND_API_KEY ||
+      ''
+    ).trim();
+    const fromAddress = String(
+      process.env.PUBLIC_RESEND_FROM ||
+      import.meta.env?.PUBLIC_RESEND_FROM ||
+      process.env.RESEND_FROM ||
+      'GeoHabari Tickets <tickets@tickets.geohabari.com>'
+    ).trim();
+
+    if (!apiKey) {
+      return jsonResponse({
+        error: 'Student email verification is not configured. Set the server-side RESEND_API_KEY.',
+      }, 503);
+    }
+
     const body = await request.json();
     const email = String(body.email || '').trim().toLowerCase();
-    const buyerName = String(body.buyer_name || '').trim();
-
-    if (!buyerName || buyerName.length < 2) {
-      return new Response(
-        JSON.stringify({ error: 'Full buyer name is required before requesting verification.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
 
     if (!isValidUniversityEmail(email)) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'A valid Kenyan university email ending in .ac.ke is required (e.g. name@uonbi.ac.ke or student@strathmore.edu.ac.ke). Subdomains and lookalike addresses are strictly checked.',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({
+        error: 'A valid Kenyan university email ending in .ac.ke is required.',
+      }, 400);
     }
 
-    // Rate-limiting check: count recent verification requests for this email
-    const allVerifications = await listStudentVerifications();
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const recentRequests = allVerifications.filter(
-      (v) => v.email === email && v.created_at >= tenMinutesAgo
-    );
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const existing = await getStudentEmailOtpByEmail(email);
+    const windowStartedAt = existing?.window_started_at
+      ? new Date(existing.window_started_at)
+      : null;
+    const withinWindow = windowStartedAt &&
+      now.getTime() - windowStartedAt.getTime() < SEND_WINDOW_MS;
+    const sendAttempts = withinWindow ? Number(existing.send_attempts || 0) : 0;
 
-    if (recentRequests.length >= MAX_RESEND_ATTEMPTS) {
-      return new Response(
-        JSON.stringify({
-          error: 'Too many verification attempts for this university email. Please wait 10 minutes before requesting a new code.',
-        }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (sendAttempts >= MAX_RESEND_ATTEMPTS) {
+      return jsonResponse({
+        error: 'Too many verification attempts. Please wait 10 minutes before requesting another code.',
+      }, 429);
     }
 
-    // Generate single-use numeric code and hash
-    const plainCode = generateVerificationCode();
-    const codeHash = hashVerificationCode(plainCode);
-    const expiresAt = new Date(Date.now() + CODE_EXPIRY_MS).toISOString();
-    const retentionExpiresAt = new Date(Date.now() + RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
-
-    const verificationRecord = {
-      id: crypto.randomUUID(),
-      method: 'university_email',
-      buyer_name: buyerName,
+    const otpCode = generateVerificationCode();
+    const expiresAt = new Date(now.getTime() + OTP_LIFETIME_MS).toISOString();
+    const otpRecord = {
       email,
-      code_hash: codeHash,
-      code_expires_at: expiresAt,
-      code_attempts: 0,
-      status: 'email_code_sent',
-      retention_expires_at: retentionExpiresAt,
-      created_at: new Date().toISOString(),
+      otp_code: otpCode,
+      expires_at: expiresAt,
+      verified: false,
+      attempts_count: 0,
+      send_attempts: sendAttempts + 1,
+      window_started_at: withinWindow ? existing.window_started_at : nowIso,
+      student_verification_id: null,
+      verified_at: null,
+      ip_address: clientAddress || null,
+      created_at: existing?.created_at || nowIso,
+      updated_at: nowIso,
     };
 
-    await saveStudentVerification(verificationRecord);
+    await saveStudentEmailOtp(otpRecord);
 
-    // Send code to student's email (non-blocking failure logging)
     try {
-      await sendUniversityVerificationEmail({ email, buyerName, code: plainCode });
+      await sendUniversityVerificationEmail({
+        email,
+        code: otpCode,
+        apiKey,
+        fromAddress,
+      });
     } catch (error) {
-      verificationRecord.status = 'expired';
-      verificationRecord.code_hash = null;
-      await saveStudentVerification(verificationRecord);
-      await appendAuditLog({
-        action: 'student_email_delivery_failed',
-        entity: 'student_verification',
-        entity_id: verificationRecord.id,
-        details: { message: error.message },
+      await updateStudentEmailOtp(email, {
+        otp_code: null,
+        expires_at: nowIso,
+        updated_at: new Date().toISOString(),
       });
-      return new Response(JSON.stringify({
-        error: 'The verification email could not be sent. Please try again later or use another ticket category.',
-      }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('[student-email/send] Email delivery failed:', error);
+      return jsonResponse({
+        error: 'The verification email could not be sent. Please try again later.',
+      }, 503);
     }
 
-    await appendAuditLog({
-      action: 'student_email_code_dispatched',
-      entity: 'student_verification',
-      entity_id: verificationRecord.id,
-      details: {
-        domain: email.split('@')[1],
-        expires_at: expiresAt,
-      },
+    return jsonResponse({
+      success: true,
+      message: 'A verification code has been sent to your university email. It expires in 10 minutes.',
     });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        verification_id: verificationRecord.id,
-        email_domain: email.split('@')[1],
-        message: 'A single-use verification code has been dispatched to your .ac.ke university mailbox.',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error('[student-email/send] Request failed:', error);
+    return jsonResponse({ error: 'Unable to send a verification code right now.' }, 500);
   }
 }

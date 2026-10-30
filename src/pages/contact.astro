@@ -131,7 +131,7 @@ import '../styles/contact.scss';
     });
 
     const scriptURL = "https://script.google.com/macros/s/AKfycbxD1AlL0nksw1TYrgLwQLzYWRurNPwAJKwOBtf6u6zXu-Jo3dAGcSbxVEsZ51B5wEMT/exec"
-    const form = document.forms["contactForm"]
+    const form = document.querySelector<HTMLFormElement>('form[name="contactForm"]')!
     const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement
     const field_name = document.getElementById("name") as HTMLInputElement
     const field_email = document.getElementById("email") as HTMLInputElement

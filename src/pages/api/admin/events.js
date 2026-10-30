@@ -180,6 +180,8 @@ export async function POST({ request, cookies }) {
       title,
       slug: body.slug ? String(body.slug).trim() : undefined,
       description: String(body.description || '').trim(),
+      card_image: body.card_image == null ? undefined : String(body.card_image).trim() || null,
+      highlights: body.highlights == null ? undefined : String(body.highlights),
       venue,
       poster: String(body.poster || '').trim() || 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
       starts_at: startsAt,

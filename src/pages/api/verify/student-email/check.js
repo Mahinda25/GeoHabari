@@ -1,134 +1,90 @@
+import { isValidUniversityEmail, MAX_VERIFICATION_ATTEMPTS } from '../../../../lib/student-verification.js';
 import {
-  verifyCodeHash,
-  generateVerificationToken,
-  MAX_VERIFICATION_ATTEMPTS,
-} from '../../../../lib/student-verification.js';
-import {
-  getStudentVerificationById,
-  saveStudentVerification,
-  appendAuditLog,
+  getStudentEmailOtpByEmail,
+  updateStudentEmailOtp,
+  verifyStudentEmailOtp,
 } from '../../../../lib/ticketing-store.js';
 
-export async function POST({ request }) {
-  if (!process.env.VERIFICATION_TOKEN_SECRET) {
-    return new Response(JSON.stringify({
-      error: 'Student verification is unavailable because token signing is not configured.',
-    }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
+export async function POST({ request }) {
   try {
     const body = await request.json();
-    const verificationId = String(body.verification_id || '').trim();
-    const inputCode = String(body.code || '').trim();
-    const buyerName = String(body.buyer_name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const otp = String(body.otp || '').trim();
 
-    if (!verificationId || !inputCode) {
-      return new Response(
-        JSON.stringify({ error: 'Verification ID and 6-digit code are required.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (!isValidUniversityEmail(email) || !/^\d{6}$/.test(otp)) {
+      return jsonResponse({
+        error: 'A valid .ac.ke email and 6-digit verification code are required.',
+      }, 400);
     }
 
-    const record = await getStudentVerificationById(verificationId);
-    if (!record) {
-      return new Response(
-        JSON.stringify({ error: 'Verification session not found or expired.' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+    const otpRecord = await getStudentEmailOtpByEmail(email);
+    if (!otpRecord?.otp_code || otpRecord.verified) {
+      return jsonResponse({
+        error: 'No active verification code was found. Request a new code.',
+      }, 400);
     }
 
-    if (record.status === 'approved') {
-      const { token } = generateVerificationToken(record.id, record.buyer_name, record.method);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          status: 'approved',
-          verification_id: record.id,
-          verification_token: token,
-          message: 'University email is already verified.',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (new Date(otpRecord.expires_at).getTime() <= Date.now()) {
+      await updateStudentEmailOtp(email, {
+        otp_code: null,
+        updated_at: new Date().toISOString(),
+      });
+      return jsonResponse({
+        error: 'The verification code has expired. Request a new code.',
+      }, 400);
     }
 
-    // Check attempts limit
-    record.code_attempts = Number(record.code_attempts || 0) + 1;
-    if (record.code_attempts > MAX_VERIFICATION_ATTEMPTS) {
-      record.status = 'expired';
-      await saveStudentVerification(record);
-      return new Response(
-        JSON.stringify({
-          error: 'Maximum verification attempts exceeded. Please request a new code.',
-        }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
-      );
+    const attempts = Number(otpRecord.attempts_count || 0);
+    if (attempts >= MAX_VERIFICATION_ATTEMPTS) {
+      await updateStudentEmailOtp(email, {
+        otp_code: null,
+        expires_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      return jsonResponse({
+        error: 'Maximum verification attempts exceeded. Request a new code.',
+      }, 429);
     }
 
-    // Check expiration
-    if (new Date(record.code_expires_at) < new Date()) {
-      record.status = 'expired';
-      await saveStudentVerification(record);
-      return new Response(
-        JSON.stringify({ error: 'Verification code has expired. Please request a new code.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    if (otpRecord.otp_code !== otp) {
+      const nextAttempts = attempts + 1;
+      const now = new Date().toISOString();
+      await updateStudentEmailOtp(email, {
+        attempts_count: nextAttempts,
+        ...(nextAttempts >= MAX_VERIFICATION_ATTEMPTS
+          ? { otp_code: null, expires_at: now }
+          : {}),
+        updated_at: now,
+      });
+      return jsonResponse({
+        error: nextAttempts >= MAX_VERIFICATION_ATTEMPTS
+          ? 'Maximum verification attempts exceeded. Request a new code.'
+          : `Incorrect verification code. ${MAX_VERIFICATION_ATTEMPTS - nextAttempts} attempts remaining.`,
+      }, nextAttempts >= MAX_VERIFICATION_ATTEMPTS ? 429 : 400);
     }
 
-    // Verify hash
-    const isValid = verifyCodeHash(inputCode, record.code_hash);
-    if (!isValid) {
-      await saveStudentVerification(record);
-      return new Response(
-        JSON.stringify({
-          error: `Incorrect verification code. ${MAX_VERIFICATION_ATTEMPTS - record.code_attempts} attempts remaining.`,
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    const verificationId = await verifyStudentEmailOtp(email, otp);
+    if (!verificationId) {
+      return jsonResponse({
+        error: 'The verification code is no longer valid. Request a new code.',
+      }, 400);
     }
 
-    // Approve verification
-    record.status = 'approved';
-    record.verified_at = new Date().toISOString();
-    record.code_hash = null; // Invalidate OTP after consumption
-    if (buyerName && buyerName.length >= 2) {
-      record.buyer_name = buyerName;
-    }
-    await saveStudentVerification(record);
-
-    const { token, expiresAt } = generateVerificationToken(
-      record.id,
-      record.buyer_name,
-      'university_email'
-    );
-
-    await appendAuditLog({
-      action: 'student_email_verified',
-      entity: 'student_verification',
-      entity_id: record.id,
-      details: {
-        domain: record.email ? record.email.split('@')[1] : null,
-        method: 'university_email',
-      },
+    return jsonResponse({
+      success: true,
+      verified: true,
+      verification_id: verificationId,
+      message: 'University email verified successfully.',
     });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        status: 'approved',
-        verification_id: record.id,
-        verification_token: token,
-        token_expires_at: expiresAt,
-        message: 'University email verified successfully! Student ticket rate unlocked.',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error('[student-email/check] Request failed:', error);
+    return jsonResponse({ error: 'Unable to verify this code right now.' }, 500);
   }
 }

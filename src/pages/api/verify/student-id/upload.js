@@ -2,6 +2,7 @@ import {
   validateUploadedDocument,
   generateVerificationToken,
   RETENTION_DAYS,
+  isVerificationTokenSigningConfigured,
 } from '../../../../lib/student-verification.js';
 import {
   savePrivateFile,
@@ -18,7 +19,7 @@ import {
 } from '../../../../lib/ticketing-store.js';
 
 export async function POST({ request }) {
-  if (!process.env.VERIFICATION_TOKEN_SECRET) {
+  if (!isVerificationTokenSigningConfigured()) {
     return new Response(JSON.stringify({
       error: 'Student verification is unavailable because token signing is not configured.',
     }), {

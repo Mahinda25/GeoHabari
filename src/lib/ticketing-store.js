@@ -257,6 +257,8 @@ export async function saveEvent(eventData) {
     slug,
     poster: eventData.poster ?? existing?.poster ?? '',
     description: eventData.description ?? existing?.description ?? '',
+    card_image: eventData.card_image !== undefined ? eventData.card_image : existing?.card_image ?? null,
+    highlights: eventData.highlights !== undefined ? eventData.highlights : existing?.highlights ?? null,
     venue: eventData.venue ?? existing?.venue ?? '',
     starts_at: eventData.starts_at ?? existing?.starts_at ?? now,
     ends_at: eventData.ends_at ?? existing?.ends_at ?? now,
@@ -398,6 +400,89 @@ export async function getStudentVerificationByHash(documentHash) {
 
 export async function listStudentVerifications() {
   return selectRows('student_verifications', (query) => query.order('created_at', { ascending: false }));
+}
+
+export async function getStudentEmailOtpByEmail(email) {
+  const { data, error } = await database()
+    .from('student_email_otps')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+  throwDatabaseError(error, 'read student email OTP');
+  return data || null;
+}
+
+export async function saveStudentEmailOtp(record) {
+  const row = {
+    email: String(record.email || '').trim().toLowerCase(),
+    otp_code: record.otp_code ?? null,
+    expires_at: record.expires_at,
+    verified: Boolean(record.verified),
+    send_attempts: Number(record.send_attempts || 0),
+    student_verification_id: record.student_verification_id
+      ? String(record.student_verification_id)
+      : null,
+    updated_at: record.updated_at || new Date().toISOString(),
+    verified_at: record.verified_at ?? null,
+    window_started_at: record.window_started_at ?? null,
+    attempts_count: Number(record.attempts_count || 0),
+    ip_address: record.ip_address ?? null,
+    ...(record.created_at ? { created_at: record.created_at } : {}),
+  };
+  const { data, error } = await database()
+    .from('student_email_otps')
+    .upsert(row, { onConflict: 'email' })
+    .select('*')
+    .single();
+  throwDatabaseError(error, 'save student email OTP');
+  return data;
+}
+
+export async function updateStudentEmailOtp(email, updates) {
+  const allowedFields = new Set([
+    'otp_code',
+    'expires_at',
+    'verified',
+    'send_attempts',
+    'student_verification_id',
+    'updated_at',
+    'verified_at',
+    'window_started_at',
+    'attempts_count',
+    'ip_address',
+  ]);
+  const row = Object.fromEntries(
+    Object.entries(updates).filter(([field]) => allowedFields.has(field)),
+  );
+  const { data, error } = await database()
+    .from('student_email_otps')
+    .update(row)
+    .eq('email', String(email || '').trim().toLowerCase())
+    .select('*')
+    .single();
+  throwDatabaseError(error, 'update student email OTP');
+  return data;
+}
+
+export async function verifyStudentEmailOtp(email, otp, now = new Date().toISOString()) {
+  const { data, error } = await database().rpc('verify_student_email_otp', {
+    p_email: email,
+    p_otp: otp,
+  });
+  throwDatabaseError(error, 'verify student email OTP');
+  return data || null;
+}
+
+export async function getVerifiedStudentEmailOtpByVerificationId(verificationId) {
+  if (!verificationId) return null;
+  const { data, error } = await database()
+    .from('student_email_otps')
+    .select('*')
+    .eq('student_verification_id', verificationId)
+    .eq('verified', true)
+    .maybeSingle();
+  throwDatabaseError(error, 'read verified student email OTP');
+  return data || null;
 }
 
 export async function getTicketMetrics() {

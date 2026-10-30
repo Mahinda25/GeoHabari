@@ -235,11 +235,6 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     setVerificationError('');
     setVerificationSuccess('');
 
-    if (!buyerName.trim()) {
-      setVerificationError('Please enter your full buyer name above before requesting a verification code.');
-      return;
-    }
-
     const emailTrimmed = universityEmail.trim().toLowerCase();
     if (!emailTrimmed.endsWith('.ac.ke')) {
       setVerificationError('Please enter a valid Kenyan university email ending in .ac.ke (e.g. name@uonbi.ac.ke).');
@@ -247,6 +242,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     }
 
     setVerificationStatus('sending_code');
+    setVerificationId('');
+    setVerificationToken('');
 
     try {
       const res = await fetch('/api/verify/student-email/send', {
@@ -254,7 +251,6 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: emailTrimmed,
-          buyer_name: buyerName.trim(),
         }),
       });
 
@@ -263,7 +259,6 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         throw new Error(data.error || 'Failed to dispatch university verification code.');
       }
 
-      setVerificationId(data.verification_id);
       setVerificationStatus('code_sent');
       setVerificationSuccess(data.message || 'Verification code sent to your university inbox.');
     } catch (err) {
@@ -288,9 +283,8 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          verification_id: verificationId,
-          code: verificationCode.trim(),
-          buyer_name: buyerName.trim(),
+          email: universityEmail.trim().toLowerCase(),
+          otp: verificationCode.trim(),
         }),
       });
 
@@ -299,8 +293,9 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         throw new Error(data.error || 'Invalid or expired verification code.');
       }
 
+      setVerificationId(data.verification_id);
       setVerificationStatus('approved');
-      setVerificationToken(data.verification_token);
+      setVerificationToken('');
       setVerificationSuccess(data.message || 'University email verified! Student ticket rate unlocked.');
     } catch (err) {
       setVerificationStatus('code_sent');
@@ -439,6 +434,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
           accept_terms: termsAccepted,
           student_verification_id: isStudentSelected ? verificationId : null,
           student_verification_token: isStudentSelected ? verificationToken : null,
+          student_verified_email: isStudentSelected ? universityEmail.trim().toLowerCase() : null,
         }),
       });
 
@@ -747,7 +743,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
             {/* Explanation Copy */}
             <p className="text-xs text-slate-600 leading-relaxed">
-              Enter your buyer name in the details section below before verifying. Use your Kenyan university email ending in <strong>.ac.ke</strong> for a single-use code, or upload your Student ID.
+              Verify access to your Kenyan university email ending in <strong>.ac.ke</strong> with a single-use code, or upload your Student ID for name matching.
               
             </p>
 
@@ -761,7 +757,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                       Student Eligibility Unlocked
                     </span>
                     <span className="text-xs text-slate-500">
-                      Verified for {buyerName || 'Applicant'}. You can now complete your purchase.
+                      Student eligibility is unlocked. You can now complete your purchase.
                     </span>
                   </div>
                 </div>
@@ -769,6 +765,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                   type="button"
                   onClick={() => {
                     setVerificationStatus('unverified');
+                    setVerificationId('');
                     setVerificationToken('');
                   }}
                   className="text-xs text-slate-400 hover:text-slate-600 underline font-medium"
