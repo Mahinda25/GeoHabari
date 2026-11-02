@@ -185,10 +185,8 @@ export async function createOrderCheckout(eventId, requestPayload) {
   // ========================================================
   // SERVER-SIDE STUDENT ELIGIBILITY ENFORCEMENT
   // ========================================================
-  const isStudentTicket =
-    ticketType.category_type === 'student' || ticketType.name.toLowerCase().includes('student');
-  const isProfessionalTicket =
-    ticketType.category_type === 'professional' || ticketType.name.toLowerCase().includes('professional');
+  const isStudentTicket = ticketType.category_type === 'student';
+  const isProfessionalTicket = ticketType.category_type === 'professional';
 
   if (isProfessionalTicket && (!validated.organization || !validated.role)) {
     throw new Error('Professional organization and role are required for Professional tickets.');

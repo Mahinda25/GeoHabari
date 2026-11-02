@@ -443,10 +443,16 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
               type="file"
               id="eventCardImageFile"
               accept="image/png,image/jpeg,image/webp"
-              class="poster-file-input"
+              class="form-input"
             />
-
-            <div id="cardImageDropzone" class="poster-dropzone">
+            <p
+              id="eventCardImageStatus"
+              class="form-section-sub"
+              aria-live="polite"
+            >
+            </p>
+            <!-- Drag & drop upload dropzone -->
+            <div id="posterDropzone" class="poster-dropzone">
               <div class="dropzone-inner">
                 <div class="dropzone-icon-circle">
                   <svg
@@ -456,7 +462,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
                     stroke="currentColor"
                     stroke-width="2"
                   >
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"
+                    ></rect>
                     <circle cx="9" cy="9" r="2"></circle>
                     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
                   </svg>
@@ -465,95 +472,17 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
                   <p class="dropzone-primary-text">
                     <button
                       type="button"
-                      id="browseCardImageBtn"
+                      id="eventCardImageFile"
                       class="browse-link-btn">Select an image</button
                     >
                     <span> or drag and drop</span>
                   </p>
                   <p class="dropzone-hint">
-                    PNG, JPG, or WebP up to 5MB
+                    PNG, JPG, or WebP up to 5MB (phone photo gallery supported)
                   </p>
                 </div>
               </div>
             </div>
-
-            <div
-              id="cardImagePreviewContainer"
-              class="poster-preview-card hidden"
-            >
-              <div class="poster-preview-media">
-                <img
-                  id="cardImagePreviewImg"
-                  src=""
-                  alt="Event card image preview"
-                  class="poster-preview-thumb"
-                />
-                <div
-                  id="cardImageUploadProgress"
-                  class="poster-upload-overlay hidden"
-                >
-                  <div class="spinner"></div>
-                  <span class="upload-status-text">Uploading image...</span>
-                </div>
-              </div>
-              <div class="poster-preview-info">
-                <div class="preview-filename-row">
-                  <span id="cardImageFilename" class="preview-filename"
-                    >card-image.jpg</span
-                  >
-                  <span
-                    id="cardImageUploadBadge"
-                    class="upload-badge success-badge">Ready</span
-                  >
-                </div>
-                <p id="cardImageDetails" class="preview-meta">
-                  Image saved and ready
-                </p>
-                <div class="preview-actions">
-                  <button
-                    type="button"
-                    id="replaceCardImageBtn"
-                    class="action-btn replace-btn"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="17 8 12 3 7 8"></polyline>
-                      <line x1="12" x2="12" y1="3" y2="15"></line>
-                    </svg>
-                    <span>Replace Image</span>
-                  </button>
-                  <button
-                    type="button"
-                    id="removeCardImageBtn"
-                    class="action-btn remove-btn"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <line x1="18" x2="6" y1="6" y2="18"></line>
-                      <line x1="6" x2="18" y1="6" y2="18"></line>
-                    </svg>
-                    <span>Remove</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div
-              id="cardImageUploadError"
-              class="poster-upload-error hidden"
-              aria-live="polite"
-            ></div>
           </div>
 
           <div class="form-group">
@@ -860,7 +789,6 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   let isUploadingPoster = false;
   let isUploadingCardImage = false;
   let posterPreviewObjectUrl: string | null = null;
-  let cardImagePreviewObjectUrl: string | null = null;
   const eventDraftKey = "geohabari-admin-event-draft";
 
   const modal = document.getElementById("eventModal");
@@ -908,115 +836,38 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   const cardImageFileInput = document.getElementById(
     "eventCardImageFile",
   ) as HTMLInputElement;
-  const cardImageDropzone = document.getElementById("cardImageDropzone");
-  const browseCardImageBtn = document.getElementById("browseCardImageBtn");
-  const cardImagePreviewContainer = document.getElementById(
-    "cardImagePreviewContainer",
-  );
-  const cardImagePreviewImg = document.getElementById(
-    "cardImagePreviewImg",
-  ) as HTMLImageElement | null;
-  const cardImageFilename = document.getElementById("cardImageFilename");
-  const cardImageDetails = document.getElementById("cardImageDetails");
-  const cardImageUploadBadge = document.getElementById("cardImageUploadBadge");
-  const cardImageUploadOverlay = document.getElementById(
-    "cardImageUploadProgress",
-  );
-  const replaceCardImageBtn = document.getElementById("replaceCardImageBtn");
-  const removeCardImageBtn = document.getElementById("removeCardImageBtn");
-  const cardImageUploadError = document.getElementById("cardImageUploadError");
+  const cardImageStatus = document.getElementById("eventCardImageStatus");
 
-  function showCardImageError(message: string) {
-    if (!cardImageUploadError) return;
-    cardImageUploadError.textContent = message;
-    cardImageUploadError.classList.remove("hidden");
-  }
+  cardImageFileInput?.addEventListener("change", async () => {
+    const file = cardImageFileInput.files?.[0];
+    if (!file) return;
 
-  function clearCardImageError() {
-    if (!cardImageUploadError) return;
-    cardImageUploadError.textContent = "";
-    cardImageUploadError.classList.add("hidden");
-  }
-
-  function displayCardImage(
-    url: string,
-    name = "Card Image",
-    meta = "Stored image",
-  ) {
-    if (
-      !cardImagePreviewContainer ||
-      !cardImagePreviewImg ||
-      !cardImageDropzone
-    )
-      return;
-    clearCardImageError();
-    cardImagePreviewImg.src = url;
-    if (cardImageFilename) cardImageFilename.textContent = name;
-    if (cardImageDetails) cardImageDetails.textContent = meta;
-    if (cardImageUploadBadge) {
-      cardImageUploadBadge.textContent = "Ready";
-      cardImageUploadBadge.className = "upload-badge success-badge";
-    }
-    cardImageUploadOverlay?.classList.add("hidden");
-    cardImageDropzone.classList.add("hidden");
-    cardImagePreviewContainer.classList.remove("hidden");
-    cardImageInput.value = url;
-  }
-
-  function resetCardImageUpload() {
-    clearCardImageError();
-    if (cardImagePreviewObjectUrl)
-      URL.revokeObjectURL(cardImagePreviewObjectUrl);
-    cardImagePreviewObjectUrl = null;
-    cardImageInput.value = "";
-    cardImageFileInput.value = "";
-    if (cardImagePreviewImg) cardImagePreviewImg.src = "";
-    cardImagePreviewContainer?.classList.add("hidden");
-    cardImageDropzone?.classList.remove("hidden");
-    cardImageUploadOverlay?.classList.add("hidden");
-    isUploadingCardImage = false;
-  }
-
-  async function handleCardImageFileSelect(file: File) {
-    clearCardImageError();
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type.toLowerCase())) {
-      showCardImageError(
-        "Unsupported image format. Please select a PNG, JPG, or WebP image.",
-      );
-      if (cardImageFileInput) cardImageFileInput.value = "";
+      if (cardImageStatus) {
+        cardImageStatus.textContent =
+          "Unsupported image format. Please select a PNG, JPG, or WebP image.";
+      }
+      cardImageFileInput.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-      showCardImageError(
-        `Selected file is too large (${sizeMb}MB). Maximum allowed size is 5MB.`,
-      );
-      if (cardImageFileInput) cardImageFileInput.value = "";
+      if (cardImageStatus) {
+        cardImageStatus.textContent =
+          "Selected file is too large. Maximum allowed size is 5MB.";
+      }
+      cardImageFileInput.value = "";
       return;
     }
 
-    if (cardImagePreviewObjectUrl)
-      URL.revokeObjectURL(cardImagePreviewObjectUrl);
-    cardImagePreviewObjectUrl = URL.createObjectURL(file);
-    displayCardImage(
-      cardImagePreviewObjectUrl,
-      file.name,
-      `${(file.size / 1024).toFixed(0)} KB • Uploading to persistent storage...`,
-    );
-    cardImageInput.value = "";
-    if (cardImageUploadBadge) {
-      cardImageUploadBadge.textContent = "Uploading...";
-      cardImageUploadBadge.className = "upload-badge uploading-badge";
-    }
-    cardImageUploadOverlay?.classList.remove("hidden");
     isUploadingCardImage = true;
-    persistEventDraft();
-
+    if (cardImageStatus)
+      cardImageStatus.textContent = "Uploading card image...";
     try {
       const formData = new FormData();
       formData.append("file", file);
+
       const response = await fetch("/api/admin/upload-poster", {
         method: "POST",
         body: formData,
@@ -1026,62 +877,20 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         throw new Error(data.error || "Failed to upload card image.");
       }
 
-      if (cardImagePreviewObjectUrl)
-        URL.revokeObjectURL(cardImagePreviewObjectUrl);
-      cardImagePreviewObjectUrl = null;
-      displayCardImage(
-        data.url,
-        file.name,
-        `${(file.size / 1024).toFixed(0)} KB • Saved in persistent storage`,
-      );
-      if (cardImageUploadBadge) {
-        cardImageUploadBadge.textContent = "Saved";
-        cardImageUploadBadge.className = "upload-badge success-badge";
-      }
+      cardImageInput.value = data.url;
+      if (cardImageStatus) cardImageStatus.textContent = "Card image uploaded.";
       persistEventDraft();
     } catch (error) {
-      showCardImageError(
-        error instanceof Error
-          ? error.message
-          : "Error uploading card image. Please try again.",
-      );
-      if (cardImageUploadBadge) {
-        cardImageUploadBadge.textContent = "Failed";
-        cardImageUploadBadge.className = "upload-badge error-badge";
+      if (cardImageStatus) {
+        cardImageStatus.textContent =
+          error instanceof Error
+            ? error.message
+            : "Error uploading card image.";
       }
     } finally {
       isUploadingCardImage = false;
-      cardImageUploadOverlay?.classList.add("hidden");
-      if (cardImageFileInput) cardImageFileInput.value = "";
+      cardImageFileInput.value = "";
     }
-  }
-
-  browseCardImageBtn?.addEventListener("click", () =>
-    cardImageFileInput?.click(),
-  );
-  replaceCardImageBtn?.addEventListener("click", () =>
-    cardImageFileInput?.click(),
-  );
-  removeCardImageBtn?.addEventListener("click", () => {
-    resetCardImageUpload();
-    persistEventDraft();
-  });
-  cardImageFileInput?.addEventListener("change", () => {
-    const file = cardImageFileInput.files?.[0];
-    if (file) handleCardImageFileSelect(file);
-  });
-  cardImageDropzone?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    cardImageDropzone.classList.add("drag-over");
-  });
-  cardImageDropzone?.addEventListener("dragleave", () => {
-    cardImageDropzone.classList.remove("drag-over");
-  });
-  cardImageDropzone?.addEventListener("drop", (event) => {
-    event.preventDefault();
-    cardImageDropzone.classList.remove("drag-over");
-    const file = event.dataTransfer?.files?.[0];
-    if (file) handleCardImageFileSelect(file);
   });
 
   function showPosterError(msg: string) {
@@ -1272,7 +1081,6 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     document.body.style.overflow = "";
     form?.reset();
     resetPosterUpload();
-    resetCardImageUpload();
     editingEventId = null;
     try {
       sessionStorage.removeItem(eventDraftKey);
@@ -1296,7 +1104,6 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     (document.getElementById("eventId") as HTMLInputElement).value = "";
     form?.reset();
     resetPosterUpload();
-    resetCardImageUpload();
 
     // Set default date to 30 days from now
     const future = new Date();
@@ -1793,12 +1600,6 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       document.getElementById("eventPoster") as HTMLInputElement | null
     )?.value;
     if (posterUrl && !posterUrl.startsWith("blob:")) displayPoster(posterUrl);
-    const cardImageUrl = (
-      document.getElementById("eventCardImage") as HTMLInputElement | null
-    )?.value;
-    if (cardImageUrl && !cardImageUrl.startsWith("blob:")) {
-      displayCardImage(cardImageUrl);
-    }
     if (modalTitle) {
       modalTitle.textContent = editingEventId
         ? "Edit Event"
@@ -1841,14 +1642,10 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           document.getElementById("eventHighlights") as HTMLTextAreaElement
         ).value = event.highlights || "";
         cardImageInput.value = event.card_image || "";
-        if (event.card_image) {
-          displayCardImage(
-            event.card_image,
-            `${event.title || "Event"} Card Image`,
-            "Saved event card image",
-          );
-        } else {
-          resetCardImageUpload();
+        if (cardImageStatus) {
+          cardImageStatus.textContent = event.card_image
+            ? "Card image uploaded."
+            : "";
         }
         (document.getElementById("eventVenue") as HTMLInputElement).value =
           event.venue || "";

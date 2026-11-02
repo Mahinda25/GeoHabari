@@ -292,9 +292,7 @@ export async function saveTicketType(ticketData) {
     id: ticketData.id || existing?.id || `ticket-${ticketData.event_id}-${crypto.randomUUID().slice(0, 8)}`,
     event_id: ticketData.event_id,
     name: ticketData.name || existing?.name || 'Standard',
-    category_type: ticketData.category_type || existing?.category_type ||
-      (String(ticketData.name || '').toLowerCase().includes('professional') ? 'professional'
-        : String(ticketData.name || '').toLowerCase().includes('student') ? 'student' : 'standard'),
+    category_type: ticketData.category_type || existing?.category_type || 'standard',
     price: Number(ticketData.price ?? existing?.price ?? 1000),
     allocation: Number(ticketData.allocation ?? existing?.allocation ?? 50),
     sold_count: Number(existing?.sold_count || 0),

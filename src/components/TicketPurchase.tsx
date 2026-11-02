@@ -148,14 +148,14 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     [event.ticket_types, selectedTypeId, defaultTicket]
   );
 
-  const isStudentSelected = useMemo(() => {
-    if (!selectedType) return false;
-    return selectedType.category_type === 'student' || selectedType.name.toLowerCase().includes('student');
-  }, [selectedType]);
+  const requiresStudentVerification = useMemo(
+    () => selectedType?.category_type === 'student',
+    [selectedType]
+  );
 
   const isProfessionalSelected = useMemo(() => {
     if (!selectedType) return false;
-    return selectedType.category_type === 'professional' || selectedType.name.toLowerCase().includes('professional');
+    return selectedType.category_type === 'professional';
   }, [selectedType]);
 
   const activeIncentives = useMemo(() => {
@@ -178,11 +178,10 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
   const getTicketDescription = (ticket: EventTicketType) => {
     if (ticket.description) return ticket.description;
-    const nameLower = ticket.name.toLowerCase();
-    if (nameLower.includes('student')) {
-      return 'Student admission • Automated .ac.ke email or Student ID check required';
+    if (ticket.category_type === 'student') {
+      return 'Student admission • Student eligibility verification required';
     }
-    if (nameLower.includes('professional')) {
+    if (ticket.category_type === 'professional') {
       return 'Full summit access • Keynotes, panels & networking (no verification required)';
     }
     return 'General admission • Access to all scheduled sessions';
@@ -223,7 +222,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
     isPhoneValid &&
     (!isProfessionalSelected || (organization.trim().length > 0 && role.trim().length > 0)) &&
     termsAccepted &&
-    (!isStudentSelected || isStudentVerificationApproved) &&
+    (!requiresStudentVerification || isStudentVerificationApproved) &&
     (paymentMethod !== 'mobile_money' || isSafaricomPhone)
   );
 
@@ -378,7 +377,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
       return;
     }
 
-    if (isStudentSelected && !isStudentVerificationApproved) {
+    if (requiresStudentVerification && !isStudentVerificationApproved) {
       setErrorMessage('Please complete student verification (.ac.ke email or Student ID) to purchase a Student ticket.');
       return;
     }
@@ -432,9 +431,9 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
           role: isProfessionalSelected ? role.trim() : null,
           payment_channel: paymentMethod,
           accept_terms: termsAccepted,
-          student_verification_id: isStudentSelected ? verificationId : null,
-          student_verification_token: isStudentSelected ? verificationToken : null,
-          student_verified_email: isStudentSelected ? universityEmail.trim().toLowerCase() : null,
+          student_verification_id: requiresStudentVerification ? verificationId : null,
+          student_verification_token: requiresStudentVerification ? verificationToken : null,
+          student_verified_email: requiresStudentVerification ? universityEmail.trim().toLowerCase() : null,
         }),
       });
 
@@ -504,7 +503,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
   return (
     <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-slate-200/90 shadow-[0_20px_50px_rgba(15,23,42,0.08)] overflow-hidden">
       {/* Top Header */}
-      <div className="bg-linear-to-r from-[#1A1A2E] via-[#241B4B] to-[#1A1A2E] px-6 sm:px-8 py-6 text-white border-b border-purple-900/30">
+      <div className="bg-linear-to-r from-[#1A1A2E] via-[#241B4B] to-[#1A1A2E] px-2 sm:px-4 py-2 text-white border-b border-purple-900/30">
         <div className="flex items-center justify-between gap-3 mb-1">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase bg-[#8DC63F]/20 text-[#8DC63F] border border-[#8DC63F]/30">
             <Sparkles className="w-3 h-3" /> Official Checkout
@@ -521,10 +520,10 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         </p>
       </div>
 
-      <div className="p-6 sm:p-8 space-y-8">
+      <div className="p-4 sm:p-4 space-y-6">
         {/* ================= STEP 1: TICKET OPTIONS ================= */}
-        <section aria-labelledby="step-ticket-selection" className="space-y-4">
-          <div className="flex items-baseline justify-between border-b border-slate-100 pb-2.5">
+        <section aria-labelledby="step-ticket-selection" className="space-y-6">
+          <div className="flex items-baseline justify-between border-b border-slate-100 pb-1">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#6C2BD9]">Step 1 of 3</span>
               <h3 id="step-ticket-selection" className="text-base sm:text-lg font-bold text-[#1A1A2E] font-display">
@@ -710,10 +709,10 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         </section>
 
         {/* ================= STEP 1.5: AUTOMATED STUDENT VERIFICATION (Only when Student Ticket is selected) ================= */}
-        {isStudentSelected && (
+        {requiresStudentVerification && (
           <section
             aria-labelledby="student-verification-heading"
-            className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 p-5 space-y-4"
+            className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 "
           >
             <div className="flex items-start justify-between gap-3 border-b border-emerald-200/70 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1148,7 +1147,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
         </section>
 
         {/* ================= STEP 4: TERMS CHECKBOX ================= */}
-        <div className="pt-2">
+        <div className="pt-2  flex justify-center w-full">
           <label className="flex items-start gap-3 cursor-pointer group select-none">
             <input
               type="checkbox"
@@ -1182,9 +1181,13 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               >
                 Privacy Policy
               </a>.
+              
             </span>
+           
           </label>
+
         </div>
+        
 
         {/* ================= STEP 5: ORDER SUMMARY ================= */}
         <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-5 space-y-3">
@@ -1272,7 +1275,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
 
           {!isFormValid && (
             <p className="text-center text-[11px] text-slate-400">
-              {isStudentSelected && !isStudentVerificationApproved
+              {requiresStudentVerification && !isStudentVerificationApproved
                 ? 'Student verification (.ac.ke email or Student ID) is required before payment.'
                 : isProfessionalSelected && (!organization.trim() || !role.trim())
                   ? 'Professional organization and role are required for Professional tickets.'

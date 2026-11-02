@@ -101,7 +101,7 @@ export async function POST({ request, cookies }) {
     ticketTypes = ticketTypes.map((t) => ({
       id: t.id || undefined,
       name: String(t.name || '').trim(),
-      category_type: t.category_type || (String(t.name || '').toLowerCase().includes('professional') ? 'professional' : String(t.name || '').toLowerCase().includes('student') ? 'student' : 'standard'),
+      category_type: t.category_type || 'standard',
       price: Number(t.price ?? 0),
       allocation: Number(t.allocation ?? 50),
       description: String(t.description || '').trim(),
