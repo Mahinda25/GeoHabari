@@ -11,6 +11,11 @@ const NATIONAL_NUMBER_LENGTHS = {
   '252': [7, 8, 9],
 };
 
+// This list is only an M-Pesa eligibility allowlist, not a carrier lookup.
+const SAFARICOM_MOBILE_PREFIXES = [
+  '70', '71', '72', '73', '74', '75', '76', '78', '79',
+];
+
 /**
  * @param {string | number | null | undefined} value
  * @param {string | number} [countryCode]
@@ -46,14 +51,20 @@ export function validateEastAfricanPhone(value, countryCode = '254') {
   if (!match) return false;
 
   const [, prefix, nationalNumber] = match;
-  return NATIONAL_NUMBER_LENGTHS[prefix].includes(nationalNumber.length);
+  if (!NATIONAL_NUMBER_LENGTHS[prefix].includes(nationalNumber.length)) return false;
+  if (prefix === '254') {
+    return /^[17]\d{8}$/.test(nationalNumber);
+  }
+  return true;
 }
 
 /**
- * Safaricom Kenya mobile prefixes supported for Paystack M-Pesa checkout.
+ * Kenyan number prefixes currently allowed for Paystack M-Pesa checkout.
+ * This checks provider eligibility, not the subscriber's current carrier.
  * @param {string | number | null | undefined} value
  */
 export function isSafaricomKenyaPhone(value) {
   const normalized = normalizeEastAfricanPhone(value);
-  return /^\+254(?:7[01249]\d{7}|1[01]\d{7})$/.test(normalized);
+  const match = normalized.match(/^\+254(\d{9})$/);
+  return Boolean(match && SAFARICOM_MOBILE_PREFIXES.includes(match[1].slice(0, 2)));
 }

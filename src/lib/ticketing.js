@@ -147,7 +147,7 @@ export function ensureOrderRequestValid(payload) {
     throw new Error('Choose Paystack mobile money or card checkout.');
   }
   if (paymentChannel === 'mobile_money' && !isSafaricomKenyaPhone(phone)) {
-    throw new Error('Paystack M-Pesa is available only for Safaricom Kenya numbers. Choose card to pay with this number.');
+    throw new Error('This number is not eligible for Paystack M-Pesa checkout. Choose card to continue.');
   }
 
   if (!acceptedTerms) {

@@ -746,7 +746,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           <div class="details-body">
             <div class="section-title-with-btn">
               <p class="form-section-sub">
-                Display logos of collaborating organizations.
+                Upload partner logos, set their display order, and optionally add a website.
               </p>
               <button type="button" id="addPartnerBtn" class="add-sub-btn">
                 <svg
@@ -1432,26 +1432,62 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
   });
 
   // Partners UI generator
-  function renderPartners(partners: Array<{ name: string; logo?: string }>) {
+  function renderPartners(
+    partners: Array<{
+      name: string;
+      logo?: string;
+      website_url?: string;
+      is_active?: boolean;
+      sort_order?: number;
+    }>,
+  ) {
     if (!partnersContainer) return;
     partnersContainer.innerHTML = "";
     partners.forEach((p) => addPartnerRow(p));
   }
 
-  function addPartnerRow(p: { name: string; logo?: string }) {
+  function addPartnerRow(p: {
+    name: string;
+    logo?: string;
+    website_url?: string;
+    is_active?: boolean;
+    sort_order?: number;
+  }) {
     if (!partnersContainer) return;
     const row = document.createElement("div");
     row.className = "partner-row";
+    const active = p.is_active !== false;
     row.innerHTML = `
-      <div class="flex-1">
-        <label class="form-sublabel">Partner / Sponsor Name</label>
-        <input type="text" class="form-input ptn-name" placeholder="Organization Name" value="${p.name || ""}" />
+      <div class="partner-row-heading">
+        <div class="flex-1">
+          <label class="form-sublabel">Partner / Sponsor Name</label>
+          <input type="text" class="form-input ptn-name" placeholder="Organization Name" />
+        </div>
+        <label class="partner-active-toggle">
+          <input type="checkbox" class="ptn-active" ${active ? "checked" : ""} />
+          <span>Visible</span>
+        </label>
+        <div class="partner-order-actions">
+          <button type="button" class="ptn-move-up" aria-label="Move partner up" title="Move up">↑</button>
+          <button type="button" class="ptn-move-down" aria-label="Move partner down" title="Move down">↓</button>
+        </div>
       </div>
-      <div class="flex-1">
-        <label class="form-sublabel">Logo URL</label>
-        <input type="url" class="form-input ptn-logo" placeholder="https://..." value="${p.logo || ""}" />
+      <input type="hidden" class="ptn-logo" />
+      <div class="partner-logo-editor">
+        <div class="partner-logo-preview is-empty">
+          <span>No logo uploaded</span>
+        </div>
+        <div class="partner-logo-controls">
+          <label class="form-sublabel">Logo image (JPG or PNG, up to 5MB)</label>
+          <input type="file" class="form-input ptn-logo-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+          <p class="ptn-upload-status" role="status" aria-live="polite"></p>
+        </div>
       </div>
-      <button type="button" class="remove-ptn-btn" title="Remove Partner">
+      <div>
+        <label class="form-sublabel">Website URL (optional)</label>
+        <input type="url" class="form-input ptn-website" placeholder="https://..." />
+      </div>
+      <button type="button" class="remove-ptn-btn" title="Remove Partner" aria-label="Remove partner">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" x2="6" y1="6" y2="18"/>
           <line x1="6" x2="18" y1="6" y2="18"/>
@@ -1459,14 +1495,112 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       </button>
     `;
 
-    row
-      .querySelector(".remove-ptn-btn")
-      ?.addEventListener("click", () => row.remove());
+    const fileInput = row.querySelector<HTMLInputElement>(".ptn-logo-file");
+    const logoInput = row.querySelector<HTMLInputElement>(".ptn-logo");
+    const nameInput = row.querySelector<HTMLInputElement>(".ptn-name");
+    const websiteInput = row.querySelector<HTMLInputElement>(".ptn-website");
+    const preview = row.querySelector<HTMLElement>(".partner-logo-preview");
+    const uploadStatus = row.querySelector<HTMLElement>(".ptn-upload-status");
+    if (nameInput) nameInput.value = p.name || "";
+    if (logoInput) logoInput.value = p.logo || "";
+    if (websiteInput) websiteInput.value = p.website_url || "";
+    if (p.logo && preview) {
+      preview.classList.remove("is-empty");
+      preview.textContent = "";
+      const image = document.createElement("img");
+      image.src = p.logo;
+      image.alt = "Partner logo preview";
+      preview.appendChild(image);
+    }
+
+    fileInput?.addEventListener("change", async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+
+      const supportedTypes = ["image/jpeg", "image/jpg", "image/png"];
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      if (
+        !supportedTypes.includes(file.type.toLowerCase()) ||
+        !["jpg", "jpeg", "png"].includes(extension || "")
+      ) {
+        if (uploadStatus) {
+          uploadStatus.textContent = "Unsupported format. Choose a JPG or PNG image.";
+          uploadStatus.classList.add("is-error");
+        }
+        fileInput.value = "";
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        if (uploadStatus) {
+          uploadStatus.textContent = "Image is too large. Maximum allowed size is 5MB.";
+          uploadStatus.classList.add("is-error");
+        }
+        fileInput.value = "";
+        return;
+      }
+
+      row.dataset.uploading = "true";
+      if (uploadStatus) {
+        uploadStatus.textContent = "Uploading logo...";
+        uploadStatus.classList.remove("is-error");
+      }
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("purpose", "partner-logo");
+        const response = await fetch("/api/admin/upload-poster", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success || !data.url) {
+          throw new Error(data.error || "Failed to upload partner logo.");
+        }
+
+        if (logoInput) logoInput.value = data.url;
+        if (preview) {
+          preview.classList.remove("is-empty");
+          preview.innerHTML = "";
+          const image = document.createElement("img");
+          image.src = data.url;
+          image.alt = "Partner logo preview";
+          preview.appendChild(image);
+        }
+        if (uploadStatus) uploadStatus.textContent = "Logo uploaded.";
+        persistEventDraft();
+      } catch (error) {
+        if (uploadStatus) {
+          uploadStatus.textContent =
+            error instanceof Error ? error.message : "Partner logo upload failed.";
+          uploadStatus.classList.add("is-error");
+        }
+      } finally {
+        delete row.dataset.uploading;
+        fileInput.value = "";
+      }
+    });
+
+    row.querySelector(".remove-ptn-btn")?.addEventListener("click", () => {
+      row.remove();
+      persistEventDraft();
+    });
+    row.querySelector(".ptn-move-up")?.addEventListener("click", () => {
+      const previous = row.previousElementSibling;
+      if (previous) partnersContainer?.insertBefore(row, previous);
+      persistEventDraft();
+    });
+    row.querySelector(".ptn-move-down")?.addEventListener("click", () => {
+      const next = row.nextElementSibling;
+      if (next) partnersContainer?.insertBefore(next, row);
+      persistEventDraft();
+    });
     partnersContainer.appendChild(row);
   }
 
   addPartnerBtn?.addEventListener("click", () => {
     addPartnerRow({ name: "", logo: "" });
+    persistEventDraft();
   });
 
   function persistEventDraft() {
@@ -1544,6 +1678,8 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       partners: rows(partnersContainer, ".partner-row", {
         name: ".ptn-name",
         logo: ".ptn-logo",
+        website_url: ".ptn-website",
+        is_active: ".ptn-active",
       }),
       detailsOpen: Array.from(
         form.querySelectorAll<HTMLDetailsElement>("details"),
@@ -1710,6 +1846,15 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       if (errorBanner) {
         errorBanner.textContent =
           "An image upload is in progress. Please wait a moment.";
+        errorBanner.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (partnersContainer?.querySelector('.partner-row[data-uploading="true"]')) {
+      if (errorBanner) {
+        errorBanner.textContent =
+          "A partner logo upload is in progress. Please wait a moment.";
         errorBanner.classList.remove("hidden");
       }
       return;
@@ -1896,8 +2041,20 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       const logo = (
         row.querySelector(".ptn-logo") as HTMLInputElement
       )?.value.trim();
+      const website_url = (
+        row.querySelector(".ptn-website") as HTMLInputElement
+      )?.value.trim();
+      const is_active = (
+        row.querySelector(".ptn-active") as HTMLInputElement
+      )?.checked;
       if (name) {
-        partners.push({ name, logo });
+        partners.push({
+          name,
+          logo,
+          website_url: website_url || undefined,
+          is_active,
+          sort_order: partners.length,
+        });
       }
     });
 
@@ -2627,8 +2784,99 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border-radius: 10px;
     padding: 0.85rem;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .partner-row-heading {
+    display: flex;
     align-items: flex-end;
     gap: 0.75rem;
+  }
+
+  .partner-active-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-bottom: 0.65rem;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .partner-order-actions {
+    display: flex;
+    gap: 0.35rem;
+    padding-bottom: 0.4rem;
+
+    button {
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 0.4rem;
+      background: #171a28;
+      color: #fff;
+      cursor: pointer;
+    }
+  }
+
+  .partner-logo-editor {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .partner-logo-preview {
+    width: 5.5rem;
+    height: 5.5rem;
+    flex: 0 0 5.5rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: 0.65rem;
+    background: #fff;
+    color: #64748b;
+    font-size: 0.65rem;
+    text-align: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  .partner-logo-controls {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ptn-upload-status {
+    min-height: 1rem;
+    margin: 0.3rem 0 0;
+    color: #86efac;
+    font-size: 0.75rem;
+
+    &.is-error {
+      color: #fca5a5;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .partner-row-heading {
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+
+    .partner-row-heading > .flex-1 {
+      flex-basis: 100%;
+    }
+
+    .partner-logo-editor {
+      align-items: flex-start;
+    }
   }
 
   .flex-with-remove {

@@ -405,7 +405,7 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
       return;
     }
     if (paymentMethod === 'mobile_money' && !isSafaricomPhone) {
-      setErrorMessage('Paystack M-Pesa is available only for Safaricom Kenya numbers. Choose card to continue.');
+      setErrorMessage('This number is not in the current M-Pesa eligible range. Choose card to continue.');
       return;
     }
 
@@ -1055,7 +1055,19 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
                   type="tel"
                   value={phone}
                   onChange={(e) => {
-                    setPhone(e.target.value);
+                    const nextPhone = e.target.value;
+                    setPhone(nextPhone);
+                    const normalizedPhone = normalizeEastAfricanPhone(
+                      nextPhone,
+                      phoneCountryCode
+                    );
+                    if (
+                      phoneCountryCode === '254' &&
+                      validateEastAfricanPhone(nextPhone, phoneCountryCode) &&
+                      !isSafaricomKenyaPhone(normalizedPhone)
+                    ) {
+                      setPaymentMethod('card');
+                    }
                     setErrorMessage('');
                   }}
                   onBlur={() => setTouched((p) => ({ ...p, phone: true }))}
@@ -1072,7 +1084,12 @@ export default function TicketPurchase({ event }: TicketPurchaseProps) {
               )}
               {phoneCountryCode !== '254' && (
                 <p className="text-[11px] text-amber-700 mt-1">
-                  M-Pesa STK is only available for Safaricom Kenya numbers. You can still use this number for contact and pay by card.
+                  M-Pesa STK is available only for eligible Kenyan numbers. You can still use this number for contact and pay by card.
+                </p>
+              )}
+              {phoneCountryCode === '254' && isPhoneValid && !isSafaricomPhone && (
+                <p className="text-[11px] text-amber-700 mt-1">
+                  This number is valid for contact, but is not in the current M-Pesa eligible range. Card payment is selected.
                 </p>
               )}
             </div>

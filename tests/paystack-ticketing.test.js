@@ -44,6 +44,33 @@ test('East African phone inputs normalize to valid E.164 contacts', () => {
   assert.equal(validateEastAfricanPhone('123', '254'), false);
 });
 
+test('Kenyan mobile validity is separate from M-Pesa eligibility ranges', () => {
+  const validKenyanMobiles = [
+    '+254700000000',
+    '+254710000000',
+    '+254720000000',
+    '+254730000000',
+    '+254740000000',
+    '+254750000000',
+    '+254760000000',
+    '+254770000000',
+    '+254780000000',
+    '+254790000000',
+    '+254100000000',
+    '+254110000000',
+    '+254120000000',
+    '+254190000000',
+  ];
+
+  for (const number of validKenyanMobiles) {
+    assert.equal(validateEastAfricanPhone(number), true, `${number} should be a valid Kenyan mobile`);
+    assert.equal(normalizeEastAfricanPhone(number), number);
+  }
+
+  assert.equal(isSafaricomKenyaPhone('+254770000000'), false);
+  assert.equal(validateEastAfricanPhone('+254200000000'), false);
+});
+
 test('Ticket confirmation email uses the verified sender and issued ticket codes', async () => {
   const oldResend = process.env.RESEND_API_KEY;
   const oldResendFrom = process.env.RESEND_FROM;

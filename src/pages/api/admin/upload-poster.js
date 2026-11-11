@@ -5,6 +5,7 @@ import { appendAuditLog } from '../../../lib/ticketing-store.js';
 
 const MAX_POSTER_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
 const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PARTNER_LOGO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 
 /**
  * Validates image buffer using magic bytes (file signature)
@@ -78,6 +79,7 @@ export async function POST({ request, cookies }) {
 
     const formData = await request.formData();
     const file = formData.get('file') || formData.get('poster');
+    const purpose = formData.get('purpose') === 'partner-logo' ? 'partner-logo' : 'poster';
 
     if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
       return new Response(
@@ -88,10 +90,15 @@ export async function POST({ request, cookies }) {
 
     // 2. Validate declared MIME type
     const declaredType = (file.type || '').toLowerCase();
-    if (!ALLOWED_MIME_TYPES.includes(declaredType)) {
+    const allowedMimeTypes =
+      purpose === 'partner-logo' ? PARTNER_LOGO_MIME_TYPES : ALLOWED_MIME_TYPES;
+    if (!allowedMimeTypes.includes(declaredType)) {
       return new Response(
         JSON.stringify({
-          error: 'Unsupported image format. Please upload a PNG, JPG/JPEG, or WebP image.',
+          error:
+            purpose === 'partner-logo'
+              ? 'Unsupported image format. Please upload a PNG or JPG/JPEG image.'
+              : 'Unsupported image format. Please upload a PNG, JPG/JPEG, or WebP image.',
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
@@ -112,20 +119,31 @@ export async function POST({ request, cookies }) {
 
     // 4. Validate binary magic bytes to prevent spoofing
     const magicCheck = validateImageMagicBytes(buffer);
-    if (!magicCheck.isValid) {
+    if (
+      !magicCheck.isValid ||
+      (purpose === 'partner-logo' && magicCheck.detectedType === 'image/webp')
+    ) {
       return new Response(
-        JSON.stringify({ error: magicCheck.error }),
+        JSON.stringify({
+          error:
+            purpose === 'partner-logo'
+              ? 'Invalid or unsupported image. Please upload a valid PNG or JPG/JPEG image.'
+              : magicCheck.error,
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const fileExt = magicCheck.extension;
     const finalMime = magicCheck.detectedType;
-    const safeFilename = `poster-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
+    const safeFilename = `${purpose === 'partner-logo' ? 'partner' : 'poster'}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
     const supabase = getSupabaseClient();
     const bucketName = process.env.SUPABASE_POSTER_BUCKET || 'event-posters';
-    const storagePath = `posters/${safeFilename}`;
+    const storagePath =
+      purpose === 'partner-logo'
+        ? `partner-logos/${safeFilename}`
+        : `posters/${safeFilename}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(storagePath, buffer, { contentType: finalMime, upsert: false });
@@ -138,8 +156,8 @@ export async function POST({ request, cookies }) {
 
     // 7. Audit log
     await appendAuditLog({
-      action: 'admin_poster_uploaded',
-      entity: 'event_poster',
+      action: purpose === 'partner-logo' ? 'admin_partner_logo_uploaded' : 'admin_poster_uploaded',
+      entity: purpose === 'partner-logo' ? 'partner_logo' : 'event_poster',
       entity_id: safeFilename,
       details: {
         admin_email: auth.user.email,
