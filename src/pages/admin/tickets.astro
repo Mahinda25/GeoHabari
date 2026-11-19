@@ -36,7 +36,7 @@ if (Astro.request.method === 'POST') {
 }
 
 // Query authoritative ticket holders scoped by selected event
-const { rows, total, totalPages, hasNextPage, hasPrevPage } = await queryTicketHolders({
+const ticketHolderQuery = await queryTicketHolders({
   eventId,
   search,
   category,
@@ -48,6 +48,9 @@ const { rows, total, totalPages, hasNextPage, hasPrevPage } = await queryTicketH
   sortField: 'created_at',
   sortOrder: 'desc',
 });
+const { rows, total, totalPages, hasNextPage, hasPrevPage } = ticketHolderQuery;
+const ticketCategories = ticketHolderQuery.categories;
+const selectedCategory = ticketHolderQuery.category;
 
 // Construct query string for pagination preserving active filters
 function buildUrl(newPage: number) {
@@ -108,10 +111,15 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
             )}
           </select>
 
-          <select name="category" class="filter-select">
-            <option value="all" selected={category === 'all'}>All Categories</option>
-            <option value="student" selected={category === 'student'}>Student (KES 600)</option>
-            <option value="professional" selected={category === 'professional'}>Professional (KES 1,000)</option>
+          <select name="category" class="filter-select" aria-label="Ticket category">
+            <option value="all" selected={selectedCategory === 'all'}>
+              {ticketCategories.length > 0 ? 'All Categories' : 'No categories configured'}
+            </option>
+            {ticketCategories.map((ticketCategory) => (
+              <option value={ticketCategory} selected={selectedCategory === ticketCategory}>
+                {ticketCategory}
+              </option>
+            ))}
           </select>
 
           <select name="status" class="filter-select">
@@ -138,7 +146,7 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
 
           <button type="submit" class="filter-apply-btn">Apply Filters</button>
 
-          {(search || eventId !== 'all' || category !== 'all' || status !== 'all' || dateFrom || dateTo) && (
+          {(search || eventId !== 'all' || selectedCategory !== 'all' || status !== 'all' || dateFrom || dateTo) && (
             <a href="/admin/tickets" class="filter-reset-btn" title="Reset all filters">Reset</a>
           )}
         </div>
@@ -288,6 +296,10 @@ const exportUrl = `/api/admin/exports?${Astro.url.searchParams.toString()}`;
   </div>
 
   <script is:inline>
+    document.querySelector('.event-scope-select')?.addEventListener('change', (event) => {
+      event.currentTarget.form?.requestSubmit();
+    });
+
     function openInspectModal(btn) {
       const data = JSON.parse(btn.getAttribute('data-row') || '{}');
       const modal = document.getElementById('inspectModal');

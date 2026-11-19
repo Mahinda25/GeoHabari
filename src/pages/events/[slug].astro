@@ -70,7 +70,25 @@ const formattedEndTime = endDate.toLocaleTimeString("en-KE", {
 });
 
 // Check for lineup/speakers and partners in event data safely
-const speakers = (event as any).speakers || (event as any).lineup || [];
+const speakerData = (event as any).speakers || (event as any).lineup;
+const speakers = Array.isArray(speakerData) ? speakerData : [];
+const socialPlatformLabels: Record<string, string> = {
+  linkedin: "LinkedIn",
+  instagram: "Instagram",
+  x: "X",
+  other: "Social",
+};
+function getSafeProfileUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
 const partnerData = Array.isArray((event as any).partners)
   ? (event as any).partners
   : Array.isArray((event as any).sponsors)
@@ -272,88 +290,7 @@ const partners = [...partnerData]
           }
         </section>
 
-        <!-- 5. PARTNERS / COLLABORATORS -->
-        <section
-          class="section-card partners-card"
-          aria-labelledby="heading-partners"
-        >
-          <div class="section-header">
-            <span class="section-tag">Collaboration</span>
-            <h2 id="heading-partners" class="section-title">
-              Our Partners &amp; Collaborators
-            </h2>
-          </div>
-          {
-            partners.length > 0 && (
-              <div
-                class="partners-carousel"
-                data-partners-carousel
-                aria-roledescription="carousel"
-                aria-label="Our partners and collaborators"
-              >
-                <button
-                  type="button"
-                  class="carousel-arrow carousel-previous"
-                  data-carousel-previous
-                  aria-label="Previous partners"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                </button>
-                <div class="partners-viewport">
-                  <div class="partners-track" data-carousel-track>
-                    {partners.map((partner: any) => (
-                      <div
-                        class="partner-slide"
-                        role="group"
-                        aria-roledescription="slide"
-                      >
-                        {partner.logo ? (
-                          <div class="partner-circle">
-                            <img
-                              src={partner.logo}
-                              alt={partner.name || "Partner"}
-                              class="partner-logo"
-                              loading="lazy"
-                            />
-                          </div>
-                        ) : (
-                          <div class="partner-wordmark">
-                            <span class="partner-name">{partner.name}</span>
-                          </div>
-                        )}
-                        {partner.name && partner.logo && (
-                          <p class="partner-caption">{partner.name}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="carousel-arrow carousel-next"
-                  data-carousel-next
-                  aria-label="Next partners"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </button>
-              </div>
-            )
-          }
-          <p class="partners-invitation">
-            <span>Interested in partnering or collaborating with us?</span>
-            <span>
-              Get in touch at: <a href="mailto:info@geohabari.com"
-                >info@geohabari.com</a
-              >
-            </span>
-          </p>
-        </section>
-
-        <!-- 6. LINEUP / SPEAKERS & PRESENTERS -->
+        <!-- 5. LINEUP / SPEAKERS & PRESENTERS -->
         <section
           class="section-card lineup-card"
           aria-labelledby="heading-lineup"
@@ -361,33 +298,70 @@ const partners = [...partnerData]
           <div class="section-header">
             <span class="section-tag">People</span>
             <h2 id="heading-lineup" class="section-title">
-              Lineup Announcements Coming Soon
+              {speakers.length > 0
+                ? "Speakers & Presenters"
+                : "Lineup Announcements Coming Soon"}
             </h2>
           </div>
 
           {
             speakers.length > 0 ? (
               <div class="speakers-grid">
-                {speakers.map((speaker: any) => (
-                  <div class="speaker-card">
-                    <div class="speaker-avatar">
-                      <img
-                        src={
-                          speaker.photo ||
-                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
-                        }
-                        alt={speaker.name}
-                      />
+                {speakers.map((speaker: any) => {
+                  const profileUrl = getSafeProfileUrl(speaker.social_url);
+                  const platformLabel =
+                    socialPlatformLabels[
+                      String(speaker.social_platform || "").toLowerCase()
+                    ] ||
+                    "Social";
+
+                  return (
+                    <div class="speaker-card">
+                      <div class="speaker-avatar">
+                        <img
+                          src={speaker.photo || "/images/team/male.jpg"}
+                          data-fallback-src="/images/team/male.jpg"
+                          alt={speaker.name || "Speaker"}
+                        />
+                      </div>
+                      <div class="speaker-details">
+                        <h3 class="speaker-name">{speaker.name}</h3>
+                        {speaker.role && (
+                          <p class="speaker-role">{speaker.role}</p>
+                        )}
+                        {speaker.company && (
+                          <p class="speaker-company">{speaker.company}</p>
+                        )}
+                        {(speaker.bio || speaker.description) && (
+                          <p class="speaker-bio">
+                            {speaker.bio || speaker.description}
+                          </p>
+                        )}
+                        {profileUrl && (
+                          <a
+                            class="speaker-social-link"
+                            href={profileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`View ${speaker.name || "speaker"} on ${platformLabel}`}
+                          >
+                            View {platformLabel} profile
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              aria-hidden="true"
+                            >
+                              <path d="M7 17 17 7" />
+                              <path d="M7 7h10v10" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div class="speaker-details">
-                      <h3 class="speaker-name">{speaker.name}</h3>
-                      <p class="speaker-role">{speaker.role}</p>
-                      {speaker.company && (
-                        <p class="speaker-company">{speaker.company}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div class="lineup-announcement-box">
@@ -456,7 +430,70 @@ const partners = [...partnerData]
       </aside>
     </div>
   </div>
+
+  <!-- Partners follow the event content and sit directly above the shared footer. -->
+  <section
+    class="section-card partners-card"
+    aria-labelledby="heading-partners"
+  >
+    <div class="section-header">
+      <span class="section-tag">Collaboration</span>
+      <h2 id="heading-partners" class="section-title">
+        Our Partners &amp; Collaborators
+      </h2>
+    </div>
+    {
+      partners.length > 0 && (
+        <div class="partners-grid" role="list" aria-label="Our partners and collaborators">
+          {partners.map((partner: any) => (
+            <article class="partner-item" role="listitem">
+              {partner.logo ? (
+                <img
+                  src={partner.logo}
+                  alt={`${partner.name || "Partner"} logo`}
+                  class="partner-logo"
+                  loading="lazy"
+                />
+              ) : (
+                <span class="partner-monogram" aria-hidden="true">
+                  {partner.name?.trim().charAt(0) || ""}
+                </span>
+              )}
+              {partner.name && <p class="partner-caption">{partner.name}</p>}
+            </article>
+          ))}
+        </div>
+      )
+    }
+    <p class="partners-invitation">
+      <span>Interested in partnering or collaborating with us?</span>
+      <span>
+        Get in touch at: <a href="mailto:info@geohabari.com"
+          >info@geohabari.com</a
+        >
+      </span>
+    </p>
+  </section>
 </Layout>
+
+<script lang="ts">
+  document
+    .querySelectorAll<HTMLImageElement>(".speaker-avatar img")
+    .forEach((image) => {
+      const useFallbackOrHide = () => {
+        if (image.dataset.fallbackApplied) {
+          image.hidden = true;
+          return;
+        }
+
+        image.dataset.fallbackApplied = "true";
+        image.src = image.dataset.fallbackSrc || "/images/team/male.jpg";
+      };
+
+      image.addEventListener("error", useFallbackOrHide);
+      if (image.complete && image.naturalWidth === 0) useFallbackOrHide();
+    });
+</script>
 
 <style lang="scss">
   @use "../../styles/partials/combined.scss" as *;
@@ -680,6 +717,17 @@ const partners = [...partnerData]
     }
   }
 
+  .partners-card {
+    align-self: stretch;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    background: #fff;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .section-header {
     margin-bottom: 1.25rem;
 
@@ -897,18 +945,38 @@ const partners = [...partnerData]
 
   .speaker-card {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
     padding: 1rem;
     border-radius: 16px;
     background: #f8fafc;
     border: 1px solid rgba(15, 23, 42, 0.06);
 
-    .speaker-avatar img {
+    .speaker-avatar {
       width: 52px;
       height: 52px;
       border-radius: 50%;
-      object-fit: cover;
+      flex: 0 0 52px;
+      overflow: hidden;
+      background: #e2e8f0;
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      img[hidden] {
+        display: none;
+      }
+    }
+
+    .speaker-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      min-width: 0;
     }
 
     .speaker-name {
@@ -929,9 +997,50 @@ const partners = [...partnerData]
       color: #64748b;
       margin: 0;
     }
+
+    .speaker-bio {
+      font-size: 0.78rem;
+      color: #475569;
+      line-height: 1.55;
+      margin: 0.15rem 0 0;
+      overflow-wrap: anywhere;
+    }
+
+    .speaker-social-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      width: fit-content;
+      margin-top: 0.2rem;
+      color: $purple;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+      }
+
+      &:focus-visible {
+        outline: 2px solid $purple;
+        outline-offset: 3px;
+        border-radius: 2px;
+      }
+
+      svg {
+        width: 0.85rem;
+        height: 0.85rem;
+        flex: 0 0 auto;
+      }
+    }
   }
 
-  /* ===== PARTNERS CAROUSEL ===== */
+  .partners-card .section-header {
+    text-align: center;
+  }
+
+  /* ===== PARTNERS ===== */
   .partners-invitation {
     margin: 1.25rem 0 0;
     color: #475569;
@@ -951,177 +1060,75 @@ const partners = [...partnerData]
     }
   }
 
-  .partners-carousel {
-    display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .partners-viewport {
-    overflow: hidden;
-    touch-action: pan-y;
-  }
-
-  .partners-track {
+  .partners-grid {
     display: flex;
-    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform;
-  }
-
-  .partners-track.is-centered {
+    flex-wrap: wrap;
     justify-content: center;
+    gap: 2.5rem 2rem;
+    width: min(100%, 76rem);
+    margin-inline: auto;
   }
 
-  .partner-slide {
+  .partner-item {
     box-sizing: border-box;
-    flex: 0 0 25%;
     min-width: 0;
-    padding: 0.75rem;
     display: flex;
+    flex: 0 0 calc(20% - 1.6rem);
     flex-direction: column;
     align-items: center;
-    gap: 0.65rem;
-  }
-
-  .partner-circle {
-    width: clamp(6.5rem, 11vw, 9rem);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    overflow: hidden;
-    background: #fff;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-    transition:
-      transform 220ms ease,
-      box-shadow 220ms ease;
-  }
-
-  .partner-wordmark {
-    box-sizing: border-box;
-    width: min(100%, 16rem);
-    min-height: clamp(6.5rem, 11vw, 9rem);
-    padding: 1rem 1.25rem;
-    display: grid;
-    place-items: center;
-    border-radius: 1.15rem;
-    background: #fff;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-  }
-
-  .partner-circle:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    gap: 0.8rem;
   }
 
   .partner-logo {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: auto;
+    height: clamp(5rem, 8vw, 7rem);
+    max-width: 100%;
     object-fit: contain;
   }
 
-  .partner-caption {
-    max-width: 100%;
-    color: #475569;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-align: center;
-    white-space: normal;
-    word-break: normal;
-    overflow-wrap: normal;
-    hyphens: none;
-  }
-
-  .partner-name {
-    max-width: 100%;
-    color: #1a1a2e;
-    font-family: "Space Grotesk", "Bender", sans-serif;
-    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
-    text-align: center;
-    white-space: normal;
-    word-break: normal;
-    overflow-wrap: normal;
-    hyphens: none;
-  }
-
-  .carousel-arrow {
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    background: #fff;
+  .partner-monogram {
     color: $purple;
-    cursor: pointer;
-    transition:
-      background 180ms ease,
-      color 180ms ease,
-      transform 180ms ease;
-
-    &:hover {
-      background: $purple;
-      color: #fff;
-      transform: scale(1.05);
-    }
-
-    &:focus-visible {
-      outline: 3px solid rgba(108, 43, 217, 0.35);
-      outline-offset: 2px;
-    }
-
-    svg {
-      width: 1.25rem;
-      height: 1.25rem;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
+    font-family: "Space Grotesk", "Bender", sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
-  @media (max-width: 900px) {
-    .partner-slide {
-      flex-basis: 33.3333%;
+  .partner-caption {
+    max-width: 22ch;
+    margin: 0;
+    color: #475569;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: center;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+
+  @media (max-width: 1024px) {
+    .partner-item {
+      flex-basis: calc(33.333333% - 1.333333rem);
     }
   }
 
   @media (max-width: 600px) {
-    .partners-carousel {
-      grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
-      gap: 0.25rem;
-    }
-
-    .partner-slide {
-      flex-basis: 50%;
-      padding: 0.5rem 0.25rem;
-    }
-
-    .partner-circle {
-      width: clamp(5.5rem, 28vw, 7rem);
-      padding: 0.8rem;
-    }
-
-    .carousel-arrow {
-      width: 2.75rem;
-      height: 2.75rem;
+    .partner-item {
+      flex-basis: calc(50% - 1rem);
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .partners-track,
-    .partner-circle,
-    .carousel-arrow {
-      transition-duration: 0.01ms;
+  @media (max-width: 360px) {
+    .partners-grid {
+      gap: 1.5rem;
+    }
+
+    .partner-item {
+      flex-basis: 100%;
     }
   }
 
@@ -1141,101 +1148,3 @@ const partners = [...partnerData]
     }
   }
 </style>
-
-<script>
-  document
-    .querySelectorAll<HTMLElement>("[data-partners-carousel]")
-    .forEach((carousel) => {
-      const track = carousel.querySelector<HTMLElement>(
-        "[data-carousel-track]",
-      );
-      const slides = Array.from(
-        carousel.querySelectorAll<HTMLElement>(".partner-slide"),
-      );
-      const previous = carousel.querySelector<HTMLButtonElement>(
-        "[data-carousel-previous]",
-      );
-      const next = carousel.querySelector<HTMLButtonElement>(
-        "[data-carousel-next]",
-      );
-      const viewport =
-        carousel.querySelector<HTMLElement>(".partners-viewport");
-      if (!track || !viewport) return;
-
-      let index = 0;
-      let startX = 0;
-      let pointerDown = false;
-      let interval: number | undefined;
-
-      const visibleCount = () =>
-        window.matchMedia("(max-width: 600px)").matches
-          ? 2
-          : window.matchMedia("(max-width: 900px)").matches
-            ? 3
-            : 4;
-      const maxIndex = () => Math.max(0, slides.length - visibleCount());
-      const update = () => {
-        index = Math.min(index, maxIndex());
-        const canScroll = slides.length > visibleCount();
-        track.classList.toggle("is-centered", !canScroll);
-        if (canScroll) {
-          const step = slides[0].getBoundingClientRect().width;
-          track.style.transform = `translateX(-${index * step}px)`;
-        } else {
-          track.style.transform = "translateX(0)";
-        }
-        if (previous) previous.disabled = !canScroll;
-        if (next) next.disabled = !canScroll;
-      };
-      const move = (direction: number) => {
-        const end = maxIndex();
-        if (end < 1) return;
-        index = (index + direction + end + 1) % (end + 1);
-        update();
-      };
-      const stop = () => {
-        if (interval !== undefined) window.clearInterval(interval);
-        interval = undefined;
-      };
-      const start = () => {
-        stop();
-        if (
-          slides.length > 1 &&
-          !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-          maxIndex() > 0
-        ) {
-          interval = window.setInterval(() => move(1), 4500);
-        }
-      };
-
-      previous?.addEventListener("click", () => move(-1));
-      next?.addEventListener("click", () => move(1));
-      carousel.addEventListener("mouseenter", stop);
-      carousel.addEventListener("mouseleave", start);
-      carousel.addEventListener("focusin", stop);
-      carousel.addEventListener("focusout", start);
-      viewport.addEventListener("pointerdown", (event) => {
-        pointerDown = true;
-        startX = event.clientX;
-        viewport.setPointerCapture(event.pointerId);
-        stop();
-      });
-      viewport.addEventListener("pointerup", (event) => {
-        if (!pointerDown) return;
-        pointerDown = false;
-        const difference = event.clientX - startX;
-        if (Math.abs(difference) > 40) move(difference < 0 ? 1 : -1);
-        start();
-      });
-      viewport.addEventListener("pointercancel", () => {
-        pointerDown = false;
-        start();
-      });
-      window.addEventListener("resize", () => {
-        update();
-        start();
-      });
-      update();
-      start();
-    });
-</script>

@@ -634,6 +634,18 @@ export async function queryTicketHolders({
   const payments = new Map(store.payments.map((payment) => [payment.order_id, payment]));
   const verifications = new Map(store.student_verifications.map((verification) => [verification.id, verification]));
   const ticketTypes = new Map(store.ticket_types.map((ticketType) => [ticketType.id, ticketType]));
+  const categoryNames = new Map();
+  for (const ticketType of store.ticket_types) {
+    if (eventId !== 'all' && ticketType.event_id !== eventId) continue;
+    const name = String(ticketType.name || '').trim();
+    if (name && !categoryNames.has(name.toLowerCase())) {
+      categoryNames.set(name.toLowerCase(), name);
+    }
+  }
+  const categories = [...categoryNames.values()];
+  const selectedCategory = category && category !== 'all'
+    ? categories.find((name) => name.toLowerCase() === category.toLowerCase()) || 'all'
+    : 'all';
 
   for (const ticket of store.tickets) {
     const order = orders.get(ticket.order_id);
@@ -649,6 +661,7 @@ export async function queryTicketHolders({
       ticket_status: ticket.status || 'active',
       category: ticket.category || 'Standard',
       category_type: ticket.category_type || 'standard',
+      ticket_type_id: ticket.ticket_type_id,
       event_id: ticket.event_id,
       event_title: event?.title || 'GeoHabari Event',
       order_id: ticket.order_id,
@@ -682,6 +695,7 @@ export async function queryTicketHolders({
       ticket_status: 'unissued',
       category: ticketType?.name || 'Standard',
       category_type: ticketType?.category_type || 'standard',
+      ticket_type_id: order.ticket_type_id,
       event_id: order.event_id,
       event_title: events.get(order.event_id)?.title || 'GeoHabari Event',
       order_id: order.id,
@@ -713,9 +727,12 @@ export async function queryTicketHolders({
       row.organization, row.role,
     ].some((value) => String(value || '').toLowerCase().includes(query)));
   }
-  if (category && category !== 'all') {
-    const value = category.toLowerCase().trim();
-    rows = rows.filter((row) => row.category.toLowerCase().includes(value));
+  if (selectedCategory !== 'all') {
+    const value = selectedCategory.toLowerCase();
+    rows = rows.filter((row) => {
+      const configuredCategory = ticketTypes.get(row.ticket_type_id)?.name || row.category;
+      return configuredCategory.toLowerCase().trim() === value;
+    });
   }
   if (status && status !== 'all') {
     const value = status.toLowerCase().trim();
@@ -752,6 +769,8 @@ export async function queryTicketHolders({
   return {
     rows: rows.slice(offset, offset + pageLimit),
     total,
+    categories,
+    category: selectedCategory,
     page: pageNum,
     limit: pageLimit,
     totalPages,

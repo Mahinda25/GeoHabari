@@ -738,7 +738,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         </details>
 
         <!-- PARTNERS / SPONSORS SECTION (OPTIONAL) -->
-        <details class="form-details">
+        <details class="form-details partners-management-section">
           <summary class="details-summary">
             <span>Partners & Sponsors (Optional)</span>
             <span class="summary-hint">Click to expand</span>
@@ -1374,6 +1374,10 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       role?: string;
       company?: string;
       photo?: string;
+      bio?: string;
+      description?: string;
+      social_platform?: string;
+      social_url?: string;
     }>,
   ) {
     if (!speakersContainer) return;
@@ -1386,49 +1390,293 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     role?: string;
     company?: string;
     photo?: string;
+    bio?: string;
+    description?: string;
+    social_platform?: string;
+    social_url?: string;
   }) {
     if (!speakersContainer) return;
     const row = document.createElement("div");
     row.className = "speaker-row";
     row.innerHTML = `
-      <div class="form-row grid-2">
+      <div class="speaker-photo-editor poster-preview-card">
+        <div class="speaker-photo-preview">
+          <img class="spk-photo-preview hidden" alt="Speaker photo preview" />
+          <span class="spk-photo-empty">No photo</span>
+        </div>
+        <div class="speaker-photo-info poster-preview-info">
+          <div class="preview-filename-row">
+            <span class="preview-filename">Presenter photograph</span>
+            <span class="upload-badge success-badge spk-photo-badge hidden">READY</span>
+          </div>
+          <p class="preview-meta spk-photo-status" role="status" aria-live="polite">
+            No photo uploaded
+          </p>
+          <input
+            type="file"
+            class="poster-file-input spk-photo-file"
+            accept="image/png,image/jpeg,image/webp"
+            aria-label="Upload speaker photo"
+          />
+          <div class="preview-actions speaker-photo-actions">
+            <button type="button" class="action-btn replace-btn spk-photo-upload">
+              <span>Upload Photo</span>
+            </button>
+            <button type="button" class="action-btn replace-btn spk-photo-replace hidden">
+              <span>Replace Photo</span>
+            </button>
+            <button type="button" class="action-btn remove-btn spk-photo-remove hidden">
+              <span>Remove Photo</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="speaker-fields-grid">
         <div>
           <label class="form-sublabel">Speaker Name</label>
-          <input type="text" class="form-input spk-name" placeholder="Full Name" value="${s.name || ""}" />
+          <input type="text" class="form-input spk-name" placeholder="Full Name" />
         </div>
         <div>
           <label class="form-sublabel">Role / Title</label>
-          <input type="text" class="form-input spk-role" placeholder="e.g. Lead Geospatial Scientist" value="${s.role || ""}" />
+          <input type="text" class="form-input spk-role" placeholder="e.g. Lead Geospatial Scientist" />
         </div>
-      </div>
-      <div class="form-row grid-2 mt-2">
         <div>
           <label class="form-sublabel">Company / Affiliation</label>
-          <input type="text" class="form-input spk-company" placeholder="e.g. Africa Tech Foundation" value="${s.company || ""}" />
+          <input type="text" class="form-input spk-company" placeholder="e.g. Africa Tech Foundation" />
         </div>
-        <div class="flex-with-remove">
-          <div class="flex-1">
-            <label class="form-sublabel">Photo URL</label>
-            <input type="url" class="form-input spk-photo" placeholder="https://..." value="${s.photo || ""}" />
-          </div>
-          <button type="button" class="remove-spk-btn" title="Remove Speaker">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" x2="6" y1="6" y2="18"/>
-              <line x1="6" x2="18" y1="6" y2="18"/>
-            </svg>
-          </button>
+        <div>
+          <label class="form-sublabel">Photo URL (optional)</label>
+          <input type="url" class="form-input spk-photo" placeholder="https://..." />
+        </div>
+        <div>
+          <label class="form-sublabel">Social Media Platform</label>
+          <select class="form-select spk-social-platform">
+            <option value="">Select platform</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="instagram">Instagram</option>
+            <option value="x">X (Twitter)</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-sublabel">Social Profile URL (not an image URL)</label>
+          <input
+            type="url"
+            class="form-input spk-social-url"
+            placeholder="https://.../your-profile"
+          />
+        </div>
+        <div class="speaker-bio-field">
+          <label class="form-sublabel">Biography / Description (optional)</label>
+          <textarea
+            class="form-textarea spk-bio"
+            rows="3"
+            placeholder="Add a short presenter biography."
+          ></textarea>
         </div>
       </div>
+      <button
+        type="button"
+        class="remove-spk-btn"
+        title="Remove Speaker"
+        aria-label="Remove speaker"
+      >
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" x2="6" y1="6" y2="18"/>
+          <line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
     `;
 
-    row
-      .querySelector(".remove-spk-btn")
-      ?.addEventListener("click", () => row.remove());
+    const nameInput = row.querySelector<HTMLInputElement>(".spk-name");
+    const roleInput = row.querySelector<HTMLInputElement>(".spk-role");
+    const companyInput = row.querySelector<HTMLInputElement>(".spk-company");
+    const photoInput = row.querySelector<HTMLInputElement>(".spk-photo");
+    const photoFileInput = row.querySelector<HTMLInputElement>(".spk-photo-file");
+    const socialPlatformInput =
+      row.querySelector<HTMLSelectElement>(".spk-social-platform");
+    const socialUrlInput = row.querySelector<HTMLInputElement>(".spk-social-url");
+    const bioInput = row.querySelector<HTMLTextAreaElement>(".spk-bio");
+    const previewImage =
+      row.querySelector<HTMLImageElement>(".spk-photo-preview");
+    const previewPlaceholder =
+      row.querySelector<HTMLElement>(".spk-photo-empty");
+    const photoStatus =
+      row.querySelector<HTMLElement>(".spk-photo-status");
+    const photoBadge = row.querySelector<HTMLElement>(".spk-photo-badge");
+    const photoCard = row.querySelector<HTMLElement>(".speaker-photo-editor");
+    const uploadButton =
+      row.querySelector<HTMLButtonElement>(".spk-photo-upload");
+    const replaceButton =
+      row.querySelector<HTMLButtonElement>(".spk-photo-replace");
+    const removePhotoButton =
+      row.querySelector<HTMLButtonElement>(".spk-photo-remove");
+
+    if (nameInput) nameInput.value = s.name || "";
+    if (roleInput) roleInput.value = s.role || "";
+    if (companyInput) companyInput.value = s.company || "";
+    if (socialPlatformInput) socialPlatformInput.value = s.social_platform || "";
+    if (socialUrlInput) socialUrlInput.value = s.social_url || "";
+    if (bioInput) bioInput.value = s.bio || s.description || "";
+
+    const setSpeakerPhotoState = (url: string) => {
+      if (photoInput) photoInput.value = url;
+      if (previewImage) {
+        previewImage.classList.toggle("hidden", !url);
+        if (url) {
+          previewImage.src = url;
+        } else {
+          previewImage.removeAttribute("src");
+        }
+      }
+      if (previewPlaceholder) {
+        previewPlaceholder.textContent = url ? "" : "No photo";
+        previewPlaceholder.classList.toggle("hidden", Boolean(url));
+      }
+      if (photoStatus) {
+        photoStatus.textContent = url ? "Photo saved and ready." : "No photo uploaded";
+        photoStatus.classList.remove("is-error");
+      }
+      if (photoBadge) {
+        photoBadge.textContent = "READY";
+        photoBadge.className = `upload-badge success-badge spk-photo-badge${url ? "" : " hidden"}`;
+      }
+      uploadButton?.classList.toggle("hidden", Boolean(url));
+      replaceButton?.classList.toggle("hidden", !url);
+      removePhotoButton?.classList.toggle("hidden", !url);
+    };
+
+    previewImage?.addEventListener("error", () => {
+      previewImage.classList.add("hidden");
+      if (previewPlaceholder) {
+        previewPlaceholder.textContent = "Preview unavailable";
+        previewPlaceholder.classList.remove("hidden");
+      }
+      if (photoStatus) {
+        photoStatus.textContent = "Could not load this photo preview.";
+        photoStatus.classList.add("is-error");
+      }
+      photoBadge?.classList.add("hidden");
+    });
+
+    const uploadSpeakerPhoto = async (file: File) => {
+      const supportedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      if (
+        !supportedTypes.includes(file.type.toLowerCase()) ||
+        !["jpg", "jpeg", "png", "webp"].includes(extension || "")
+      ) {
+        if (photoStatus) {
+          photoStatus.textContent = "Unsupported format. Choose a JPG, PNG, or WebP image.";
+          photoStatus.classList.add("is-error");
+        }
+        if (photoFileInput) photoFileInput.value = "";
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        if (photoStatus) {
+          photoStatus.textContent = "Photo is too large. Maximum allowed size is 5MB.";
+          photoStatus.classList.add("is-error");
+        }
+        if (photoFileInput) photoFileInput.value = "";
+        return;
+      }
+
+      const previousPhoto = photoInput?.value.trim() || "";
+      photoCard?.classList.add("is-uploading");
+      row.dataset.uploading = "true";
+      if (photoStatus) {
+        photoStatus.textContent = "Uploading photo...";
+        photoStatus.classList.remove("is-error");
+      }
+      if (photoBadge) {
+        photoBadge.textContent = "UPLOADING";
+        photoBadge.className = "upload-badge uploading-badge spk-photo-badge";
+      }
+      if (uploadButton) uploadButton.disabled = true;
+      if (replaceButton) replaceButton.disabled = true;
+      if (removePhotoButton) removePhotoButton.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("purpose", "speaker-photo");
+        const response = await fetch("/api/admin/upload-poster", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success || !data.url) {
+          throw new Error(data.error || "Failed to upload speaker photo.");
+        }
+
+        setSpeakerPhotoState(data.url);
+        persistEventDraft();
+      } catch (error) {
+        setSpeakerPhotoState(previousPhoto);
+        if (photoStatus) {
+          photoStatus.textContent =
+            error instanceof Error ? error.message : "Speaker photo upload failed.";
+          photoStatus.classList.add("is-error");
+        }
+      } finally {
+        photoCard?.classList.remove("is-uploading");
+        delete row.dataset.uploading;
+        if (photoFileInput) photoFileInput.value = "";
+        if (uploadButton) uploadButton.disabled = false;
+        if (replaceButton) replaceButton.disabled = false;
+        if (removePhotoButton) removePhotoButton.disabled = false;
+      }
+    };
+
+    setSpeakerPhotoState(s.photo || "");
+    photoInput?.addEventListener("input", () => {
+      setSpeakerPhotoState(photoInput.value.trim());
+    });
+    photoFileInput?.addEventListener("change", () => {
+      const file = photoFileInput.files?.[0];
+      if (file) void uploadSpeakerPhoto(file);
+    });
+    uploadButton?.addEventListener("click", () => photoFileInput?.click());
+    replaceButton?.addEventListener("click", () => photoFileInput?.click());
+    removePhotoButton?.addEventListener("click", () => {
+      setSpeakerPhotoState("");
+      persistEventDraft();
+    });
+    photoCard?.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      photoCard.classList.add("is-drag-over");
+    });
+    photoCard?.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget instanceof Node && photoCard.contains(event.relatedTarget)) return;
+      photoCard.classList.remove("is-drag-over");
+    });
+    photoCard?.addEventListener("drop", (event) => {
+      event.preventDefault();
+      photoCard.classList.remove("is-drag-over");
+      const file = event.dataTransfer?.files[0];
+      if (file) void uploadSpeakerPhoto(file);
+    });
+
+    row.querySelector(".remove-spk-btn")?.addEventListener("click", () => {
+      row.remove();
+      persistEventDraft();
+    });
     speakersContainer.appendChild(row);
   }
 
   addSpeakerBtn?.addEventListener("click", () => {
-    addSpeakerRow({ name: "", role: "", company: "", photo: "" });
+    addSpeakerRow({
+      name: "",
+      role: "",
+      company: "",
+      photo: "",
+      bio: "",
+      social_platform: "",
+      social_url: "",
+    });
+    persistEventDraft();
   });
 
   // Partners UI generator
@@ -1459,40 +1707,74 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     const active = p.is_active !== false;
     row.innerHTML = `
       <div class="partner-row-heading">
-        <div class="flex-1">
-          <label class="form-sublabel">Partner / Sponsor Name</label>
-          <input type="text" class="form-input ptn-name" placeholder="Organization Name" />
-        </div>
         <label class="partner-active-toggle">
           <input type="checkbox" class="ptn-active" ${active ? "checked" : ""} />
           <span>Visible</span>
         </label>
-        <div class="partner-order-actions">
-          <button type="button" class="ptn-move-up" aria-label="Move partner up" title="Move up">↑</button>
-          <button type="button" class="ptn-move-down" aria-label="Move partner down" title="Move down">↓</button>
+        <div class="partner-row-controls">
+          <div class="partner-order-actions">
+            <button type="button" class="ptn-move-up" aria-label="Move partner up" title="Move up">↑</button>
+            <button type="button" class="ptn-move-down" aria-label="Move partner down" title="Move down">↓</button>
+          </div>
+          <button type="button" class="remove-ptn-btn" title="Remove Partner" aria-label="Remove partner">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" x2="6" y1="6" y2="18"/>
+              <line x1="6" x2="18" y1="6" y2="18"/>
+            </svg>
+          </button>
         </div>
       </div>
       <input type="hidden" class="ptn-logo" />
-      <div class="partner-logo-editor">
+      <div class="poster-preview-card partner-logo-editor">
         <div class="partner-logo-preview is-empty">
-          <span>No logo uploaded</span>
+          <span>No logo</span>
         </div>
-        <div class="partner-logo-controls">
-          <label class="form-sublabel">Logo image (JPG or PNG, up to 5MB)</label>
-          <input type="file" class="form-input ptn-logo-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
-          <p class="ptn-upload-status" role="status" aria-live="polite"></p>
+        <div class="poster-preview-info partner-logo-info">
+          <label class="form-sublabel">Partner / Sponsor Name</label>
+          <input type="text" class="form-input ptn-name" placeholder="Organization Name" />
+          <input
+            type="file"
+            class="poster-file-input ptn-logo-file"
+            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+            aria-label="Upload partner logo"
+          />
+          <div class="preview-filename-row partner-logo-status-row">
+            <p class="preview-meta ptn-upload-status" role="status" aria-live="polite">
+              No logo uploaded
+            </p>
+            <span class="upload-badge ptn-upload-badge hidden">READY</span>
+          </div>
+          <div class="preview-actions partner-logo-actions">
+            <button type="button" class="action-btn replace-btn ptn-upload-trigger">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" x2="12" y1="3" y2="15"></line>
+              </svg>
+              <span>Upload Image</span>
+            </button>
+            <button type="button" class="action-btn replace-btn ptn-replace-logo hidden">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" x2="12" y1="3" y2="15"></line>
+              </svg>
+              <span>Replace Image</span>
+            </button>
+            <button type="button" class="action-btn remove-btn ptn-remove-logo hidden">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <line x1="18" x2="6" y1="6" y2="18"></line>
+                <line x1="6" x2="18" y1="6" y2="18"></line>
+              </svg>
+              <span>Remove</span>
+            </button>
+          </div>
+          <div class="partner-website-field">
+            <label class="form-sublabel">Website URL (optional)</label>
+            <input type="url" class="form-input ptn-website" placeholder="https://..." />
+          </div>
         </div>
       </div>
-      <div>
-        <label class="form-sublabel">Website URL (optional)</label>
-        <input type="url" class="form-input ptn-website" placeholder="https://..." />
-      </div>
-      <button type="button" class="remove-ptn-btn" title="Remove Partner" aria-label="Remove partner">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" x2="6" y1="6" y2="18"/>
-          <line x1="6" x2="18" y1="6" y2="18"/>
-        </svg>
-      </button>
     `;
 
     const fileInput = row.querySelector<HTMLInputElement>(".ptn-logo-file");
@@ -1501,22 +1783,47 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     const websiteInput = row.querySelector<HTMLInputElement>(".ptn-website");
     const preview = row.querySelector<HTMLElement>(".partner-logo-preview");
     const uploadStatus = row.querySelector<HTMLElement>(".ptn-upload-status");
+    const uploadBadge = row.querySelector<HTMLElement>(".ptn-upload-badge");
+    const uploadCard = row.querySelector<HTMLElement>(".partner-logo-editor");
+    const uploadButton = row.querySelector<HTMLButtonElement>(".ptn-upload-trigger");
+    const replaceButton = row.querySelector<HTMLButtonElement>(".ptn-replace-logo");
+    const removeLogoButton = row.querySelector<HTMLButtonElement>(".ptn-remove-logo");
+    if (!fileInput) return;
     if (nameInput) nameInput.value = p.name || "";
-    if (logoInput) logoInput.value = p.logo || "";
     if (websiteInput) websiteInput.value = p.website_url || "";
-    if (p.logo && preview) {
-      preview.classList.remove("is-empty");
-      preview.textContent = "";
-      const image = document.createElement("img");
-      image.src = p.logo;
-      image.alt = "Partner logo preview";
-      preview.appendChild(image);
-    }
 
-    fileInput?.addEventListener("change", async () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
+    const setPartnerLogoState = (url: string) => {
+      if (logoInput) logoInput.value = url;
+      if (preview) {
+        preview.innerHTML = "";
+        preview.classList.toggle("is-empty", !url);
+        if (url) {
+          const image = document.createElement("img");
+          image.src = url;
+          image.alt = "Partner logo preview";
+          preview.appendChild(image);
+        } else {
+          const emptyState = document.createElement("span");
+          emptyState.textContent = "No logo";
+          preview.appendChild(emptyState);
+        }
+      }
+      if (uploadStatus) {
+        uploadStatus.textContent = url ? "Logo uploaded and ready." : "No logo uploaded";
+        uploadStatus.classList.remove("is-error");
+      }
+      if (uploadBadge) {
+        uploadBadge.textContent = "READY";
+        uploadBadge.className = `upload-badge ptn-upload-badge success-badge${url ? "" : " hidden"}`;
+      }
+      uploadButton?.classList.toggle("hidden", Boolean(url));
+      replaceButton?.classList.toggle("hidden", !url);
+      removeLogoButton?.classList.toggle("hidden", !url);
+    };
 
+    setPartnerLogoState(p.logo || "");
+
+    const uploadPartnerLogo = async (file: File) => {
       const supportedTypes = ["image/jpeg", "image/jpg", "image/png"];
       const extension = file.name.split(".").pop()?.toLowerCase();
       if (
@@ -1540,10 +1847,19 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         return;
       }
 
+      uploadCard?.classList.remove("is-drag-over");
+      uploadCard?.classList.add("is-uploading");
       row.dataset.uploading = "true";
+      if (uploadButton) uploadButton.disabled = true;
+      if (replaceButton) replaceButton.disabled = true;
+      if (removeLogoButton) removeLogoButton.disabled = true;
       if (uploadStatus) {
         uploadStatus.textContent = "Uploading logo...";
         uploadStatus.classList.remove("is-error");
+      }
+      if (uploadBadge) {
+        uploadBadge.textContent = "UPLOADING";
+        uploadBadge.className = "upload-badge ptn-upload-badge uploading-badge";
       }
       try {
         const formData = new FormData();
@@ -1558,27 +1874,54 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
           throw new Error(data.error || "Failed to upload partner logo.");
         }
 
-        if (logoInput) logoInput.value = data.url;
-        if (preview) {
-          preview.classList.remove("is-empty");
-          preview.innerHTML = "";
-          const image = document.createElement("img");
-          image.src = data.url;
-          image.alt = "Partner logo preview";
-          preview.appendChild(image);
-        }
-        if (uploadStatus) uploadStatus.textContent = "Logo uploaded.";
+        setPartnerLogoState(data.url);
         persistEventDraft();
       } catch (error) {
+        const message = error instanceof Error ? error.message : "Partner logo upload failed.";
         if (uploadStatus) {
-          uploadStatus.textContent =
-            error instanceof Error ? error.message : "Partner logo upload failed.";
+          uploadStatus.textContent = message;
+        }
+        if (logoInput?.value) {
+          setPartnerLogoState(logoInput.value);
+        }
+        if (uploadStatus) {
+          uploadStatus.textContent = message;
           uploadStatus.classList.add("is-error");
         }
+        if (!logoInput?.value && uploadBadge) uploadBadge.classList.add("hidden");
       } finally {
+        uploadCard?.classList.remove("is-uploading");
         delete row.dataset.uploading;
         fileInput.value = "";
+        if (uploadButton) uploadButton.disabled = false;
+        if (replaceButton) replaceButton.disabled = false;
+        if (removeLogoButton) removeLogoButton.disabled = false;
       }
+    };
+
+    fileInput?.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) void uploadPartnerLogo(file);
+    });
+    uploadButton?.addEventListener("click", () => fileInput.click());
+    replaceButton?.addEventListener("click", () => fileInput.click());
+    removeLogoButton?.addEventListener("click", () => {
+      setPartnerLogoState("");
+      persistEventDraft();
+    });
+    uploadCard?.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      uploadCard.classList.add("is-drag-over");
+    });
+    uploadCard?.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget instanceof Node && uploadCard.contains(event.relatedTarget)) return;
+      uploadCard.classList.remove("is-drag-over");
+    });
+    uploadCard?.addEventListener("drop", (event) => {
+      event.preventDefault();
+      uploadCard.classList.remove("is-drag-over");
+      const file = event.dataTransfer?.files[0];
+      if (file) void uploadPartnerLogo(file);
     });
 
     row.querySelector(".remove-ptn-btn")?.addEventListener("click", () => {
@@ -1633,7 +1976,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         const values: Record<string, string | boolean> = {};
         for (const [key, selector] of Object.entries(selectors)) {
           const control = row.querySelector<
-            HTMLInputElement | HTMLSelectElement
+            HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
           >(selector);
           if (
             control instanceof HTMLInputElement &&
@@ -1674,6 +2017,9 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
         role: ".spk-role",
         company: ".spk-company",
         photo: ".spk-photo",
+        bio: ".spk-bio",
+        social_platform: ".spk-social-platform",
+        social_url: ".spk-social-url",
       }),
       partners: rows(partnersContainer, ".partner-row", {
         name: ".ptn-name",
@@ -1860,6 +2206,15 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       return;
     }
 
+    if (speakersContainer?.querySelector('.speaker-row[data-uploading="true"]')) {
+      if (errorBanner) {
+        errorBanner.textContent =
+          "A speaker photo upload is in progress. Please wait a moment.";
+        errorBanner.classList.remove("hidden");
+      }
+      return;
+    }
+
     const title = (
       document.getElementById("eventTitle") as HTMLInputElement
     ).value.trim();
@@ -2025,8 +2380,25 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
       const photo = (
         row.querySelector(".spk-photo") as HTMLInputElement
       )?.value.trim();
+      const bio = (
+        row.querySelector(".spk-bio") as HTMLTextAreaElement
+      )?.value.trim();
+      const social_platform = (
+        row.querySelector(".spk-social-platform") as HTMLSelectElement
+      )?.value;
+      const social_url = (
+        row.querySelector(".spk-social-url") as HTMLInputElement
+      )?.value.trim();
       if (name) {
-        speakers.push({ name, role, company, photo });
+        speakers.push({
+          name,
+          role,
+          company,
+          photo,
+          bio,
+          social_platform,
+          social_url,
+        });
       }
     });
 
@@ -2476,7 +2848,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 20px;
     width: 100%;
-    max-width: 780px;
+    max-width: 1100px;
     max-height: min(90vh, 56rem);
     max-height: min(90dvh, 56rem);
     min-width: 0;
@@ -2606,7 +2978,7 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
   }
 
-  .form-sublabel {
+  .modal-form :global(.form-sublabel) {
     font-size: 0.72rem;
     font-weight: 600;
     color: #9ca3af;
@@ -2614,18 +2986,23 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     display: block;
   }
 
-  .form-input,
-  .form-textarea,
-  .form-select {
+  .modal-form :global(input:not([type="hidden"]):not([type="checkbox"])),
+  .modal-form :global(textarea),
+  .modal-form :global(select) {
     width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
     background: #0b0d17;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 8px;
-    padding: 0.65rem 0.9rem;
-    color: #ffffff;
+    padding: 0.65rem 0.85rem;
+    color: #f3f4f6;
+    font-family: inherit;
     font-size: 0.88rem;
+    line-height: 1.4;
     outline: none;
     box-sizing: border-box;
+    color-scheme: dark;
     transition:
       border-color 0.15s ease,
       box-shadow 0.15s ease;
@@ -2636,9 +3013,33 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
   }
 
-  .form-textarea {
+  .modal-form :global(input::placeholder),
+  .modal-form :global(textarea::placeholder) {
+    color: #8b94a7;
+    opacity: 1;
+  }
+
+  .modal-form :global(input[type="file"]::file-selector-button) {
+    margin-right: 0.75rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    background: #171a28;
+    color: #e5e7eb;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .modal-form :global(input[type="checkbox"]) {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: $green;
+    cursor: pointer;
+  }
+
+  .modal-form :global(textarea) {
     resize: vertical;
-    font-family: inherit;
     line-height: 1.5;
   }
 
@@ -2649,13 +3050,15 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     gap: 0.75rem;
   }
 
-  .ticket-category-row {
+  #ticketCategoriesList :global(.ticket-category-row) {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     padding: 0.85rem;
     display: grid;
-    grid-template-columns: 1.2fr 1.1fr 0.8fr 0.8fr 1.3fr auto;
+    grid-template-columns:
+      minmax(0, 1.2fr) minmax(0, 1.1fr) minmax(0, 0.8fr)
+      minmax(0, 0.8fr) minmax(0, 1.3fr) auto;
     gap: 0.75rem;
     align-items: flex-end;
 
@@ -2691,10 +3094,10 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
   }
 
-  .remove-cat-btn,
-  .remove-inc-btn,
-  .remove-spk-btn,
-  .remove-ptn-btn {
+  .modal-form :global(.remove-cat-btn),
+  .modal-form :global(.remove-inc-btn),
+  .modal-form :global(.remove-spk-btn),
+  .modal-form :global(.remove-ptn-btn) {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.25);
     color: #f87171;
@@ -2764,118 +3167,466 @@ const totalSoldAcrossAll = events.reduce((sum, e) => sum + e.totalSold, 0);
     }
   }
 
-  .speakers-list,
-  .partners-list {
+  .speakers-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
   }
 
-  .speaker-row {
-    background: #0b0d17;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 0.85rem;
+  .partners-management-section,
+  .partners-management-section .details-body,
+  .partners-list {
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .partner-row {
+  .partners-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+
+  .speakers-list :global(.speaker-row) {
     background: #0b0d17;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .speakers-list :global(.speaker-fields-grid) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .speakers-list :global(.speaker-fields-grid > div) {
+    min-width: 0;
+  }
+
+  .speakers-list :global(.speaker-bio-field) {
+    grid-column: 1 / -1;
+  }
+
+  .speakers-list :global(.speaker-photo-editor) {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    align-items: center;
+    gap: 1.25rem;
+    background: #0b0d17;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 0.75rem;
+    transition: border-color 150ms ease, background 150ms ease;
+  }
+
+  .speakers-list :global(.speaker-photo-editor.is-drag-over) {
+    border-color: $green;
+    background: rgba(141, 198, 63, 0.06);
+  }
+
+  .speakers-list :global(.speaker-photo-editor.is-uploading) {
+    border-color: rgba(245, 158, 11, 0.45);
+  }
+
+  .speakers-list :global(.speaker-photo-preview) {
+    width: 6rem;
+    height: 5rem;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: 0.35rem;
+    border-radius: 8px;
+    background: #1e2238;
+    color: #9ca3af;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .speakers-list :global(.speaker-photo-preview img) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .speakers-list :global(.speaker-photo-info) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .speakers-list :global(.speaker-photo-editor .preview-filename-row) {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .speakers-list :global(.speaker-photo-editor .preview-filename) {
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  .speakers-list :global(.spk-photo-status) {
+    margin: 0;
+    color: #9ca3af;
+    font-size: 0.75rem;
+  }
+
+  .speakers-list :global(.spk-photo-status.is-error) {
+    color: #fca5a5;
+  }
+
+  .speakers-list :global(.speaker-photo-actions) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+  }
+
+  .speakers-list :global(.speaker-photo-actions .action-btn) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .speakers-list :global(.speaker-photo-actions .action-btn:disabled) {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .speakers-list :global(.speaker-photo-actions .replace-btn) {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+  }
+
+  .speakers-list :global(.speaker-photo-actions .replace-btn:hover) {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .speakers-list :global(.speaker-photo-actions .remove-btn) {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+  }
+
+  .speakers-list :global(.speaker-photo-actions .remove-btn:hover) {
+    background: rgba(239, 68, 68, 0.2);
+  }
+
+  .speakers-list :global(.speaker-photo-editor .success-badge) {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+  }
+
+  .speakers-list :global(.speaker-photo-editor .uploading-badge) {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+  }
+
+  .speakers-list :global(.hidden) {
+    display: none !important;
+  }
+
+  .speakers-list :global(.poster-file-input) {
+    display: none;
+  }
+
+  .speakers-list :global(.remove-spk-btn) {
+    align-self: flex-end;
+  }
+
+  @media (max-width: 640px) {
+    .speakers-list :global(.speaker-fields-grid) {
+      grid-template-columns: 1fr;
+    }
+
+    .speakers-list :global(.speaker-bio-field) {
+      grid-column: auto;
+    }
+
+    .speakers-list :global(.speaker-photo-editor) {
+      grid-template-columns: 4.5rem minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .speakers-list :global(.speaker-photo-preview) {
+      width: 4.5rem;
+      height: 4.5rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .speakers-list :global(.speaker-photo-editor) {
+      grid-template-columns: 3.75rem minmax(0, 1fr);
+      gap: 0.65rem;
+      padding: 0.65rem;
+    }
+
+    .speakers-list :global(.speaker-photo-preview) {
+      width: 3.75rem;
+      height: 3.75rem;
+    }
+
+    .speakers-list :global(.speaker-photo-actions .action-btn) {
+      padding: 0.35rem 0.5rem;
+      font-size: 0.68rem;
+    }
+  }
+
+  .partners-list :global(.partner-row) {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 30rem;
+    height: 100%;
+    background: #111425;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.75rem;
+    gap: 0.9rem;
   }
 
-  .partner-row-heading {
+  .partners-list :global(.partner-row-heading) {
     display: flex;
-    align-items: flex-end;
-    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
   }
 
-  .partner-active-toggle {
+  .partners-list :global(.partner-row-controls) {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    padding-bottom: 0.65rem;
+  }
+
+  .partners-list :global(.partner-active-toggle) {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     color: #cbd5e1;
     font-size: 0.8rem;
     white-space: nowrap;
   }
 
-  .partner-order-actions {
+  .partners-list :global(.partner-order-actions) {
     display: flex;
     gap: 0.35rem;
-    padding-bottom: 0.4rem;
-
-    button {
-      width: 2rem;
-      height: 2rem;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 0.4rem;
-      background: #171a28;
-      color: #fff;
-      cursor: pointer;
-    }
   }
 
-  .partner-logo-editor {
+  .partners-list :global(.partner-order-actions button) {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 0.4rem;
+    background: #171a28;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .partners-list :global(.poster-preview-card.partner-logo-editor) {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.9rem;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    transition: border-color 150ms ease, background 150ms ease;
   }
 
-  .partner-logo-preview {
-    width: 5.5rem;
-    height: 5.5rem;
-    flex: 0 0 5.5rem;
-    border-radius: 50%;
+  .partners-list :global(.partner-logo-editor.is-drag-over) {
+    outline: 1px dashed $green;
+    outline-offset: 0.35rem;
+  }
+
+  .partners-list :global(.partner-logo-editor.is-uploading) {
+    opacity: 0.8;
+  }
+
+  .partners-list :global(.partner-logo-editor .partner-logo-preview) {
+    width: 100%;
+    height: 9rem;
+    box-sizing: border-box;
+    min-width: 0;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 10px;
     display: grid;
     place-items: center;
     overflow: hidden;
-    padding: 0.65rem;
+    padding: 1rem;
     background: #fff;
     color: #64748b;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     text-align: center;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
   }
 
-  .partner-logo-controls {
+  .partners-list :global(.partner-logo-preview img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .partners-list :global(.partner-logo-info) {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 0.65rem;
     min-width: 0;
   }
 
-  .ptn-upload-status {
-    min-height: 1rem;
-    margin: 0.3rem 0 0;
-    color: #86efac;
-    font-size: 0.75rem;
+  .partners-list :global(.partner-logo-info .form-sublabel) {
+    margin-bottom: 0.3rem;
+  }
 
-    &.is-error {
-      color: #fca5a5;
+  .partners-list :global(.partner-logo-status-row) {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    min-height: 1.25rem;
+  }
+
+  .partners-list :global(.partner-logo-editor .ptn-upload-status) {
+    min-width: 0;
+    margin: 0;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .partners-list :global(.partner-logo-editor .ptn-upload-status.is-error) {
+    color: #fca5a5;
+  }
+
+  .partners-list :global(.partner-logo-actions) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0;
+  }
+
+  .partners-list :global(.partner-logo-actions .action-btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .partners-list :global(.partner-logo-actions .action-btn:disabled) {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .partners-list :global(.partner-logo-actions .replace-btn) {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+  }
+
+  .partners-list :global(.partner-logo-actions .replace-btn:hover) {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .partners-list :global(.partner-logo-actions .remove-btn) {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+  }
+
+  .partners-list :global(.partner-logo-actions .remove-btn:hover) {
+    background: rgba(239, 68, 68, 0.2);
+  }
+
+  .partners-list :global(.partner-logo-editor .upload-badge) {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+  }
+
+  .partners-list :global(.hidden) {
+    display: none !important;
+  }
+
+  .partners-list :global(.poster-file-input) {
+    display: none;
+  }
+
+  .partners-list :global(.partner-website-field) {
+    margin-top: auto;
+  }
+
+  @media (max-width: 900px) {
+    .partners-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
   @media (max-width: 600px) {
-    .partner-row-heading {
-      align-items: stretch;
-      flex-wrap: wrap;
+    .partners-list {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
     }
 
-    .partner-row-heading > .flex-1 {
-      flex-basis: 100%;
+    .partners-list :global(.partner-row) {
+      min-height: 0;
     }
 
-    .partner-logo-editor {
-      align-items: flex-start;
+    .partners-list :global(.partner-logo-editor .partner-logo-preview) {
+      height: 10rem;
     }
   }
 

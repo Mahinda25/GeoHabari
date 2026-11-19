@@ -79,7 +79,16 @@ export async function POST({ request, cookies }) {
 
     const formData = await request.formData();
     const file = formData.get('file') || formData.get('poster');
-    const purpose = formData.get('purpose') === 'partner-logo' ? 'partner-logo' : 'poster';
+    const requestedPurpose = formData.get('purpose');
+    const purpose = ['partner-logo', 'speaker-photo'].includes(requestedPurpose)
+      ? requestedPurpose
+      : 'poster';
+    const uploadLabel =
+      purpose === 'speaker-photo'
+        ? 'Speaker photo'
+        : purpose === 'partner-logo'
+          ? 'Partner logo'
+          : 'Poster';
 
     if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
       return new Response(
@@ -136,28 +145,48 @@ export async function POST({ request, cookies }) {
 
     const fileExt = magicCheck.extension;
     const finalMime = magicCheck.detectedType;
-    const safeFilename = `${purpose === 'partner-logo' ? 'partner' : 'poster'}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
+    const filePrefix =
+      purpose === 'partner-logo'
+        ? 'partner'
+        : purpose === 'speaker-photo'
+          ? 'speaker'
+          : 'poster';
+    const safeFilename = `${filePrefix}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${fileExt}`;
 
     const supabase = getSupabaseClient();
     const bucketName = process.env.SUPABASE_POSTER_BUCKET || 'event-posters';
     const storagePath =
       purpose === 'partner-logo'
         ? `partner-logos/${safeFilename}`
-        : `posters/${safeFilename}`;
+        : purpose === 'speaker-photo'
+          ? `speaker-photos/${safeFilename}`
+          : `posters/${safeFilename}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(storagePath, buffer, { contentType: finalMime, upsert: false });
     if (uploadError || !uploadData) {
-      throw new Error(`Poster upload failed: ${uploadError?.message || 'No upload result returned.'}`);
+      throw new Error(`${uploadLabel} upload failed: ${uploadError?.message || 'No upload result returned.'}`);
     }
     const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
     const persistentUrl = publicUrlData?.publicUrl;
-    if (!persistentUrl) throw new Error('Poster uploaded but Supabase did not return a public URL.');
+    if (!persistentUrl) {
+      throw new Error(`${uploadLabel} uploaded but Supabase did not return a public URL.`);
+    }
 
     // 7. Audit log
     await appendAuditLog({
-      action: purpose === 'partner-logo' ? 'admin_partner_logo_uploaded' : 'admin_poster_uploaded',
-      entity: purpose === 'partner-logo' ? 'partner_logo' : 'event_poster',
+      action:
+        purpose === 'partner-logo'
+          ? 'admin_partner_logo_uploaded'
+          : purpose === 'speaker-photo'
+            ? 'admin_speaker_photo_uploaded'
+            : 'admin_poster_uploaded',
+      entity:
+        purpose === 'partner-logo'
+          ? 'partner_logo'
+          : purpose === 'speaker-photo'
+            ? 'speaker_photo'
+            : 'event_poster',
       entity_id: safeFilename,
       details: {
         admin_email: auth.user.email,

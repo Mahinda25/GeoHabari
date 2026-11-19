@@ -430,7 +430,11 @@ export async function sendConfirmationEmail({
   ticketCodes,
   paymentReference,
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = String(
+    process.env.RESEND_API_KEY ||
+    import.meta.env?.RESEND_API_KEY ||
+    ''
+  ).trim();
   const requiredSender = 'GeoHabari Tickets <tickets@tickets.geohabari.com>';
   const configuredSender = process.env.RESEND_FROM?.trim();
   const fromAddress = configuredSender === requiredSender ? configuredSender : requiredSender;
